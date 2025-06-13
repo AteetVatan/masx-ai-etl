@@ -1,0 +1,71 @@
+# -------------------------
+# Python
+# -------------------------
+__pycache__/
+*.py[cod]
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+.env
+.venv
+venv/
+*.sqlite3
+*.db
+
+# Jupyter / IPython
+.ipynb_checkpoints/
+
+# Logs & Dumps
+*.log
+*.out
+*.pid
+*.gz
+*.dump
+
+# VSCode / IDE
+.vscode/
+.idea/
+*.swp
+*.bak
+
+# Environment Files
+.env
+.env.*  # e.g., .env.dev, .env.prod
+
+# HuggingFace / Transformers
+*.cache/
+transformers_cache/
+~/.cache/huggingface/
+
+# Data
+data/
+tmp/
+downloads/
+*.csv
+*.tsv
+*.jsonl
+*.zip
+*.tar.gz
+
+# Airflow
+airflow.db
+airflow.cfg
+logs/
+__pycache__/
+*.pid
+*.err
+
+# Docker
+*.pid
+*.sock
+docker-compose.override.yml
+
+# Model Files
+*.pth
+*.pt
+*.bin
+
+# Misc
+.DS_Store
