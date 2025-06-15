@@ -57,6 +57,51 @@
 | Proxy Source  | free-proxy-list.net                 |
 
 ---
+##  MASX_AI_NEWS_ETL - Ongoing Implementation
+
+Airflow runs DAG → pushes summary to Kafka →
+  ├─ Consumer A: stores to vector DB  ----yes 
+  ├─ Consumer B: tags with doctrines  ----??? 
+  ├─ Consumer C: pushes to UI  ---- yes 
+  └─ Consumer D: triggers AutoGen feedback ---????
+
+---
+
+##  MASX_AI_NEWS_ETL - Folder Structure
+
+```
+
+
+
+
+MASX_AI_NEWS_ETL/
+├── dags/                          # Airflow DAGs
+│   └── news_etl_dag.py
+├── etl/                           # Core ETL logic
+│   ├── extract.py                 # Handles feedparser + crawl4ai fallback
+│   ├── summarize.py              # BART model loading + summarization
+│   ├── translate.py              # Multilingual translation
+│   ├── proxy_manager.py          # Proxy validation + Redis cache
+│   ├── kafka_publisher.py        # Sends JSON to Kafka
+│   ├── redis_connector.py        # Auto-start and Redis config loader
+│   └── utils.py                  # Cleaning, langdetect, etc.
+├── config/
+│   ├── __init__.py
+│   └── settings.py               # Loads from .env and sets ENV vars
+├── models/
+│   └── summarizer.py             # Loads tokenizer + BART model (once)
+├── tests/
+│   └── test_etl_pipeline.py
+├── .env                          # Environment variables (excluded via .gitignore)
+├── .gitignore
+├── README.md
+├── requirements.txt
+├── Pipfile
+├── Dockerfile
+└── main.py                       # Entry point for manual runs
+
+```
+---
 
 ## 📦 Example Output
 
