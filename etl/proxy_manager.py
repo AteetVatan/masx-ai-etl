@@ -2,15 +2,15 @@
 This module handles all proxy-related operations in the MASX AI News ETL pipeline.
 """
 
-
-
-#from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor
 import random
 import requests
 from bs4 import BeautifulSoup
 import logging
 from datetime import datetime, timedelta
+import concurrent.futures
 from etl.config import headers_list
+from etl import DAGContext
 from enums import DagContextEnum, EnvKeyEnum
 
 logger = logging.getLogger("proxy_manager")
@@ -22,7 +22,8 @@ class ProxyManager:
     Uses DAGContextUtils (XComs) for DAG-run-scoped communication.
     """
 
-    def __init__(self):
+    def __init__(self, context: DAGContext):
+        self.context = context
         self.proxies = []
         self.env_config = self.context.pull(DagContextEnum.ENV_CONFIG.value)
         self.proxy_webpage = self.env_config[EnvKeyEnum.PROXY_WEBPAGE.value]
@@ -60,14 +61,11 @@ class ProxyManager:
 
         return self.proxies
 
-    def __test_proxy(self):
+    def __test_proxy(self, proxies):
         """Checks which ones actually work."""
-        from concurrent.futures import ThreadPoolExecutor
-        with ThreadPoolExecutor(
-            max_workers=self.max_workers
-        ) as executor:
-            results = list(executor.map(self.__test_single_proxy, self.proxies))
-        return (proxy for valid, proxy in zip(results, self.proxies) if valid)
+        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+            results = list(executor.map(self.__test_single_proxy, proxies))
+        return (proxy for valid, proxy in zip(results, proxies) if valid)
 
     def __test_single_proxy(self, proxy):
         """Test a single proxy"""

@@ -23,16 +23,23 @@ class EnvManager:
         """
         load_dotenv()
         env_vars = {
-            EnvKeyEnum.PROXY_WEBPAGE.value: os.getenv("PROXY_WEBPAGE"),
-            EnvKeyEnum.PROXY_TESTING_URL.value: os.getenv("PROXY_TESTING_URL"),
-            EnvKeyEnum.MAX_WORKERS.value: int(os.getenv("MAX_WORKERS", 10)),
-            EnvKeyEnum.MASX_GDELT_API_KEY.value: os.getenv("MASX_GDELT_API_KEY"),
-            EnvKeyEnum.MASX_GDELT_API_URL.value: os.getenv("MASX_GDELT_API_URL"),
-            EnvKeyEnum.MASX_GDELT_KEYWORDS.value: os.getenv(
-                "MASX_GDELT_KEYWORDS", "Germany"
+            EnvKeyEnum.DEBUG_MODE.value: os.getenv(EnvKeyEnum.DEBUG_MODE.value),
+            EnvKeyEnum.PROXY_WEBPAGE.value: os.getenv(EnvKeyEnum.PROXY_WEBPAGE.value),
+            EnvKeyEnum.PROXY_TESTING_URL.value: os.getenv(
+                EnvKeyEnum.PROXY_TESTING_URL.value
+            ),
+            EnvKeyEnum.MAX_WORKERS.value: int(os.getenv(EnvKeyEnum.MAX_WORKERS.value)),
+            EnvKeyEnum.MASX_GDELT_API_KEY.value: os.getenv(
+                EnvKeyEnum.MASX_GDELT_API_KEY.value
+            ),
+            EnvKeyEnum.MASX_GDELT_API_URL.value: os.getenv(
+                EnvKeyEnum.MASX_GDELT_API_URL.value
+            ),
+            EnvKeyEnum.MASX_GDELT_API_KEYWORDS.value: os.getenv(
+                EnvKeyEnum.MASX_GDELT_API_KEYWORDS.value
             ),
             EnvKeyEnum.MASX_GDELT_MAX_RECORDS.value: os.getenv(
-                "MASX_GDELT_MAX_RECORDS", "10"
+                EnvKeyEnum.MASX_GDELT_MAX_RECORDS.value, "10"
             ),
         }
         self.context.push(DagContextEnum.ENV_CONFIG.value, env_vars)

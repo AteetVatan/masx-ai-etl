@@ -17,7 +17,7 @@ class NLPBart:
     def __init__(self, model_name="facebook/bart-large-cnn", model_max_tokens=1024):
         self.model_name = model_name
         self.model_max_tokens = model_max_tokens
-        self._init_model()
+        self.__init_model()
         self.__init_nltk_punkt_data()
 
     def __init_nltk_punkt_data(self):
@@ -54,7 +54,7 @@ class NLPBart:
         TF-IDF (Term Frequency–Inverse Document Frequency)
         It is a statistical measure that evaluates how relevant a word is to a document in a collection of documents.
         TF-IDF evaluates how important a word is in a document relative to a collection (corpus).
-        It reduces the weight of common words (like “the”, “is”, etc.) and highlights meaningful terms.
+        It reduces the weight of common words (like "the", "is", etc.) and highlights meaningful terms.
         ***********************
         A word that appears frequently in a given chunk (high Term Frequency),
         but is rare across other chunks (high Inverse Document Frequency),

@@ -12,8 +12,9 @@ class NewsArticle(BaseModel):
     """
 
     url: str
+    url_mobile: Optional[str] = None
     title: str
-    raw_text: str
+    raw_text: Optional[str] = None
     summary: Optional[str] = None
     language: Optional[str] = None
     socialimage: Optional[str] = None

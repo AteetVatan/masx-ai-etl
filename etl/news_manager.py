@@ -18,18 +18,23 @@ class NewsManager:
         self.env_config = self.context.pull(DagContextEnum.ENV_CONFIG.value)
         self.api_key = self.env_config[EnvKeyEnum.MASX_GDELT_API_KEY.value]
         self.api_url = self.env_config[EnvKeyEnum.MASX_GDELT_API_URL.value]
-        self.keywords = self.env_config[EnvKeyEnum.MASX_GDELT_KEYWORDS.value]
+        self.keywords = self.env_config[EnvKeyEnum.MASX_GDELT_API_KEYWORDS.value]
         self.max_records = self.env_config[EnvKeyEnum.MASX_GDELT_MAX_RECORDS.value]
 
     def news_articles(self):
         """
         Get the news articles from the GDELT API.
         """
-        articles = self.__fetch_gdelt_articles()
+        if not self.env_config[EnvKeyEnum.DEBUG_MODE.value]:
+            articles = self.__fetch_gdelt_articles()
+        else:
+            articles = self.context.pull(DagContextEnum.NEWS_ARTICLES.value)
+
         gdelt_articles = self.__validate_gdelt_articles(articles)
 
         if gdelt_articles:
-            news_articles = self.__map_to_news_articles_schema(gdelt_articles)
+            # news_articles = self.__map_to_news_articles_schema(gdelt_articles)
+            news_articles = ArticleListSchema.model_validate(gdelt_articles)
             self.context.push(
                 DagContextEnum.NEWS_ARTICLES.value, news_articles.model_dump()
             )
@@ -72,11 +77,13 @@ class NewsManager:
         Map the GDELT articles to the NewsArticle schema.
         """
         news_articles = []
-        for article in articles.root:
+        for article in articles:  # for article in articles.root:
             news_articles.append(
                 NewsArticle(
                     url=article.url,
                     title=article.title,
+                    raw_text="",
+                    summary="",
                     socialimage=article.socialimage,
                     domain=article.domain,
                     language=article.language,
