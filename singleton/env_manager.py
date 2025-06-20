@@ -1,49 +1,52 @@
 """
-Module to load the environment variables.
+This class is used to load the environment variables.
 """
 
 import os
 from dotenv import load_dotenv
-from enums import EnvKeyEnum, EnvModeEnum
+from enums import EnvKeyEnum
 
 
 class EnvManager:
     """
-    Class to load and access environment variables.
+    This class is used to load the environment variables.
     """
-    _env_vars: dict[EnvKeyEnum, str] = {}
+
+    __env_vars = {}
 
     @classmethod
-    def get_env_vars(cls) -> dict[str, str]:
+    def get_env_vars(cls):
         """
-        Lazily load and return environment variables as a dictionary.
+        Get the environment variables.
         """
-        if not cls._env_vars:
-            cls.__load_env()
-        return cls._env_vars
+        if not cls.__env_vars:
+            cls.load_env_vars()
+        return cls.__env_vars
 
     @classmethod
-    def __load_env(cls):
+    def load_env_vars(cls):
         """
-        Load the environment variables from .env into the class dictionary.
+        Load the environment variables.
         """
         load_dotenv()
-
-        try:
-            cls._env_vars = {
-                EnvKeyEnum.ENV_MODE.value: str(
-                    EnvModeEnum(os.getenv(EnvKeyEnum.ENV_MODE.value, EnvModeEnum.DEV.value))
-                ),
-                EnvKeyEnum.PROXY_WEBPAGE.value: os.getenv(EnvKeyEnum.PROXY_WEBPAGE.value, ""),
-                EnvKeyEnum.PROXY_TESTING_URL.value: os.getenv(EnvKeyEnum.PROXY_TESTING_URL.value, ""),
-                EnvKeyEnum.MAX_WORKERS.value: str(int(os.getenv(EnvKeyEnum.MAX_WORKERS.value, "20"))),
-                EnvKeyEnum.MASX_GDELT_API_KEY.value: os.getenv(EnvKeyEnum.MASX_GDELT_API_KEY.value, ""),
-                EnvKeyEnum.MASX_GDELT_API_URL.value: os.getenv(EnvKeyEnum.MASX_GDELT_API_URL.value, ""),
-                EnvKeyEnum.MASX_GDELT_API_KEYWORDS.value: os.getenv(EnvKeyEnum.MASX_GDELT_API_KEYWORDS.value, ""),
-                EnvKeyEnum.MASX_GDELT_MAX_RECORDS.value: str(
-                    int(os.getenv(EnvKeyEnum.MASX_GDELT_MAX_RECORDS.value, "10"))
-                ),
-            }
-        except Exception as e:
-            raise RuntimeError(f"Failed to load environment variables: {e}")
-
+        env_vars = {
+            EnvKeyEnum.DEBUG_MODE.value: os.getenv(EnvKeyEnum.DEBUG_MODE.value),
+            EnvKeyEnum.PROXY_WEBPAGE.value: os.getenv(EnvKeyEnum.PROXY_WEBPAGE.value),
+            EnvKeyEnum.PROXY_TESTING_URL.value: os.getenv(
+                EnvKeyEnum.PROXY_TESTING_URL.value
+            ),
+            EnvKeyEnum.MAX_WORKERS.value: int(os.getenv(EnvKeyEnum.MAX_WORKERS.value)),
+            EnvKeyEnum.MASX_GDELT_API_KEY.value: os.getenv(
+                EnvKeyEnum.MASX_GDELT_API_KEY.value
+            ),
+            EnvKeyEnum.MASX_GDELT_API_URL.value: os.getenv(
+                EnvKeyEnum.MASX_GDELT_API_URL.value
+            ),
+            EnvKeyEnum.MASX_GDELT_API_KEYWORDS.value: os.getenv(
+                EnvKeyEnum.MASX_GDELT_API_KEYWORDS.value
+            ),
+            EnvKeyEnum.MASX_GDELT_MAX_RECORDS.value: os.getenv(
+                EnvKeyEnum.MASX_GDELT_MAX_RECORDS.value, "10"
+            ),
+        }
+        cls.__env_vars = env_vars

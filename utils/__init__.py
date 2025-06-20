@@ -3,5 +3,6 @@ This module provides utilities to normalize and translate multilingual text to E
 """
 
 from .translator import Translator
+from .nlp_utils import NLPUtils
 
-__all__ = ["Translator"]
+__all__ = ["Translator", "NLPUtils"]

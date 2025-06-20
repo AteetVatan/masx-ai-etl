@@ -3,69 +3,434 @@
 # -------------------------
 __pycache__/
 *.py[cod]
-*.egg
-*.egg-info/
-dist/
+*$py.class
+*.so
+.Python
 build/
+develop-eggs/
+dist/
+downloads/
+eggs/
 .eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# Translations
+*.mo
+*.pot
+
+# Django stuff:
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+
+# Flask stuff:
+instance/
+.webassets-cache
+
+# Scrapy stuff:
+.scrapy
+
+# Sphinx documentation
+docs/_build/
+
+# PyBuilder
+.pybuilder/
+target/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# pyenv
+.python-version
+
+# pipenv
+Pipfile.lock
+
+# poetry
+poetry.lock
+
+# pdm
+.pdm.toml
+
+# PEP 582
+__pypackages__/
+
+# Celery stuff
+celerybeat-schedule
+celerybeat.pid
+
+# SageMath parsed files
+*.sage.py
+
+# Environments
 .env
 .venv
+env/
 venv/
-*.sqlite3
-*.db
+ENV/
+env.bak/
+venv.bak/
 
-# Jupyter / IPython
-.ipynb_checkpoints/
+# Spyder project settings
+.spyderproject
+.spyproject
 
-# Logs & Dumps
-*.log
-*.out
-*.pid
-*.gz
-*.dump
+# Rope project settings
+.ropeproject
 
-# VSCode / IDE
-.vscode/
-.idea/
-*.swp
-*.bak
+# mkdocs documentation
+/site
 
-# Environment Files
-.env
-.env.*  # e.g., .env.dev, .env.prod
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
 
+# Pyre type checker
+.pyre/
+
+# pytype static type analyzer
+.pytype/
+
+# Cython debug symbols
+cython_debug/
+
+# -------------------------
+# AI/ML & Transformers
+# -------------------------
 # HuggingFace / Transformers
 *.cache/
 transformers_cache/
 ~/.cache/huggingface/
+.cache/huggingface/
+.hf_cache/
+models/
+pretrained_models/
+*.pth
+*.pt
+*.bin
+*.safetensors
+*.onnx
+*.tflite
+*.pb
 
-# Data
+# TensorFlow
+*.ckpt
+*.h5
+*.hdf5
+*.pb
+*.pbtxt
+*.meta
+*.index
+*.data-*
+
+# PyTorch
+*.pth
+*.pt
+*.ckpt
+*.safetensors
+
+# Scikit-learn
+*.joblib
+*.pkl
+*.pickle
+
+# Model artifacts
+model_artifacts/
+mlruns/
+mlflow/
+wandb/
+
+# -------------------------
+# Data & Processing
+# -------------------------
+# Raw data files
 data/
+raw_data/
+processed_data/
 tmp/
+temp/
 downloads/
 *.csv
 *.tsv
 *.jsonl
+*.json.gz
+*.parquet
+*.feather
+*.h5
+*.hdf5
+*.xlsx
+*.xls
 *.zip
 *.tar.gz
+*.tar.bz2
+*.rar
+*.7z
 
-# Airflow
-airflow.db
-airflow.cfg
+# ETL specific
+etl_outputs/
+scraped_data/
+summaries/
+articles/
+news_data/
+
+# -------------------------
+# Web Scraping & Proxies
+# -------------------------
+# Proxy lists and configurations
+proxy_lists/
+proxy_cache/
+*.proxy
+proxy_*.txt
+proxy_*.json
+
+# Scraping artifacts
+scraping_logs/
+failed_urls/
+blocked_ips/
+user_agents.txt
+
+# Browser automation
+geckodriver.log
+chromedriver.log
+*.log
+
+# -------------------------
+# Development & IDE
+# -------------------------
+# VSCode
+.vscode/
+*.code-workspace
+
+# PyCharm / IntelliJ
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.tmp
+*.temp
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# -------------------------
+# Logs & Monitoring
+# -------------------------
+# Application logs
 logs/
-__pycache__/
+*.log
+*.out
 *.pid
 *.err
+*.trace
+*.dump
+*.gz
+*.bz2
 
+# Airflow specific
+airflow.db
+airflow.cfg
+airflow-webserver.pid
+airflow-scheduler.pid
+airflow.cfg
+unittests.cfg
+webserver_config.py
+standalone_admin_password.txt
+
+# -------------------------
+# Docker & Containers
+# -------------------------
 # Docker
+Dockerfile.prod
+docker-compose.override.yml
+.dockerignore
 *.pid
 *.sock
-docker-compose.override.yml
 
-# Model Files
-*.pth
-*.pt
-*.bin
+# Kubernetes
+*.yaml.bak
+*.yml.bak
 
+# -------------------------
+# Security & Secrets
+# -------------------------
+# Environment files
+.env
+.env.*
+.env.local
+.env.development
+.env.test
+.env.production
+.env.staging
+
+# API keys and secrets
+secrets/
+*.key
+*.pem
+*.p12
+*.pfx
+*.crt
+*.csr
+
+# -------------------------
+# Testing & Quality
+# -------------------------
+# Test artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+.hypothesis/
+
+# Code quality
+.flake8
+.pylintrc
+.mypy.ini
+pyproject.toml.bak
+
+# -------------------------
+# Project Specific
+# -------------------------
+# MASX News ETL specific
+mock_data/output/
+test_outputs/
+debug_outputs/
+performance_logs/
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+*.old
+*.orig
+
+# -------------------------
 # Misc
+# -------------------------
+# Backup files
+*.bak
+*.backup
+*.old
+*.orig
+
+# Temporary files
+*.tmp
+*.temp
+
+# System files
 .DS_Store
+Thumbs.db
+
+# Archive files
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+
+# Configuration backups
+*.cfg.bak
+*.conf.bak

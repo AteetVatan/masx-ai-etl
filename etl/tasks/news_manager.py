@@ -3,9 +3,10 @@ This module handles all news-related operations in the MASX AI News ETL pipeline
 """
 
 import requests
-from etl.dag_context import DAGContext
-from enums import DagContextEnum, EnvKeyEnum
+from enums import EnvKeyEnum
 from schemas import ArticleListSchema, NewsArticle
+from singleton import EnvManager
+from mock_data.mock_data import mock_data
 
 
 class NewsManager:
@@ -13,33 +14,28 @@ class NewsManager:
     This class handles all news-related operations in the MASX AI News ETL pipeline.
     """
 
-    def __init__(self, context: DAGContext):
-        self.context = context
-        self.env_config = self.context.pull(DagContextEnum.ENV_CONFIG.value)
+    def __init__(self):
+        self.env_config = EnvManager.get_env_vars()
         self.api_key = self.env_config[EnvKeyEnum.MASX_GDELT_API_KEY.value]
         self.api_url = self.env_config[EnvKeyEnum.MASX_GDELT_API_URL.value]
         self.keywords = self.env_config[EnvKeyEnum.MASX_GDELT_API_KEYWORDS.value]
         self.max_records = self.env_config[EnvKeyEnum.MASX_GDELT_MAX_RECORDS.value]
 
-    def news_articles(self):
+    def news_articles(self) -> list[NewsArticle]:
         """
         Get the news articles from the GDELT API.
         """
         if not self.env_config[EnvKeyEnum.DEBUG_MODE.value]:
             articles = self.__fetch_gdelt_articles()
         else:
-            articles = self.context.pull(DagContextEnum.NEWS_ARTICLES.value)
+            articles = mock_data
 
         gdelt_articles = self.__validate_gdelt_articles(articles)
 
         if gdelt_articles:
-            # news_articles = self.__map_to_news_articles_schema(gdelt_articles)
-            news_articles = ArticleListSchema.model_validate(gdelt_articles)
-            self.context.push(
-                DagContextEnum.NEWS_ARTICLES.value, news_articles.model_dump()
-            )
-        else:
-            raise ValueError("Invalid GDELT articles")
+            articles = ArticleListSchema.model_validate(gdelt_articles)
+            return self.__map_to_news_articles_schema(articles)
+        raise ValueError("Invalid GDELT articles")
 
     def __fetch_gdelt_articles(self):
         """
@@ -57,14 +53,14 @@ class NewsManager:
             print(f"Request failed: {err}")
             return []
 
-    def __validate_gdelt_articles(self, articles: list):
+    def __validate_gdelt_articles(self, gdelt_articles: list):
         """
         Pydantic model validation.
         Validate the GDELT articles using ArticleListSchema.
         Returns True if valid, False otherwise.
         """
         try:
-            validated = ArticleListSchema.model_validate(articles)
+            validated = ArticleListSchema.model_validate(gdelt_articles)
             return validated.root
         except Exception as e:
             print(f"[SCHEMA ERROR] Validation failed: {e}")
@@ -77,7 +73,7 @@ class NewsManager:
         Map the GDELT articles to the NewsArticle schema.
         """
         news_articles = []
-        for article in articles:  # for article in articles.root:
+        for article in articles.root:  # for article in articles.root:
             news_articles.append(
                 NewsArticle(
                     url=article.url,

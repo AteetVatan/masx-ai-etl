@@ -5,7 +5,7 @@ This module provides utilities to normalize and translate multilingual text to E
 import re
 import time
 import unicodedata
-from deep_translator import GoogleTranslator
+from singleton import ModelManager
 
 
 class Translator:
@@ -17,6 +17,14 @@ class Translator:
         self.max_chars = max_chars
         self.retries = retries
         self.delay = delay
+        self.translator = ModelManager.get_translator(lang="en")
+
+    def ensure_english(self, text: str) -> str:
+        """Return text as-is if it's English, otherwise return translated-to-English version."""
+        lang = ModelManager.detect_lang_fasttext(text)
+        if lang == "en":
+            return text
+        return self.translate_to_english(text)
 
     def translate_to_english(self, text: str) -> str:
         """
@@ -66,7 +74,7 @@ class Translator:
     def __safe_translate(self, chunk: str) -> str:
         for attempt in range(self.retries):
             try:
-                return GoogleTranslator(source="auto", target="en").translate(chunk)
+                return self.translator.translate(chunk)
             except Exception as e:
                 print(f"[Attempt {attempt + 1}/{self.retries}] Translation failed: {e}")
                 time.sleep(self.delay)

@@ -1,55 +1,32 @@
-"""
-This class is used to summarize the text using the BART model.
-"""
-
-import torch
-from transformers import BartTokenizer, BartForConditionalGeneration
-import nltk
-from nltk.tokenize import sent_tokenize
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 from sklearn.feature_extraction.text import TfidfVectorizer
+from nltk.tokenize import sent_tokenize
+import torch
 
+class NLPUtils:
 
-class NLPBart:
-    """
-    This class is used to summarize the text using the BART model.
-    """
-
-    def __init__(self, model_name="facebook/bart-large-cnn", model_max_tokens=1024):
-        self.model_name = model_name
-        self.model_max_tokens = model_max_tokens
-        self.__init_model()
-        self.__init_nltk_punkt_data()
-
-    def __init_nltk_punkt_data(self):
-        try:
-            nltk.data.find("tokenizers/punkt")
-            nltk.data.find("tokenizers/punkt_tab")
-        except LookupError:
-            print("Downloading NLTK punkt tokenizer...")
-            nltk.download("punkt")
-            nltk.download("punkt_tab")
-
-    def __init_model(self):
-        # Load model and tokenizer
-        # model_name = "facebook/bart-large-cnn"
-        self.tokenizer = BartTokenizer.from_pretrained(self.model_name)
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        model = BartForConditionalGeneration.from_pretrained(self.model_name)
-        self.model = model.to(self.device)
-
-    def text_suitable_for_model(self, text, prompt_prefix=""):
+    @staticmethod
+    def text_suitable_for_model(
+        bart_tokenizer: AutoTokenizer, text: str, model_max_tokens: int
+    ):
         """
         Check if the text token count is suitable for the model.
         """
         # prompt_prefix = "summarize: "
         # First check if it's already short enough
-        token_count = len(self.tokenizer.tokenize(prompt_prefix + text))
-        if token_count <= self.model_max_tokens:
+        token_count = len(bart_tokenizer.tokenize(text))
+        if token_count <= model_max_tokens:
             return True
         else:
             return False
 
-    def compress_text_tfidf(self, text, prompt_prefix=""):
+    @staticmethod
+    def compress_text_tfidf(
+        bart_tokenizer: AutoTokenizer,
+        text: str,
+        model_max_tokens: int,
+        prompt_prefix: str = "summarize: ",
+    ):
         """Method to shorten the text to model max token capacity by applying tfidf.
         TF-IDF (Term Frequency–Inverse Document Frequency)
         It is a statistical measure that evaluates how relevant a word is to a document in a collection of documents.
@@ -61,7 +38,7 @@ class NLPBart:
         will have a high TF-IDF score.
 
         """
-        sentences = self.__safe_sent_tokenize(text)
+        sentences = NLPUtils.safe_sent_tokenize(text)
         if not sentences:
             print("TF-IDF compression failed due to empty/faulty text.")
             return None
@@ -87,14 +64,15 @@ class NLPBart:
         selected = []
         for sent, _ in sentence_score_pairs:
             test_input = prompt_prefix + " ".join(selected + [sent])
-            if len(self.tokenizer.tokenize(test_input)) > self.model_max_tokens:
+            if len(bart_tokenizer.tokenize(test_input)) > model_max_tokens:
                 break
             selected.append(sent)
 
         compressed = " ".join(selected)
         return compressed
 
-    def __safe_sent_tokenize(self, text, lang="english"):
+    @staticmethod
+    def safe_sent_tokenize(text, lang="english"):
         """
         Safe sentence tokenization using nltk.
         """
@@ -118,19 +96,26 @@ class NLPBart:
                 return None  # Final fallback
         return sentences
 
-    def summarize_text(self, text: str):
+    @staticmethod
+    def summarize_text(
+        bart_model: AutoModelForSeq2SeqLM,
+        bart_tokenizer: AutoTokenizer,
+        device: torch.device,
+        text: str,
+        model_max_tokens: int,
+    ):
         """
         Summarize the text using the BART model.
         """
         # Step 1: Tokenize for BART
-        inputs = self.tokenizer(
-            text, return_tensors="pt", max_length=self.model_max_tokens, truncation=True
+        inputs = bart_tokenizer(
+            text, return_tensors="pt", max_length=model_max_tokens, truncation=True
         )
 
-        input_ids = inputs["input_ids"].to(self.device)
+        input_ids = inputs["input_ids"].to(device)
 
         # Step 2: Generate summary
-        summary_ids = self.model.generate(
+        summary_ids = bart_model.generate(
             input_ids,
             max_length=256,
             num_beams=4,
@@ -139,5 +124,5 @@ class NLPBart:
         )
 
         # Decode and store result
-        summary = self.tokenizer.decode(summary_ids[0], skip_special_tokens=True)
+        summary = bart_tokenizer.decode(summary_ids[0], skip_special_tokens=True)
         return summary

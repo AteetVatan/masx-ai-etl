@@ -20,3 +20,4 @@ class NewsArticle(BaseModel):
     socialimage: Optional[str] = None
     domain: str
     sourcecountry: str = Field(default="unknown")
+    questions: Optional[list[str]] = None
