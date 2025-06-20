@@ -5,6 +5,7 @@ This module contains the Model class, which is a singleton class that loads and 
 import os
 import torch
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+from sentence_transformers import SentenceTransformer
 from deep_translator import GoogleTranslator
 import fasttext
 import requests
@@ -18,14 +19,17 @@ MODEL_CACHE = os.path.join(BASE_DIR, "..", ".hf_cache")  # or any central path
 class ModelManager:
     """Singleton class to load and manage models and translators."""
 
-    _bart_model: AutoModelForSeq2SeqLM | None = None
-    _bart_tokenizer: AutoTokenizer | None = None
+    _summarization_model: AutoModelForSeq2SeqLM | None = None
+    _summarization_tokenizer: AutoTokenizer | None = None
     _translator: GoogleTranslator | None = None
     _fasttext_lang_detector: fasttext.FastText._FastText | None = None
     _device: torch.device | None = None
-    _model_max_tokens: int = 1024
-    _model_name: str = "facebook/bart-large-cnn"
-
+    _summarization_model_max_tokens: int = 1024
+    # transformer model for text summarization
+    _summarization_model_name: str = "facebook/bart-large-cnn"
+    # transformer model for text embedding
+    _embedding_model: SentenceTransformer | None = None
+    
     # path helpers
     @classmethod
     def get_base_dir(cls) -> str:
@@ -45,26 +49,36 @@ class ModelManager:
         return os.path.join(cls.get_base_dir(), "..", "lid.176.bin")
 
     @classmethod
-    def get_model_max_tokens(cls) -> int:
-        """Get the maximum number of tokens for the model."""
-        return cls._model_max_tokens
+    def get_summarization_model_max_tokens(cls) -> int:
+        """Get the maximum number of tokens for the summarization model."""
+        return cls._summarization_model_max_tokens
 
     @classmethod
-    def get_model_name(cls) -> str:
-        """Get the name of the model."""
-        return cls._model_name
+    def get_summarization_model_name(cls) -> str:
+        """Get the name of the summarization model."""
+        return cls._summarization_model_name
 
     @classmethod
-    def get_bart_model(
+    def get_summarization_model(
         cls,
     ) -> tuple[AutoModelForSeq2SeqLM, AutoTokenizer, torch.device]:
         """
         Get the BART model, tokenizer, and device.
         Lazily initializes if not already loaded.
         """
-        if cls._bart_model is None or cls._bart_tokenizer is None:
-            cls.__load_bart_model()
-        return cls._bart_model, cls._bart_tokenizer, cls._device
+        if cls._summarization_model is None or cls._summarization_tokenizer is None:
+            cls.__load_summarization_model()
+        return cls._summarization_model, cls._summarization_tokenizer, cls._device
+    
+    @classmethod
+    def get_embedding_model(cls) -> SentenceTransformer:
+        """
+        Get the SentenceTransformer embedding model.
+        Lazily initializes if not already loaded.
+        """
+        if cls._embedding_model is None:
+            cls.__load_embedding_model()
+        return cls._embedding_model
 
     @classmethod
     def get_translator(cls, lang="en") -> GoogleTranslator:
@@ -96,17 +110,17 @@ class ModelManager:
     # ========== Internal Loaders ==========
 
     @classmethod
-    def __load_bart_model(cls):
+    def __load_summarization_model(cls):
         """Load the BART model for summarization onto GPU if available."""
         try:
             cls._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-            cls._bart_tokenizer = AutoTokenizer.from_pretrained(
-                cls._model_name, cache_dir=cls.get_model_cache_dir()
+            cls._summarization_tokenizer = AutoTokenizer.from_pretrained(
+                cls._summarization_model_name, cache_dir=cls.get_model_cache_dir()
             )
 
-            cls._bart_model = AutoModelForSeq2SeqLM.from_pretrained(
-                cls._model_name,
+            cls._summarization_model = AutoModelForSeq2SeqLM.from_pretrained(
+                cls._summarization_model_name,
                 cache_dir=cls.get_model_cache_dir(),
                 torch_dtype=(
                     torch.float16 if cls._device.type == "cuda" else torch.float32
@@ -115,6 +129,15 @@ class ModelManager:
 
         except Exception as e:
             raise RuntimeError(f"Failed to load BART model: {e}")
+        
+    @classmethod
+    def __load_embedding_model(cls):
+        """Load the 'all-mpnet-base-v2' model from SentenceTransformers."""
+        try:
+            model_name = "sentence-transformers/all-mpnet-base-v2"
+            cls._embedding_model = SentenceTransformer(model_name, cache_folder=cls.get_model_cache_dir())
+        except Exception as e:
+            raise RuntimeError(f"Failed to load embedding model: {e}")
 
     @classmethod
     def __load_translator(cls, lang):

@@ -20,8 +20,8 @@ class Summarizer:
 
     def __init__(self, news_articles: list[NewsArticle]):
         self.news_articles = news_articles
-        self.bart_model, self.bart_tokenizer, self.device = (
-            ModelManager.get_bart_model()
+        self.summarization_model, self.summarization_tokenizer, self.device = (
+            ModelManager.get_summarization_model()
         )
         self.translator = Translator()
 
@@ -37,15 +37,15 @@ class Summarizer:
 
             # Step 2: Check if text fits the model, else compress using TF-IDF
             if not NLPUtils.text_suitable_for_model(
-                self.bart_tokenizer,
+                self.summarization_tokenizer,
                 article.raw_text,
-                ModelManager.get_model_max_tokens(),
+                ModelManager.get_summarization_model_max_tokens(),
             ):
 
                 text = NLPUtils.compress_text_tfidf(
-                    self.bart_tokenizer,
+                    self.summarization_tokenizer,
                     article.raw_text,
-                    ModelManager.get_model_max_tokens(),
+                    ModelManager.get_summarization_model_max_tokens(),
                     prompt_prefix=prompt_prefix,
                 )
             else:
@@ -53,11 +53,11 @@ class Summarizer:
 
             # Step 3: Summarize using the BART model
             article.summary = NLPUtils.summarize_text(
-                self.bart_model,
-                self.bart_tokenizer,
+                self.summarization_model,
+                self.summarization_tokenizer,
                 self.device,
                 prompt_prefix + text,
-                ModelManager.get_model_max_tokens()
+                ModelManager.get_summarization_model_max_tokens()
             )
 
         # step 5: Generate questions from summary
