@@ -48,5 +48,11 @@ class EnvManager:
             EnvKeyEnum.MASX_GDELT_MAX_RECORDS.value: os.getenv(
                 EnvKeyEnum.MASX_GDELT_MAX_RECORDS.value, "10"
             ),
+            EnvKeyEnum.CHROMA_DEV_PERSIST_DIR.value: os.getenv(
+                EnvKeyEnum.CHROMA_DEV_PERSIST_DIR.value
+            ),
+            EnvKeyEnum.CHROMA_PROD_PERSIST_DIR.value: os.getenv(
+                EnvKeyEnum.CHROMA_PROD_PERSIST_DIR.value
+            ),
         }
         cls.__env_vars = env_vars

@@ -1,3 +1,19 @@
+
+mock_data_backup = [
+    {
+        "url": "http://www.xinhuanet.com/politics/2020-12/31/c_1126934011.htm",
+        "url_mobile": None,
+        "title": "中印边界问题特别代表会晤取得6点共识",
+        "seendate": "2024-12-18T00:00:00",
+        "socialimage": "",
+        "domain": "xinhuanet.com",
+        "language": "Chinese",
+        "sourcecountry": "CN",
+    }
+]
+
+
+
 mock_data = [
     {
         "url": "http://www.xinhuanet.com/politics/2020-12/31/c_1126934011.htm",

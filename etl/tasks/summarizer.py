@@ -1,9 +1,9 @@
 from schemas import NewsArticle
-from utils import Translator
+from nlp import Translator
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 import torch
 from singleton import ModelManager
-from utils import Translator, NLPUtils
+from nlp import Translator, NLPUtils
 
 
 class Summarizer:

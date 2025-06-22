@@ -27,7 +27,9 @@ class ModelManager:
     _summarization_model_max_tokens: int = 1024
     # transformer model for text summarization
     _summarization_model_name: str = "facebook/bart-large-cnn"
+    
     # transformer model for text embedding
+    _embedding_model_name = "sentence-transformers/all-mpnet-base-v2"
     _embedding_model: SentenceTransformer | None = None
     
     # path helpers
@@ -134,8 +136,7 @@ class ModelManager:
     def __load_embedding_model(cls):
         """Load the 'all-mpnet-base-v2' model from SentenceTransformers."""
         try:
-            model_name = "sentence-transformers/all-mpnet-base-v2"
-            cls._embedding_model = SentenceTransformer(model_name, cache_folder=cls.get_model_cache_dir())
+            cls._embedding_model = SentenceTransformer(cls._embedding_model_name, cache_folder=cls.get_model_cache_dir())
         except Exception as e:
             raise RuntimeError(f"Failed to load embedding model: {e}")
 

@@ -1,6 +1,6 @@
 import time
-from etl.tasks import NewsManager, NewsContentExtractor, Summarizer
-
+from etl.tasks import NewsManager, NewsContentExtractor, Summarizer, VectorizeArticles, ClusterSummaryGenerator
+from nlp import HDBSCANClusterer, KMeansClusterer
 
 class ETLPipeline:
 
@@ -23,7 +23,24 @@ class ETLPipeline:
             summarizer = Summarizer(scraped_articles)
             summarized_articles = summarizer.summarize_all_articles()
             
-
+            print("\n Running VectorizeArticles...")
+            vectorizer = VectorizeArticles()
+            collection_name = vectorizer.get_collection_name()
+            vectorizer.run(summarized_articles)
+            
+            print("\n Running ClusterSummaryGenerator...")
+            article_count = len(summarized_articles)
+            if article_count < 20:
+                print(f"Small dataset detected ({article_count} articles) — using KMeans clustering")
+                n_clusters = min(3, article_count)  # safe default
+                clusterer = KMeansClusterer(n_clusters=n_clusters)
+            else:
+                print(f"Dataset size ({article_count} articles) — using HDBSCAN clustering")
+                clusterer = HDBSCANClusterer()
+                
+            cluster_summary_generator = ClusterSummaryGenerator(collection_name, clusterer)                    
+            cluster_summaries = cluster_summary_generator.generate()
+            
             # get the time now
             end_time = time.time()
             print(f"Time taken: {end_time - start_time} seconds")
