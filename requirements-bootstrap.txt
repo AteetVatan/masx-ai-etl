@@ -1,5 +1,5 @@
 # ***** Because of pip install, you need to explicitly run pip through Python
-
+# ***** Do we need it in Linux?
 #python -m pip install -r requirements-bootstrap.txt
 #pip install --no-cache-dir -r requirements.txt
 
