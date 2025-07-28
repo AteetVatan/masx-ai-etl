@@ -1,0 +1,8 @@
+# ***** Because of pip install, you need to explicitly run pip through Python
+
+#python -m pip install -r requirements-bootstrap.txt
+#pip install --no-cache-dir -r requirements.txt
+
+pip>=25.1.1
+setuptools>=70.0.0
+wheel>=0.45.1
