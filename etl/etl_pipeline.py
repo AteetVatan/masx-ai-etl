@@ -19,11 +19,14 @@ from datetime import datetime
 
 class ETLPipeline:
 
-    def __init__(self):
+    def __init__(self, date: Optional[str] = None):
         self.settings = get_settings()
         self.logger = get_service_logger("ETLPipeline")
-        today_date = datetime.now().strftime("%Y-%m-%d")
-        self.date = today_date  # "2025-07-28"
+        if date:
+            self.date = date
+        else:
+            self.date = datetime.now().strftime("%Y-%m-%d")
+        #self.date = today_date  # "2025-07-28"
         self.db_flashpoints_cluster = FlashpointsCluster(self.date)
 
     def get_flashpoints(self, date: Optional[str] = None):

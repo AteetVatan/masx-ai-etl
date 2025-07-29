@@ -20,7 +20,7 @@
 from typing import Dict, Any, Optional
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel
-
+import re
 from config.logging_config import get_api_logger
 from main_etl import run_etl_pipeline
 
@@ -28,8 +28,9 @@ router = APIRouter()
 logger = get_api_logger("ServiceRoutes")
 
 
+
 @router.post("/run")
-async def run_etl(background_tasks: BackgroundTasks):
+async def run_etl(background_tasks: BackgroundTasks, date: Optional[str] = None):
     """
     Get status of all services.
 
@@ -39,7 +40,24 @@ async def run_etl(background_tasks: BackgroundTasks):
     logger.info("Services status requested")
 
     try:
-        background_tasks.add_task(run_etl_pipeline)
+        logger.info(f"Running ETL pipeline for date: {date}")
+        
+        if date:
+            # ETL logic for a specific date
+            logger.info(f"Running ETL for date: {date}")
+            if not re.match(r"^\d{4}-\d{2}-\d{2}$", date):
+                raise HTTPException(
+                    status_code=400, detail="Date must be in format YYYY-MM-DD"
+                )
+        
+            background_tasks.add_task(run_etl_pipeline, date)
+        else:
+            # ETL logic for default (e.g., today)
+            logger.info("Running ETL with default date")
+            background_tasks.add_task(run_etl_pipeline)
+        
+        # if date is not in format ("%Y-%m-%d") raise error
+      
         return {"status": "ETL pipeline started in background"}
     except Exception as e:
         logger.error(f"Services status retrieval failed: {e}")
