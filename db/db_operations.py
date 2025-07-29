@@ -42,7 +42,7 @@ class DBOperations:
 
         # Auto-connect on instantiation (sync wrapper)
         asyncio.run(self._sync_initialize_connections())
-        
+
     async def get_new_connection(self):
         return await asyncpg.connect(self._connection_params["database_url"])
 
@@ -70,7 +70,9 @@ class DBOperations:
         """Establish async DB connections."""
         try:
             # Initialize Supabase client
-            options = ClientOptions(schema="public", headers={"X-Client-Info": "masx-ai-system"})
+            options = ClientOptions(
+                schema="public", headers={"X-Client-Info": "masx-ai-system"}
+            )
             self.client = create_client(
                 self._connection_params["supabase_url"],
                 self._connection_params["supabase_key"],
@@ -150,7 +152,9 @@ class DBOperations:
         elif isinstance(date, datetime):
             date_obj = date
         else:
-            raise TypeError(f"Unsupported date type: {type(date)}. Must be datetime, str, or None.")
+            raise TypeError(
+                f"Unsupported date type: {type(date)}. Must be datetime, str, or None."
+            )
         return f"{base}_{date_obj.strftime('%Y%m%d')}"
 
     @staticmethod

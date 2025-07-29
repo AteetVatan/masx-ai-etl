@@ -1,4 +1,3 @@
-
 # ┌───────────────────────────────────────────────────────────────┐
 # │  Copyright (c) 2025 Ateet Vatan Bahmani                       │
 # │  Project: MASX AI – Strategic Agentic AI System               │
@@ -19,52 +18,70 @@
 
 from datetime import datetime
 from typing import Optional, List
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+from tenacity import (
+    retry,
+    stop_after_attempt,
+    wait_exponential,
+    retry_if_exception_type,
+)
 from etl_data.etl_models import FlashpointModel, FeedModel
 from db import DBOperations
 from config import get_db_logger
 import asyncio
 
+
 class Flashpoints:
     """
     Flashpoints class for retrieving flashpoints and their associated feeds.
     """
+
     def __init__(self):
         self.db = DBOperations()
         self.logger = get_db_logger("flashpoints")
-        
+
     @retry(
-        retry=retry_if_exception_type(Exception),     # Retry on any exception
-        wait=wait_exponential(multiplier=1, min=2, max=10),  # Exponential backoff (2s → 4s → 8s … up to 10s)
-        stop=stop_after_attempt(3),                  # Retry up to 3 times
-        reraise=True                                 # Raise the last exception if all retries fail
+        retry=retry_if_exception_type(Exception),  # Retry on any exception
+        wait=wait_exponential(
+            multiplier=1, min=2, max=10
+        ),  # Exponential backoff (2s → 4s → 8s … up to 10s)
+        stop=stop_after_attempt(3),  # Retry up to 3 times
+        reraise=True,  # Raise the last exception if all retries fail
     )
-    async def get_flashpoint_dataset(self, date: Optional[str] = None) -> List[FlashpointModel]:
+    async def get_flashpoint_dataset(
+        self, date: Optional[str] = None
+    ) -> List[FlashpointModel]:
         """
         Retrieve all flashpoints along with their associated feeds.
         Retries up to 3 times in case of transient errors.
         """
-        try:           
+        try:
             # Fetch all flashpoints
             flashpoints = await self.get_all_flashpoints(date)
 
             # Fetch feeds concurrently for each flashpoint
-            feed_tasks = [self.get_feeds_per_flashpoint(fp.id, date) for fp in flashpoints]
+            feed_tasks = [
+                self.get_feeds_per_flashpoint(fp.id, date) for fp in flashpoints
+            ]
             feeds_results = await asyncio.gather(*feed_tasks)
 
             # Attach feeds to each flashpoint
             for flashpoint, feeds in zip(flashpoints, feeds_results):
                 flashpoint.feeds = feeds
 
-            self.logger.info(f"Flashpoint dataset built: {len(flashpoints)} flashpoints with feeds")
+            self.logger.info(
+                f"Flashpoint dataset built: {len(flashpoints)} flashpoints with feeds"
+            )
             return flashpoints
 
         except Exception as e:
-            self.logger.error(f"Flashpoints dataset retrieval failed: {e}", exc_info=True)
+            self.logger.error(
+                f"Flashpoints dataset retrieval failed: {e}", exc_info=True
+            )
             raise
-        
-        
-    async def get_all_flashpoints(self, date: Optional[str] = None) -> List[FlashpointModel]:
+
+    async def get_all_flashpoints(
+        self, date: Optional[str] = None
+    ) -> List[FlashpointModel]:
         """
         Retrieve all flashpoints from the daily flashpoint table.
         Optionally filter by date (YYYY-MM-DD format).
@@ -88,7 +105,9 @@ class Flashpoints:
             if date:
                 try:
                     target_date = datetime.strptime(date, "%Y-%m-%d")
-                    table_name = self.db.get_daily_table_name("flash_point", target_date)
+                    table_name = self.db.get_daily_table_name(
+                        "flash_point", target_date
+                    )
                 except ValueError:
                     self.logger.error("Invalid date format. Use YYYY-MM-DD")
                     return []
@@ -143,7 +162,9 @@ class Flashpoints:
         Raises:
             Exception: If database query or date parsing fails.
         """
-        self.logger.info(f"Feeds per flashpoint requested - flashpoint_id: {flashpoint_id}")
+        self.logger.info(
+            f"Feeds per flashpoint requested - flashpoint_id: {flashpoint_id}"
+        )
 
         try:
             # async Supabase client
@@ -153,7 +174,9 @@ class Flashpoints:
             if date:
                 try:
                     target_date = datetime.strptime(date, "%Y-%m-%d")
-                    feed_table = self.db.get_daily_table_name("feed_entries", target_date)
+                    feed_table = self.db.get_daily_table_name(
+                        "feed_entries", target_date
+                    )
                 except ValueError:
                     self.logger.error("Invalid date format. Use YYYY-MM-DD")
                     return []
@@ -181,14 +204,18 @@ class Flashpoints:
                 offset += batch_size
 
                 # Log progress for large datasets
-                self.logger.debug(f"Fetched {len(result.data)} feeds (total: {len(all_records)})")
+                self.logger.debug(
+                    f"Fetched {len(result.data)} feeds (total: {len(all_records)})"
+                )
 
                 # Safety break if too many records
                 if len(result.data) < batch_size:
                     break
 
             if not all_records:
-                self.logger.warning(f"No feeds found for flashpoint_id: {flashpoint_id}")
+                self.logger.warning(
+                    f"No feeds found for flashpoint_id: {flashpoint_id}"
+                )
                 return []
 
             # Convert records into FeedModel instances
@@ -210,7 +237,9 @@ class Flashpoints:
                 for feed in all_records
             ]
 
-            self.logger.info(f"Feeds retrieved for flashpoint_id={flashpoint_id}: {len(feeds)} records")
+            self.logger.info(
+                f"Feeds retrieved for flashpoint_id={flashpoint_id}: {len(feeds)} records"
+            )
             return feeds
 
         except Exception as e:

@@ -3,6 +3,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from nltk.tokenize import sent_tokenize
 import torch
 
+
 class NLPUtils:
 
     @staticmethod

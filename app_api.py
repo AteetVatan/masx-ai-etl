@@ -173,9 +173,9 @@ def _add_middleware(app: FastAPI, settings):
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["X-XSS-Protection"] = "1; mode=block"
-        response.headers[
-            "Strict-Transport-Security"
-        ] = "max-age=31536000; includeSubDomains"
+        response.headers["Strict-Transport-Security"] = (
+            "max-age=31536000; includeSubDomains"
+        )
         return response
 
 
@@ -250,7 +250,6 @@ def _add_exception_handlers(app: FastAPI):
                 "path": request.url.path,
             },
         )
-
 
     @app.exception_handler(AgentException)
     async def agent_exception_handler(request: Request, exc: AgentException):
@@ -340,7 +339,7 @@ def _register_routes(app: FastAPI):
     # app.include_router(workflows.router, prefix="/workflows", tags=["Workflows"])
 
     # Data routes
-    #app.include_router(data.router, prefix="/data", tags=["Data"])
+    # app.include_router(data.router, prefix="/data", tags=["Data"])
 
     # Service routes
     app.include_router(services.router, prefix="/services", tags=["Services"])

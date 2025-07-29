@@ -28,14 +28,13 @@ router = APIRouter()
 logger = get_api_logger("ServiceRoutes")
 
 
-
 @router.post("/run")
 async def run_etl(background_tasks: BackgroundTasks):
     """
-     Get status of all services.
+    Get status of all services.
 
-     Returns:
-         Dictionary with service status information
+    Returns:
+        Dictionary with service status information
     """
     logger.info("Services status requested")
 
@@ -47,5 +46,3 @@ async def run_etl(background_tasks: BackgroundTasks):
         raise HTTPException(
             status_code=500, detail=f"Services status retrieval failed: {str(e)}"
         )
-
-

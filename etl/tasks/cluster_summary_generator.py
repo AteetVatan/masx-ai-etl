@@ -12,7 +12,7 @@ class ClusterSummaryGenerator:
     """
     Generates cluster summaries from a ChromaDB collection,
     using pluggable clustering strategy (KMeans, HDBSCAN).
-    
+
     to do
     Skip clusters with <2 docs
     -----Good for noise and performance.
@@ -25,9 +25,10 @@ class ClusterSummaryGenerator:
 
     def __init__(self, collection_name: str, clustering_strategy: BaseClusterer):
         self.client = ChromaClientSingleton.get_client()
-        self.collection = ChromaClientSingleton.get_collection_if_exists(collection_name)
+        self.collection = ChromaClientSingleton.get_collection_if_exists(
+            collection_name
+        )
         self.clusterer = clustering_strategy
-
 
     def generate(self) -> list[dict]:
         """
@@ -56,10 +57,7 @@ class ClusterSummaryGenerator:
         return self.clusterer.cluster(embeddings)
 
     def _generate_cluster_summaries(
-        self,
-        documents: list[str],
-        metadatas: list[dict],
-        labels: list[int]
+        self, documents: list[str], metadatas: list[dict], labels: list[int]
     ) -> list[dict]:
 
         grouped_docs = defaultdict(list)
@@ -82,22 +80,31 @@ class ClusterSummaryGenerator:
                 continue  # Skip trivial clusters
 
             joined = " ".join(texts)[:2048]  # Char-safe truncation
-            input_ids = tokenizer.encode(joined, return_tensors="pt", truncation=True).to(device)
+            input_ids = tokenizer.encode(
+                joined, return_tensors="pt", truncation=True
+            ).to(device)
             summary_ids = model.generate(input_ids, max_length=150, min_length=30)
             summary = tokenizer.decode(summary_ids[0], skip_special_tokens=True)
 
-            top_domains = [d for d, _ in Counter(m.get("domain", "unknown") for m in meta).most_common(3)]
+            top_domains = [
+                d
+                for d, _ in Counter(
+                    m.get("domain", "unknown") for m in meta
+                ).most_common(3)
+            ]
             langs = sorted(set(m.get("language", "unknown") for m in meta))
             urls = [m.get("url") for m in meta if m.get("url")]
             sample_urls = urls[:3]
 
-            results.append({
-                "cluster_id": cluster_id,
-                "summary": summary,
-                "article_count": len(texts),
-                "top_domains": top_domains,
-                "languages": langs,
-                "sample_urls": sample_urls
-            })
+            results.append(
+                {
+                    "cluster_id": cluster_id,
+                    "summary": summary,
+                    "article_count": len(texts),
+                    "top_domains": top_domains,
+                    "languages": langs,
+                    "sample_urls": sample_urls,
+                }
+            )
 
         return results

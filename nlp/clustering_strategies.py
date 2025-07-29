@@ -7,6 +7,7 @@ from sklearn.preprocessing import normalize
 from abc import ABC, abstractmethod
 from config import get_service_logger
 
+
 class BaseClusterer(ABC):
     """
     Abstract base class for all clustering strategies.
@@ -51,22 +52,29 @@ class HDBSCANClusterer(BaseClusterer):
     cluster_selection_method: The method to use for cluster selection.
     """
 
-    def __init__(self, min_cluster_size: int = 5, min_samples: int = None, metric: str = "euclidean", cluster_selection_method: str = "eom"):
+    def __init__(
+        self,
+        min_cluster_size: int = 5,
+        min_samples: int = None,
+        metric: str = "euclidean",
+        cluster_selection_method: str = "eom",
+    ):
         self.min_cluster_size = min_cluster_size
         self.min_samples = min_samples  # Optional, fallback to default if None
         self.metric = metric
         self.cluster_selection_method = cluster_selection_method
         self.logger = get_service_logger("HDBSCANClusterer")
+
     def cluster(self, embeddings: np.ndarray) -> list[int]:
         try:
             model = hdbscan.HDBSCAN(
                 min_cluster_size=self.min_cluster_size,
                 min_samples=self.min_samples,
                 metric=self.metric,
-                cluster_selection_method=self.cluster_selection_method
+                cluster_selection_method=self.cluster_selection_method,
             )
             res = model.fit_predict(embeddings)
-            
+
             # embeddings = normalize(embeddings)  # L2 normalization
             # model = hdbscan.HDBSCAN(
             #     min_cluster_size=self.min_cluster_size,
@@ -74,9 +82,8 @@ class HDBSCANClusterer(BaseClusterer):
             #     metric=self.metric,
             #     cluster_selection_method=self.cluster_selection_method
             # )
-            #res = model.fit_predict(embeddings)
-            
-            
+            # res = model.fit_predict(embeddings)
+
             # model = hdbscan.HDBSCAN(
             #     min_cluster_size=2,     # Allow tiny clusters
             #     min_samples=1,          # More permissive (less noise detection)
@@ -84,7 +91,7 @@ class HDBSCANClusterer(BaseClusterer):
             #     cluster_selection_method='leaf'  # leaf mode is more fine-grained
             # )
             # res = model.fit_predict(embeddings)
-             
+
             return res
         except Exception as e:
             self.logger.error(f"Error: {e}")

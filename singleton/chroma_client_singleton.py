@@ -1,4 +1,5 @@
 """Singleton for Chroma client — supports local dev & Hugging Face prod modes."""
+
 import os
 import shutil
 from chromadb import Client as ChromaClient
@@ -10,6 +11,7 @@ from typing import Optional
 
 class ChromaClientSingleton:
     """Singleton for Chroma client — supports local dev & Hugging Face prod modes."""
+
     _instance: Optional[ChromaClient] = None
 
     @classmethod
@@ -22,7 +24,7 @@ class ChromaClientSingleton:
             cls._instance = ChromaClient(Settings(persist_directory=persist_dir))
 
         return cls._instance
-    
+
     @classmethod
     def get_collection_if_exists(cls, collection_name: str):
         existing = cls.get_client().list_collections()
@@ -33,7 +35,6 @@ class ChromaClientSingleton:
         else:
             raise ValueError(f"Chroma collection '{collection_name}' does not exist.")
 
-
     @classmethod
     def cleanup_chroma(cls):
         """Delete the Chroma persistence directory after ETL completion."""
@@ -42,7 +43,6 @@ class ChromaClientSingleton:
         if os.path.exists(persist_path):
             shutil.rmtree(persist_path)
             print(f"Chroma vector DB deleted at: {persist_path}")
-            
 
     @classmethod
     def __get_persist_path(cls) -> str:

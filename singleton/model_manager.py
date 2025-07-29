@@ -1,6 +1,7 @@
 """
 This module contains the Model class, which is a singleton class that loads and manages the models.
 """
+
 """
 This module contains the Model class, which is a singleton class that loads and manages the models.
 """
@@ -49,12 +50,12 @@ class ModelManager:
     @classmethod
     def get_fasttext_model_path(cls) -> str:
         return os.path.join(cls.get_base_dir(), "..", "lid.176.bin")
-    
+
     @classmethod
     def get_summarization_model_max_tokens(cls) -> int:
         """Get the maximum number of tokens for the summarization model."""
         return cls._summarization_model_max_tokens
-    
+
     @classmethod
     def get_summarization_model_name(cls) -> str:
         """Get the name of the summarization model."""
@@ -106,8 +107,7 @@ class ModelManager:
     @classmethod
     def get_lingua_detector(cls, languages=None):
         builder = (
-            LanguageDetectorBuilder
-            .from_all_languages()  # or .from_languages(...subset...) if you want
+            LanguageDetectorBuilder.from_all_languages()  # or .from_languages(...subset...) if you want
         )
         return builder.build()
 
@@ -121,7 +121,7 @@ class ModelManager:
         identifier = cls.get_langid_identifier(langs=langs)
         lang, prob = identifier.classify(text)
         return lang, prob
-    
+
     @classmethod
     def get_langid_identifier(cls, langs=None, norm_probs=True):
         identifier = langid.langid.LanguageIdentifier.from_modelstring(
@@ -130,7 +130,6 @@ class ModelManager:
         if langs:
             identifier.set_languages(langs)
         return identifier
-    
 
     # ===== INTERNAL LOADERS =====
     @classmethod
@@ -144,14 +143,13 @@ class ModelManager:
                 cache_dir=cls.get_model_cache_dir(),
             )
 
-            cls._summarization_model = (
-                AutoModelForSeq2SeqLM.from_pretrained(
-                    cls._summarization_model_name,
-                    cache_dir=cls.get_model_cache_dir(),
-                    torch_dtype=torch.float16 if cls._device.type == "cuda" else torch.float32,
-                )
-                .to(cls._device)
-            )
+            cls._summarization_model = AutoModelForSeq2SeqLM.from_pretrained(
+                cls._summarization_model_name,
+                cache_dir=cls.get_model_cache_dir(),
+                torch_dtype=(
+                    torch.float16 if cls._device.type == "cuda" else torch.float32
+                ),
+            ).to(cls._device)
 
             cls._logger.info(f"Loaded summarization model on {cls._device}")
 
@@ -164,7 +162,9 @@ class ModelManager:
         """Load embedding model onto GPU if available, else CPU (thread-safe)."""
         try:
             device = "cuda" if torch.cuda.is_available() else "cpu"
-            cls._logger.info(f"Loading embedding model '{cls._embedding_model_name}' on {device}")
+            cls._logger.info(
+                f"Loading embedding model '{cls._embedding_model_name}' on {device}"
+            )
             cls._embedding_model = SentenceTransformer(
                 cls._embedding_model_name,
                 cache_folder=cls.get_model_cache_dir(),
@@ -182,4 +182,3 @@ class ModelManager:
         except Exception as e:
             cls._logger.error(f"Failed to load GoogleTranslator: {e}")
             raise RuntimeError(f"Failed to load GoogleTranslator: {e}")
-

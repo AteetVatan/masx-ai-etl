@@ -19,8 +19,10 @@
 from pydantic import BaseModel
 from typing import Optional
 
+
 class FeedModel(BaseModel):
     """Model for feed data."""
+
     id: str
     flashpoint_id: str
     url: str

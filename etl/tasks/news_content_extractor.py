@@ -33,24 +33,24 @@ class NewsContentExtractor:
         if not self.feeds:
             self.logger.error("No feeds found in context.")
             raise ValueError("No feeds found in context.")
-        
+
         self.logger.info(f"---- ProxyManager initiated ----")
         proxies = ProxyManager.proxies()
         self.logger.info(f"---- {len(proxies)} proxies found ----")
-        
+
         if not proxies:
             self.logger.error("No valid proxies found in context.")
             raise ValueError("No valid proxies found in context.")
 
-        self.logger.info(f"-----Scraping {len(self.feeds)} feeds....Using {len(proxies)} proxies-----")
+        self.logger.info(
+            f"-----Scraping {len(self.feeds)} feeds....Using {len(proxies)} proxies-----"
+        )
 
         scraped_feeds = []
 
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             futures = [
-                executor.submit(
-                    self.__scrape_multilang_feeds, feed, choice(proxies)
-                )
+                executor.submit(self.__scrape_multilang_feeds, feed, choice(proxies))
                 for feed in self.feeds
             ]
             for future in concurrent.futures.as_completed(futures):
@@ -60,15 +60,15 @@ class NewsContentExtractor:
 
         return scraped_feeds
 
-    def __scrape_multilang_feeds(
-        self, feed: FeedModel, proxy: str
-    ) -> FeedModel:
+    def __scrape_multilang_feeds(self, feed: FeedModel, proxy: str) -> FeedModel:
         """
         Use BeautifulSoup first, fallback to Crawl4AI if needed.
         """
         try:
-            self.logger.info(f"Scraping ------ {feed.url} ----- with proxy------- {proxy}")           
-            
+            self.logger.info(
+                f"Scraping ------ {feed.url} ----- with proxy------- {proxy}"
+            )
+
             # Step 1: Try BeautifulSoup extraction
             try:
                 soup = BeautifulSoupExtractor.beautiful_soup_scrape(feed.url, proxy)
@@ -76,16 +76,23 @@ class NewsContentExtractor:
                     text = BeautifulSoupExtractor.extract_text_from_soup(soup)
                     if text and len(text.strip()) >= 100:
                         feed.raw_text = text.strip()
-                        self.logger.info(f"Successfully scraped via BeautifulSoup: {feed.url}")
+                        self.logger.info(
+                            f"Successfully scraped via BeautifulSoup: {feed.url}"
+                        )
                         return feed
                     else:
-                        self.logger.info(f"[Fallback] BeautifulSoup produced insufficient content for: {feed.url}")
+                        self.logger.info(
+                            f"[Fallback] BeautifulSoup produced insufficient content for: {feed.url}"
+                        )
                 else:
-                    self.logger.info(f"[Fallback] BeautifulSoup failed (no soup) for: {feed.url}")
+                    self.logger.info(
+                        f"[Fallback] BeautifulSoup failed (no soup) for: {feed.url}"
+                    )
             except Exception as bs_err:
-                self.logger.warning(f"BeautifulSoup scraping failed for {feed.url}: {bs_err}")                
-            
-            
+                self.logger.warning(
+                    f"BeautifulSoup scraping failed for {feed.url}: {bs_err}"
+                )
+
             # Step 2: Fallback to Crawl4AI
             self.logger.info(f"[Fallback] Invoking Crawl4AI for: {feed.url}")
             try:
@@ -100,5 +107,7 @@ class NewsContentExtractor:
                 return None
 
         except Exception as e:
-            self.logger.error(f"[Error] Failed to scrape {feed.url}: {e}", exc_info=True)
+            self.logger.error(
+                f"[Error] Failed to scrape {feed.url}: {e}", exc_info=True
+            )
             return None

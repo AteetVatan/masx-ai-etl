@@ -11,8 +11,6 @@ from datetime import datetime, timedelta
 from config import get_settings, headers_list, get_service_logger
 
 
-
-
 # convert this class to a singleton
 class ProxyManager:
     """

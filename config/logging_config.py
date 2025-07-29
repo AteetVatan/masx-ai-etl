@@ -330,6 +330,7 @@ def get_service_logger(service_name: str) -> structlog.stdlib.BoundLogger:
     """
     return structlog.get_logger(f"service.{service_name}")
 
+
 def get_db_logger(db_name: str) -> structlog.stdlib.BoundLogger:
     """
     Get a structured logger for a database module.

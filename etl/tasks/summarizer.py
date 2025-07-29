@@ -9,6 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 import concurrent.futures
 from core.exceptions import ServiceException
 
+
 class Summarizer:
     """
     Summarizes raw article texts using a BART model (facebook/bart-large-cnn).
@@ -35,14 +36,13 @@ class Summarizer:
     def summarize_all_feeds(self):
         """
         Translate, compress if needed, and summarize each article.
-        """       
+        """
         try:
             summarized_feeds = []
             # apply the max_workers for threading
             with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
                 futures = [
-                    executor.submit(self.__summarize_feed, feed)
-                    for feed in self.feeds
+                    executor.submit(self.__summarize_feed, feed) for feed in self.feeds
                 ]
                 for future in concurrent.futures.as_completed(futures):
                     result = future.result()
@@ -56,11 +56,11 @@ class Summarizer:
     def __summarize_feed(self, feed: FeedModel):
         """
         Summarize a single feed.
-        """ 
+        """
         try:
-            
-            # Step 1: Translate non-English articles to English    
-            try:                   
+
+            # Step 1: Translate non-English articles to English
+            try:
                 feed.raw_text_en = self.translator.ensure_english(feed.raw_text)
             except Exception as e:
                 self.logger.error(f"[Summarizer] Error translating feed: {e}")
@@ -68,7 +68,7 @@ class Summarizer:
 
             # Step 2: Check if text fits the model, else compress using TF-IDF
             try:
-                #tokenizer = self.summarization_tokenizer
+                # tokenizer = self.summarization_tokenizer
                 tokenizer = self.summarization_tokenizer.__class__.from_pretrained(
                     self.summarization_tokenizer.name_or_path
                 )
@@ -86,7 +86,7 @@ class Summarizer:
                         prompt_prefix=self.prompt_prefix,
                     )
                 else:
-                        text = feed.raw_text_en
+                    text = feed.raw_text_en
             except Exception as e:
                 self.logger.error(f"[Summarizer] Error compressing text: {e}")
                 raise ServiceException(f"Error compressing text: {e}")
@@ -101,12 +101,8 @@ class Summarizer:
                 )
                 device = self.device
                 feed.summary = NLPUtils.summarize_text(
-                    summarizer,
-                    tokenizer,
-                    device,
-                    self.prompt_prefix + text,
-                    max_tokens
-                    )
+                    summarizer, tokenizer, device, self.prompt_prefix + text, max_tokens
+                )
             except Exception as e:
                 self.logger.error(f"[Summarizer] Error summarizing text: {e}")
                 raise ServiceException(f"Error summarizing text: {e}")
@@ -115,7 +111,7 @@ class Summarizer:
             # self.generate_questions_from_summary(max_questions=3)
 
             # Step 4: Push serializable version of all NewsArticle objects
-            #serialized = [a.model_dump() for a in self.news_articles]
+            # serialized = [a.model_dump() for a in self.news_articles]
             return feed
         except Exception as e:
             self.logger.error(f"[Summarizer] Error summarizing feed: {e}")

@@ -45,12 +45,12 @@ class NLLBTranslatorSingleton:
             return
 
         self.model_name = "facebook/nllb-200-distilled-600M"
-        
+
         # Detect device (GPU if available, else CPU)
         self.device = 0 if torch.cuda.is_available() else -1
-        
+
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
-        #self.model = AutoModelForSeq2SeqLM.from_pretrained(self.model_name)
+        # self.model = AutoModelForSeq2SeqLM.from_pretrained(self.model_name)
         self.model = AutoModelForSeq2SeqLM.from_pretrained(self.model_name).to(
             torch.device("cuda" if torch.cuda.is_available() else "cpu")
         )

@@ -20,8 +20,10 @@ from pydantic import BaseModel
 from typing import List, Optional
 from .feed_model import FeedModel
 
+
 class FlashpointModel(BaseModel):
     """Model for flashpoint data."""
+
     id: str
     title: str
     description: str

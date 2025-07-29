@@ -41,11 +41,11 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore"
     )
-    
+
     require_api_key: bool = Field(
         default=True, description="Require API key for all endpoints"
     )
-    
+
     # ETL_API_KEY
     etl_api_key: Optional[str] = Field(default=None, description="ETL API key")
     require_api_key: bool = Field(
@@ -57,29 +57,41 @@ class Settings(BaseSettings):
     debug: bool = Field(default=True, description="Enable debug mode")
     log_level: str = Field(default="INFO", description="Logging level")
 
-
-    #PROXY SETTINGS
-    proxy_webpage: str = Field(default="https://free-proxy-list.net/", description="Proxy webpage")
-    proxy_testing_url: str = Field(default="https://httpbin.org/ip", description="Proxy testing URL")
+    # PROXY SETTINGS
+    proxy_webpage: str = Field(
+        default="https://free-proxy-list.net/", description="Proxy webpage"
+    )
+    proxy_testing_url: str = Field(
+        default="https://httpbin.org/ip", description="Proxy testing URL"
+    )
     max_workers: int = Field(default=20, description="Maximum number of workers")
 
+    # ChromaClient Settings
+    chroma_dev_persist_dir: str = Field(
+        default="./.chroma_storage", description="Chroma development persist directory"
+    )
+    chroma_prod_persist_dir: str = Field(
+        default="/mnt/data/chroma", description="Chroma production persist directory"
+    )
 
-    #ChromaClient Settings
-    chroma_dev_persist_dir: str = Field(default="./.chroma_storage", description="Chroma development persist directory")
-    chroma_prod_persist_dir: str = Field(default="/mnt/data/chroma", description="Chroma production persist directory")
-
-    #GDELT Settings
+    # GDELT Settings
     gdelt_api_key: str = Field(default="", description="GDELT API key")
-    gdelt_api_url: str = Field(default="https://api.gdeltproject.org/v2/search/gkg", description="GDELT API URL")
+    gdelt_api_url: str = Field(
+        default="https://api.gdeltproject.org/v2/search/gkg",
+        description="GDELT API URL",
+    )
     gdelt_api_keywords: str = Field(default="", description="GDELT API keywords")
     gdelt_max_records: int = Field(default=100, description="GDELT maximum records")
-
 
     # Database Configuration (Supabase)
     supabase_url: str = Field(default="", description="Supabase project URL")
     supabase_anon_key: str = Field(default="", description="Supabase anonymous key")
-    supabase_service_role_key: str = Field(default="", description="Supabase service role key")
-    supabase_db_password: str = Field(default="", description="Supabase database password")
+    supabase_service_role_key: str = Field(
+        default="", description="Supabase service role key"
+    )
+    supabase_db_password: str = Field(
+        default="", description="Supabase database password"
+    )
     supabase_db_url: str = Field(default="", description="Supabase database URL")
     database_max_connections: int = Field(
         default=10, description="Maximum number of database connections"

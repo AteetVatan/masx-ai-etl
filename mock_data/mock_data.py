@@ -1,4 +1,3 @@
-
 mock_data_backup = [
     {
         "url": "http://www.xinhuanet.com/politics/2020-12/31/c_1126934011.htm",
@@ -11,7 +10,6 @@ mock_data_backup = [
         "sourcecountry": "CN",
     }
 ]
-
 
 
 mock_data = [

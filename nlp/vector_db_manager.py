@@ -33,17 +33,11 @@ class VectorDBManager:
 
         self._logger.info(f"Adding documents to collection: {collection_name}")
         collection.add(
-            documents=texts,
-            metadatas=metadatas,
-            ids=ids,
-            embeddings=embeddings
+            documents=texts, metadatas=metadatas, ids=ids, embeddings=embeddings
         )
 
     def query_similar(
-        self,
-        collection_name: str,
-        query_text: str,
-        top_k: int = 5
+        self, collection_name: str, query_text: str, top_k: int = 5
     ) -> List[dict]:
         """Query similar documents from a collection."""
         try:
@@ -55,12 +49,10 @@ class VectorDBManager:
             raise e
 
         return [
-            {
-                "id": doc_id,
-                "text": doc,
-                "metadata": meta
-            }
-            for doc_id, doc, meta in zip(results["ids"][0], results["documents"][0], results["metadatas"][0])
+            {"id": doc_id, "text": doc, "metadata": meta}
+            for doc_id, doc, meta in zip(
+                results["ids"][0], results["documents"][0], results["metadatas"][0]
+            )
         ]
 
     def delete_collection(self, collection_name: str):
@@ -80,4 +72,3 @@ class VectorDBManager:
         except Exception as e:
             self._logger.error(f"Error listing collections: {e}")
             raise e
-       
