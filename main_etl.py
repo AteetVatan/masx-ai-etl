@@ -16,5 +16,5 @@ def run_etl_pipeline():
     etl_pipeline = ETLPipeline()
     etl_pipeline.run_all_etl_pipelines()
 
-#if __name__ == "__main__":
-#     run_etl_pipeline()
+# if __name__ == "__main__":
+#      run_etl_pipeline()
