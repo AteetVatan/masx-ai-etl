@@ -2,40 +2,56 @@ from crawl4ai import AsyncWebCrawler, CrawlerRunConfig
 from crawl4ai.markdown_generation_strategy import DefaultMarkdownGenerator
 from crawl4ai.content_filter_strategy import PruningContentFilter
 from web_scrapers import WebScraperUtils
-
+import asyncio
+from asyncio import TimeoutError, sleep
+from config import get_service_logger
 
 class Crawl4AIExtractor:
-    """
-    This class handles all Crawl4AI-related operations in the MASX AI News ETL pipeline.
-    """
-
-    @staticmethod
-    async def crawl4ai_scrape(url, proxy):
-        """
-        Scrape the article using Crawl4AI.
-        """
+    def __init__(self):
+        self.logger = get_service_logger("Crawl4AIExtractor")
+    
+    async def crawl4ai_scrape(self, url: str, max_retries: int = 3, timeout_sec: int = 30):
         prune_filter = PruningContentFilter(
-            threshold=0.4,  # 0–1, lower = retain more
-            threshold_type="dynamic",  # or "fixed"
-            min_word_threshold=20,  # ignore small blocks
+            threshold=0.4,
+            threshold_type="dynamic",
+            min_word_threshold=20,
         )
-
         md_generator = DefaultMarkdownGenerator(
-            content_filter=prune_filter, options={"ignore_links": True}
+            content_filter=prune_filter,
+            options={"ignore_links": True}
         )
         config = CrawlerRunConfig(markdown_generator=md_generator)
 
-        async with AsyncWebCrawler() as crawler:
-            result = await crawler.arun(url=url, config=config)
-            if result and result.success:
-                if len(result.fit_markdown) < 100:
-                    # if fit_markdown is too short, use markdown
-                    crawl_text = result.markdown
-                else:
-                    # if fit_markdown is long enough, use fit_markdown
-                    crawl_text = result.fit_markdown
+        for attempt in range(1, max_retries + 1):
+            try:
+                async with AsyncWebCrawler() as crawler:
+                    result = await crawler.arun(url=url, config=config, timeout=timeout_sec)
+                if not result:
+                    raise RuntimeError("Crawler returned no result")
 
-                text = WebScraperUtils.remove_links_images_ui_junk(crawl_text)
-                return text  # Clean, relevant content
+                if not result.success:
+                    raise RuntimeError(f"Crawl failed with error: {result.error_message or 'unknown error'}")
 
-            return None
+                markdown_obj = result.markdown
+                fit_md = getattr(markdown_obj, "fit_markdown", None)
+                raw_md = getattr(markdown_obj, "raw_markdown", "")
+
+                self.logger.debug(
+                    f"Attempt {attempt}: raw_md length = {len(raw_md)}, fit_md length = {len(fit_md) if fit_md else 'None'}"
+                )
+
+                selected_md = fit_md if fit_md and len(fit_md) >= 100 else raw_md
+                cleaned = WebScraperUtils.remove_links_images_ui_junk(selected_md)
+                return cleaned
+
+            except TimeoutError:
+                self.logger.warning(f"Attempt {attempt} timed out after {timeout_sec}s for URL: {url}")
+            except Exception as e:
+                self.logger.error(f"Attempt {attempt} failed for URL {url}: {e}")
+
+            # after last attempt
+            if attempt < max_retries:
+                await asyncio.sleep(2 ** attempt)  # exponential back-off
+
+        self.logger.error(f"All {max_retries} crawl attempts failed for URL: {url}")
+        return None
