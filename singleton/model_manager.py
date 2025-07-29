@@ -7,8 +7,11 @@ import torch
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 from sentence_transformers import SentenceTransformer
 from deep_translator import GoogleTranslator
+from lingua import Language, LanguageDetectorBuilder
+import langid
 import fasttext
 import requests
+from config import get_service_logger
 
 
 # local directory path where Hugging Face will store the downloaded model weights, tokenizers, and configuration files — instead of downloading them every time.
@@ -31,6 +34,7 @@ class ModelManager:
     # transformer model for text embedding
     _embedding_model_name = "sentence-transformers/all-mpnet-base-v2"
     _embedding_model: SentenceTransformer | None = None
+    _logger = get_service_logger("ModelManager")
     
     # path helpers
     @classmethod
@@ -93,7 +97,7 @@ class ModelManager:
         return cls._translator
 
     @classmethod
-    def get_lang_detector(cls) -> fasttext.FastText._FastText:
+    def get_lang_detector_fasttext(cls) -> fasttext.FastText._FastText:
         """Get the FastText language ID model."""
         if cls._fasttext_lang_detector is None:
             cls.__load_fasttext_lang_detector()
@@ -103,11 +107,54 @@ class ModelManager:
     def detect_lang_fasttext(cls, text: str) -> str:
         """Detect language using fasttext model (returns ISO 639-1 code like 'en', 'fr')."""
         try:
-            detector = cls.get_lang_detector()
+            detector = cls.get_lang_detector_fasttext()
             prediction = detector.predict(text.strip().replace("\n", " "))[0][0]
             return prediction.replace("__label__", "")
         except Exception as e:
             raise RuntimeError(f"FastText language detection failed: {e}")
+        
+    
+    @classmethod
+    def get_lingua_detector(cls, languages=None):
+        builder = (
+            LanguageDetectorBuilder
+            .from_all_languages()  # or .from_languages(...subset...) if you want
+        )
+        return builder.build()
+
+    @classmethod
+    def get_langid_identifier(cls, langs=None, norm_probs=True):
+        identifier = langid.langid.LanguageIdentifier.from_modelstring(
+            langid.langid.model, norm_probs=norm_probs
+        )
+        if langs:
+            identifier.set_languages(langs)
+        return identifier
+
+
+    @classmethod
+    def detect_lang_lingua(cls, text: str):
+        detector = cls.get_lingua_detector()
+        lang = detector.detect_language_of(text)
+        return lang.iso_code_639_1.name if lang else None
+
+    @classmethod
+    def detect_lang_langid(cls, text: str, langs=None):
+        identifier = cls.get_langid_identifier(langs=langs)
+        lang, prob = identifier.classify(text)
+        return lang, prob
+    
+    @classmethod
+    def detect_language(cls, text: str) -> dict:
+        try:
+            lang, li_conf = cls.detect_lang_langid(text)
+            if li_conf < 0.99:
+                lang = cls.detect_lang_lingua(text)
+            return lang.lower()
+        except Exception as e:           
+            lang = cls.detect_lang_fasttext(text)
+            return lang.lower()        
+       
 
     # ========== Internal Loaders ==========
 
@@ -130,14 +177,38 @@ class ModelManager:
             ).to(cls._device)
 
         except Exception as e:
+            cls._logger.error(f"Failed to load BART model: {e}")
             raise RuntimeError(f"Failed to load BART model: {e}")
+        
+    @classmethod
+    def __load_embedding_model_old(cls):
+        """Load the 'all-mpnet-base-v2' model from SentenceTransformers."""
+        try:
+            cls._embedding_model = SentenceTransformer(cls._embedding_model_name, cache_folder=cls.get_model_cache_dir())
+        except Exception as e:
+            cls._logger.error(f"Failed to load embedding model: {e}")
+            raise RuntimeError(f"Failed to load embedding model: {e}")
         
     @classmethod
     def __load_embedding_model(cls):
         """Load the 'all-mpnet-base-v2' model from SentenceTransformers."""
         try:
-            cls._embedding_model = SentenceTransformer(cls._embedding_model_name, cache_folder=cls.get_model_cache_dir())
+            # Determine device (GPU if available, else CPU)
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+
+            # Explicitly load on correct device (avoid meta tensor issue)
+            cls._embedding_model = SentenceTransformer(
+                cls._embedding_model_name,
+                cache_folder=cls.get_model_cache_dir(),
+                device=device
+            )
+
+            # Ensure weights are materialized and not in meta state
+            if hasattr(cls._embedding_model, "to"):
+                cls._embedding_model.to(device)
+
         except Exception as e:
+            cls._logger.error(f"Failed to load embedding model: {e}")
             raise RuntimeError(f"Failed to load embedding model: {e}")
 
     @classmethod
@@ -146,6 +217,7 @@ class ModelManager:
         try:
             cls._translator = GoogleTranslator(source="auto", target=lang)
         except Exception as e:
+            cls._logger.error(f"Failed to load GoogleTranslator: {e}")
             raise RuntimeError(f"Failed to load GoogleTranslator: {e}")
 
     @classmethod
@@ -156,6 +228,7 @@ class ModelManager:
                 cls.__download_fasttext_model(fasttext_path)
             cls._fasttext_lang_detector = fasttext.load_model(fasttext_path)
         except Exception as e:
+            cls._logger.error(f"Failed to load fasttext language model: {e}")
             raise RuntimeError(f"Failed to load fasttext language model: {e}")
 
     @classmethod
@@ -173,4 +246,5 @@ class ModelManager:
                     f.write(chunk)
             print("Download complete.")
         except Exception as e:
+            cls._logger.error(f"Failed to download FastText model: {e}")
             raise RuntimeError(f"Failed to download FastText model: {e}")
