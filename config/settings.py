@@ -42,6 +42,10 @@ class Settings(BaseSettings):
         env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore"
     )
     
+    require_api_key: bool = Field(
+        default=True, description="Require API key for all endpoints"
+    )
+    
     # ETL_API_KEY
     etl_api_key: Optional[str] = Field(default=None, description="ETL API key")
     require_api_key: bool = Field(

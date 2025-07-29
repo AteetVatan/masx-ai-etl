@@ -61,10 +61,12 @@ class Translator:
         Try Google Translate first, then fallback to NLLB if Google fails or is unavailable.
         """
         try:
+            
             # Google First
             try:
                 self.logger.info(f"[Translation] Using Google Translate: {source_lang} → {target_lang}")
-                return self.google_translate_to_english(text) if target_lang == "en" else self.google_translate(text, source_lang, target_lang)
+                result = self.google_translate_to_english(text)
+                return result
             except Exception as google_error:
                 self.logger.warning(f"[TranslationWarning] Google failed: {google_error}. Falling back to NLLB.")
 

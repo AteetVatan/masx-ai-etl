@@ -3,6 +3,7 @@ This module contains the Model class, which is a singleton class that loads and 
 """
 
 import os
+import threading
 import torch
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 from sentence_transformers import SentenceTransformer
@@ -34,6 +35,7 @@ class ModelManager:
     # transformer model for text embedding
     _embedding_model_name = "sentence-transformers/all-mpnet-base-v2"
     _embedding_model: SentenceTransformer | None = None
+    _embedding_lock = threading.Lock()
     _logger = get_service_logger("ModelManager")
     
     # path helpers
@@ -80,10 +82,12 @@ class ModelManager:
     def get_embedding_model(cls) -> SentenceTransformer:
         """
         Get the SentenceTransformer embedding model.
-        Lazily initializes if not already loaded.
+        Lazily initializes if not already loaded (thread-safe).
         """
         if cls._embedding_model is None:
-            cls.__load_embedding_model()
+            with cls._embedding_lock:  # Lock ensures only one thread initializes the model
+                if cls._embedding_model is None:  # Double-check inside lock
+                    cls.__load_embedding_model()
         return cls._embedding_model
 
     @classmethod
@@ -181,35 +185,51 @@ class ModelManager:
             raise RuntimeError(f"Failed to load BART model: {e}")
         
     @classmethod
-    def __load_embedding_model_old(cls):
+    def __load_embedding_model(cls):
         """Load the 'all-mpnet-base-v2' model from SentenceTransformers."""
         try:
-            cls._embedding_model = SentenceTransformer(cls._embedding_model_name, cache_folder=cls.get_model_cache_dir())
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+            cls._embedding_model = SentenceTransformer(cls._embedding_model_name, cache_folder=cls.get_model_cache_dir(), device=device)
         except Exception as e:
             cls._logger.error(f"Failed to load embedding model: {e}")
             raise RuntimeError(f"Failed to load embedding model: {e}")
         
     @classmethod
-    def __load_embedding_model(cls):
-        """Load the 'all-mpnet-base-v2' model from SentenceTransformers."""
-        try:
-            # Determine device (GPU if available, else CPU)
-            device = "cuda" if torch.cuda.is_available() else "cpu"
+    def __load_embedding_model_1(cls):
+        """Manually load embedding model to avoid meta tensor issue."""
+        import torch
+        from transformers import AutoModel, AutoTokenizer
+        from sentence_transformers import SentenceTransformer, models
 
-            # Explicitly load on correct device (avoid meta tensor issue)
-            cls._embedding_model = SentenceTransformer(
+        try:
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+            cls._logger.info(f"Manually loading embedding model '{cls._embedding_model_name}' on {device}")
+
+            # Load tokenizer
+            tokenizer = AutoTokenizer.from_pretrained(
                 cls._embedding_model_name,
-                cache_folder=cls.get_model_cache_dir(),
-                device=device
+                cache_dir=cls.get_model_cache_dir()
             )
 
-            # Ensure weights are materialized and not in meta state
-            if hasattr(cls._embedding_model, "to"):
-                cls._embedding_model.to(device)
+            # Load encoder (transformer backbone) safely on device
+            transformer = AutoModel.from_pretrained(
+                cls._embedding_model_name,
+                cache_dir=cls.get_model_cache_dir()
+            ).to(device)
+
+            # Wrap encoder in SentenceTransformer's modules
+            transformer_model = models.Transformer(transformer=transformer, tokenizer=tokenizer)
+            pooling_model = models.Pooling(transformer_model.get_word_embedding_dimension())
+
+            # Build SentenceTransformer pipeline manually
+            cls._embedding_model = SentenceTransformer(modules=[transformer_model, pooling_model], device=device)
+
+            cls._logger.info(f"Embedding model loaded successfully on {device}")
 
         except Exception as e:
-            cls._logger.error(f"Failed to load embedding model: {e}")
+            cls._logger.error(f"Failed to load embedding model manually: {e}")
             raise RuntimeError(f"Failed to load embedding model: {e}")
+
 
     @classmethod
     def __load_translator(cls, lang):

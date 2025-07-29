@@ -29,8 +29,8 @@ class ETLPipeline:
     def run_all_etl_pipelines(self):    
         try:
             flashpoints = self.get_flashpoints(self.date)
-            flashpoints = flashpoints[:2]
-            
+            #flashpoints = flashpoints[:1]
+            flashpoints = [flashpoints[1]]
             #multi threading for each flashpoint
             with ThreadPoolExecutor(max_workers=len(flashpoints)) as executor:
                 futures = [executor.submit(self.run_etl_pipeline, flashpoint) for flashpoint in flashpoints]
