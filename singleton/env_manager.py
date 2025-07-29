@@ -30,7 +30,7 @@ class EnvManager:
         """
         load_dotenv()
         env_vars = {
-            EnvKeyEnum.DEBUG_MODE.value: os.getenv(EnvKeyEnum.DEBUG_MODE.value),
+            EnvKeyEnum.DEBUG.value: os.getenv(EnvKeyEnum.DEBUG.value),
             EnvKeyEnum.PROXY_WEBPAGE.value: os.getenv(EnvKeyEnum.PROXY_WEBPAGE.value),
             EnvKeyEnum.PROXY_TESTING_URL.value: os.getenv(
                 EnvKeyEnum.PROXY_TESTING_URL.value
