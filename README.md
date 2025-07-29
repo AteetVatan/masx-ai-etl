@@ -1,208 +1,368 @@
-# 🧠 MASX_AI_NEWS_ETL
+# 🧠 MASX AI News ETL Pipeline
 
-`MASX_AI_NEWS_ETL` is a modular, resilient daily news processing pipeline that ingests, summarizes, translates, and embeds global news articles using transformers, multilingual scraping, proxy rotation, and semantic enrichment. It supports both **local development** and **production orchestration** using **Apache Airflow**, **Kafka**, and **Redis**.
+> **Enterprise-Grade NLP ETL System with Multi-Model Hugging Face Integration**
 
-> This service feeds MASX AI’s doctrine-driven geopolitical forecasting engine by preparing clean, multilingual summaries from global sources like GDELT.
+`MASX AI News ETL` is a production-ready, modular ETL pipeline that ingests, processes, and analyzes global news content using state-of-the-art Hugging Face models. Built for real-time geopolitical intelligence and strategic forecasting, it leverages advanced NLP techniques including summarization, translation, clustering, and vector embeddings.
 
----
+## 🚀 Key Features
 
-## 🚀 Features
+### **🤖 Multi-Model Hugging Face Integration**
+- **BART Summarization** (`facebook/bart-large-cnn`) - High-quality article summarization
+- **Sentence Transformers** (`sentence-transformers/all-MiniLM-L6-v2`) - Semantic embeddings
+- **NLLB Translation** - Multilingual content processing
+- **Dynamic Model Loading** - Singleton-based model management with GPU/CPU optimization
 
-- 🌐 **Multilingual News Ingestion** — via `feedparser`, `newspaper3k`
-- 🧽 **Content Extraction Engine** — `BeautifulSoup` primary + `crawl4ai` fallback
-- 🧠 **Summarization** — BART-based summarizer (`facebook/bart-large-cnn`)
-- 🌍 **Translation** — Auto-detect language + translate using `deep-translator`
-- 🧭 **Embedding-Ready** — Processed summaries for vector storage
-- 🔁 **Proxy Rotation via Redis** — Dynamic IP rotation with periodic validation
-- 🪂 **Kafka Integration** — Sends final summaries to downstream systems
-- ⏱ **Airflow DAGs** — Orchestrates `update_proxypool`, `extract_news`, and more
-- 📡 **ENV-based Control** — Separate config for dev and prod environments
+### **🏗️ Modular ETL Architecture**
+- **Extract**: Multi-source news ingestion (RSS, APIs, web scraping)
+- **Transform**: Parallel NLP processing with async task orchestration
+- **Load**: Vector storage (ChromaDB) + structured data (Supabase/PostgreSQL)
 
----
+### **⚡ High-Performance Processing**
+- **Async Parallel Processing** - ThreadPoolExecutor with configurable workers
+- **Smart Clustering** - HDBSCAN for noise-resistant clustering + KMeans fallback
+- **Memory Optimization** - TF-IDF text compression for large articles
+- **Proxy Rotation** - Redis-backed proxy management for robust scraping
 
-## 🧱 Architecture
+### **🔧 Enterprise Features**
+- **Type-Safe Configuration** - Pydantic settings with environment validation
+- **Comprehensive Logging** - Structured logging with rotation and monitoring
+- **Error Handling** - Retry logic, graceful degradation, and exception management
+- **Scalable Architecture** - Singleton patterns, dependency injection, modular design
 
-```text
-+---------------------------+
-|   Airflow DAG (daily)    |
-+------------+-------------+
-             ↓
-┌────────────┼────────────────────────────┐
-│ update_proxypool                       │
-│   └── Validate proxies, cache in Redis │
-└────────────┬────────────────────────────┘
-             ↓
-┌────────────┼────────────────────────────┐
-│ extract_news                            │
-│   └── Fetch & parse RSS feeds           │
-│   └── BeautifulSoup or crawl4ai fallback│
-│   └── Translate → Summarize → Embed     │
-│   └── Publish to Kafka topic            │
-└────────────┴────────────────────────────┘
+## 🏛️ Architecture Overview
+
+```mermaid
+graph TD
+    subgraph "Data Sources"
+        A1[RSS Feeds] --> A2[GDELT API]
+        A2 --> A3[Web Scraping]
+        A3 --> A4[Custom APIs]
+    end
+    
+    subgraph "Extract Layer"
+        B1[NewsContentExtractor] --> B2[BeautifulSoup + Crawl4AI]
+        B2 --> B3[Proxy Rotation]
+    end
+    
+    subgraph "Transform Layer"
+        C1[Translator] --> C2[Summarizer - BART]
+        C2 --> C3[VectorizeArticles]
+        C3 --> C4[Clustering - HDBSCAN/KMeans]
+    end
+    
+    subgraph "Load Layer"
+        D1[ChromaDB - Vector Store]
+        D2[Supabase - Structured Data]
+        D3[PostgreSQL - Analytics]
+    end
+    
+    A4 --> B1
+    B3 --> C1
+    C4 --> D1
+    C4 --> D2
+    C4 --> D3
 ```
 
----
+## 🔄 Processing Flow
 
-## ⚙️ Stack Overview
+```mermaid
+flowchart LR
+    subgraph "EXTRACT"
+        A1[Fetch RSS/API Data] --> A2[HTML/Text Parser]
+        A2 --> A3[Content Extraction]
+    end
+    
+    subgraph "TRANSFORM"
+        B1[Language Detection] --> B2[Translation to English]
+        B2 --> B3[Text Compression - TF-IDF]
+        B3 --> B4[BART Summarization]
+        B4 --> B5[Sentence Embeddings]
+    end
+    
+    subgraph "CLUSTER"
+        C1[HDBSCAN Clustering] --> C2[Cluster Summary Generation]
+        C2 --> C3[KMeans Fallback]
+    end
+    
+    subgraph "LOAD"
+        D1[Vector Storage - ChromaDB]
+        D2[Structured DB - Supabase]
+        D3[Analytics Layer]
+    end
 
-| Layer         | Technology                          |
-|---------------|-------------------------------------|
-| Language      | Python 3.11                         |
-| Extraction    | BeautifulSoup, crawl4ai             |
-| Summarization | HuggingFace Transformers (BART)     |
-| Translation   | Deep Translator, langdetect         |
-| Scheduling    | Apache Airflow                      |
-| Messaging     | Kafka (prod only)                   |
-| Caching       | Redis                               |
-| Proxy Source  | free-proxy-list.net                 |
-
----
-##  MASX_AI_NEWS_ETL - Ongoing Implementation
-
-Airflow runs DAG → pushes summary to Kafka →
-  ├─ Consumer A: stores to vector DB  ----yes 
-  ├─ Consumer B: tags with doctrines  ----??? 
-  ├─ Consumer C: pushes to UI  ---- yes 
-  └─ Consumer D: triggers AutoGen feedback ---????
-
----
-
-##  MASX_AI_NEWS_ETL - Folder Structure
-
+    A3 --> B1
+    B5 --> C1
+    C2 --> D1
+    C2 --> D2
+    C2 --> D3
 ```
 
+## 🛠️ Technology Stack
 
+| Component | Technology | Purpose |
+|-----------|------------|---------|
+| **NLP Models** | Hugging Face Transformers | Summarization, embeddings, translation |
+| **Vector Database** | ChromaDB | High-performance vector storage |
+| **Structured DB** | Supabase/PostgreSQL | Relational data and analytics |
+| **Caching** | Redis | Proxy management and session caching |
+| **Web Scraping** | BeautifulSoup + Crawl4AI | Robust content extraction |
+| **Configuration** | Pydantic Settings | Type-safe environment management |
+| **Logging** | Structlog | Structured logging with rotation |
+| **Async Processing** | ThreadPoolExecutor | Parallel task execution |
 
+## 📦 Installation
 
-MASX_AI_NEWS_ETL/
-├── dags/                          # Airflow DAGs
-│   └── news_etl_dag.py
-├── etl/                           # Core ETL logic
-│   ├── extract.py                 # Handles feedparser + crawl4ai fallback
-│   ├── summarize.py              # BART model loading + summarization
-│   ├── translate.py              # Multilingual translation
-│   ├── proxy_manager.py          # Proxy validation + Redis cache
-│   ├── kafka_publisher.py        # Sends JSON to Kafka
-│   ├── redis_connector.py        # Auto-start and Redis config loader
-│   └── utils.py                  # Cleaning, langdetect, etc.
-├── config/
-│   ├── __init__.py
-│   └── settings.py               # Loads from .env and sets ENV vars
-├── models/
-│   └── summarizer.py             # Loads tokenizer + BART model (once)
-├── tests/
-│   └── test_etl_pipeline.py
-├── .env                          # Environment variables (excluded via .gitignore)
-├── .gitignore
-├── README.md
-├── requirements.txt
-├── Pipfile
-├── Dockerfile
-└── main.py                       # Entry point for manual runs
+### Prerequisites
+- Python 3.11+
+- Redis (for proxy management)
+- PostgreSQL/Supabase (for structured data)
 
+### Quick Start
+```bash
+# Clone the repository
+git clone https://github.com/masx-ai/masx-ai-etl.git
+cd masx-ai-etl
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Set up environment variables
+cp .env.example .env
+# Edit .env with your configuration
+
+# Run the ETL pipeline
+python main_etl.py
 ```
----
 
-## 📦 Example Output
+### Environment Configuration
+```env
+# Database Configuration
+SUPABASE_URL=your_supabase_url
+SUPABASE_ANON_KEY=your_supabase_key
+SUPABASE_SERVICE_ROLE_KEY=your_service_key
 
+# ChromaDB Configuration
+CHROMA_DEV_PERSIST_DIR=./.chroma_storage
+CHROMA_PROD_PERSIST_DIR=/mnt/data/chroma
+
+# Performance Settings
+MAX_WORKERS=20
+REQUEST_TIMEOUT=30
+RETRY_ATTEMPTS=3
+
+# Logging
+LOG_LEVEL=INFO
+LOG_FORMAT=json
+```
+
+## 🚀 Usage
+
+### Basic ETL Pipeline
+```python
+from etl import ETLPipeline
+from singleton import ChromaClientSingleton
+
+# Initialize and run pipeline
+etl_pipeline = ETLPipeline()
+etl_pipeline.run_all_etl_pipelines()
+```
+
+### Custom Configuration
+```python
+from config import get_settings
+
+settings = get_settings()
+print(f"Environment: {settings.environment}")
+print(f"Max Workers: {settings.max_workers}")
+print(f"Chroma Path: {settings.chroma_dev_persist_dir}")
+```
+
+### Vector Database Operations
+```python
+from nlp.vector_db_manager import VectorDBManager
+
+# Initialize vector DB manager
+vdb = VectorDBManager()
+
+# Insert documents with embeddings
+vdb.insert_documents(
+    collection_name="news_articles",
+    texts=["Article 1", "Article 2"],
+    metadatas=[{"source": "CNN"}, {"source": "BBC"}]
+)
+
+# Query similar documents
+results = vdb.query_similar(
+    collection_name="news_articles",
+    query_text="climate change",
+    top_k=5
+)
+```
+
+## 🔧 Advanced Configuration
+
+### Model Management
+The system uses singleton patterns for efficient model loading:
+
+```python
+from singleton import ModelManager
+
+# Get pre-loaded models
+summarizer_model, tokenizer, device = ModelManager.get_summarization_model()
+max_tokens = ModelManager.get_summarization_model_max_tokens()
+```
+
+### Clustering Strategies
+```python
+from nlp.clustering_strategies import HDBSCANClusterer, KMeansClusterer
+
+# HDBSCAN for large, noisy datasets
+clusterer = HDBSCANClusterer(
+    min_cluster_size=5,
+    min_samples=None,
+    metric="euclidean"
+)
+
+# KMeans for smaller, uniform datasets
+clusterer = KMeansClusterer(n_clusters=10)
+```
+
+### Performance Optimization
+```python
+# Configure parallel processing
+settings.max_workers = 20  # Adjust based on CPU cores
+settings.request_timeout = 30
+settings.retry_attempts = 3
+
+# Memory management
+settings.max_memory_usage = 0.8  # 80% memory limit
+```
+
+## 📊 Example Outputs
+
+### ETL Pipeline Logs
+```
+[INFO] ETLPipeline: Running NewsContentExtractor...
+[INFO] NewsContentExtractor: Extracted 150 articles from 5 sources
+[INFO] Summarizer: Processing 150 articles with BART model
+[INFO] VectorizeArticles: Generated embeddings for 150 articles
+[INFO] ClusterSummaryGenerator: Created 8 clusters using HDBSCAN
+[INFO] ETLPipeline: Time taken: 45.2 seconds
+```
+
+### Database Schema
+```sql
+-- Vector embeddings in ChromaDB
+collection: news_embeddings
+- id: UUID
+- text: Article summary
+- metadata: {source, date, language, cluster_id}
+- embedding: [0.42, -0.13, 0.77, ...]
+
+-- Structured data in Supabase
+table: flashpoints_clusters
+- flashpoint_id: TEXT
+- cluster_id: INTEGER
+- cluster_summary: TEXT
+- article_count: INTEGER
+- created_at: TIMESTAMP
+```
+
+### Sample Cluster Summary
 ```json
 {
-  "article_id": "dw-eu-summit-20250613",
-  "source": "DW",
-  "language": "ar",
-  "translated_summary": "The EU summit discussed rising China tensions...",
-  "embedding": [0.42, -0.13, 0.77, ...]
+  "flashpoint_id": "ukraine_conflict_2025",
+  "cluster_id": 3,
+  "cluster_summary": "Recent developments in Eastern Ukraine show increased military activity...",
+  "article_count": 23,
+  "top_sources": ["Reuters", "BBC", "CNN"],
+  "sentiment": "neutral",
+  "key_entities": ["Ukraine", "Russia", "NATO"]
 }
 ```
 
----
+## 🔍 Monitoring & Observability
 
-## 🛠️ Setup Instructions
-
-### 🧪 Local Dev (Redis Auto-launch)
-
-```bash
-pipenv install
-pipenv shell
-python main.py
-```
-
-Redis will auto-launch via Docker if not running:
-```bash
-docker run -d -p 6379:6379 --name masx-summarizer-redis --rm redis
-```
-
----
-
-### 🏭 Production (Airflow + Kafka)
-
-#### 1. Airflow DAG (`etl_dag.py`)
+### Health Checks
 ```python
-from airflow import DAG
-from airflow.operators.python import PythonOperator
+# Check ChromaDB connection
+from singleton import ChromaClientSingleton
+client = ChromaClientSingleton.get_client()
+collections = client.list_collections()
 
-update_proxypool_task = PythonOperator(
-    task_id='update_proxypool',
-    python_callable=update_proxypool,
-    provide_context=True,
-    dag=dag
-)
-
-extract_news_task = PythonOperator(
-    task_id='extract_news',
-    python_callable=extract_news,
-    provide_context=True,
-    dag=dag
-)
+# Monitor model performance
+from singleton import ModelManager
+model_info = ModelManager.get_model_info()
+print(f"Active models: {model_info}")
 ```
 
-#### 2. Kafka Publisher
-Summaries are published to Kafka for downstream agents:
+### Logging Configuration
 ```python
-producer = KafkaProducer(bootstrap_servers=["kafka:9092"])
-producer.send("masx_summaries", value=json.dumps(summary).encode("utf-8"))
+# Structured logging with rotation
+import structlog
+logger = structlog.get_logger()
+logger.info("ETL pipeline started", 
+           articles_processed=150,
+           processing_time=45.2,
+           clusters_generated=8)
 ```
 
----
+## 🚀 Scaling & Performance
 
-## 📁 ENV File Example
+### Horizontal Scaling
+- **Worker Pool**: Configure `max_workers` based on CPU cores
+- **Database Connections**: Adjust connection pools for Supabase/PostgreSQL
+- **Memory Management**: Monitor and adjust `max_memory_usage`
 
-```env
-APP_ENV=prod
-REDIS_HOST_PROD=redis
-REDIS_PORT_PROD=6379
-REDIS_KEY=proxies-1
-KAFKA_BOOTSTRAP_SERVERS=kafka:9092
-KAFKA_TOPIC=masx_summaries
+### GPU Acceleration
+```bash
+# Install CUDA-enabled PyTorch
+pip install torch==2.3.0+cu118 --find-links https://download.pytorch.org/whl/torch_stable.html
+
+# The system automatically detects and uses GPU if available
 ```
 
+### Production Deployment
+```bash
+# Docker deployment
+docker build -t masx-ai-etl .
+docker run -d --name masx-etl \
+  -e SUPABASE_URL=$SUPABASE_URL \
+  -e SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY \
+  masx-ai-etl
+```
+
+## 🤝 Contributing
+
+We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
+
+### Development Setup
+```bash
+# Install development dependencies
+pip install -r requirements-dev.txt
+
+# Run tests
+python -m pytest tests/
+
+# Code formatting
+black .
+isort .
+```
+
+## 📄 License
+
+This project is proprietary software developed by [Ateet Vatan Bahmani](https://ateetai.vercel.app) as part of the [MASX AI](https://masxai.com) project.
+
+**Copyright (c) 2025 Ateet Vatan Bahmani**  
+All rights reserved. Redistribution, modification, commercial use, or publication without explicit written consent is strictly prohibited.
+
+## 📞 Support
+
+- **Documentation**: [MASX AI Docs](https://docs.masxai.com)
+- **Issues**: [GitHub Issues](https://github.com/masx-ai/masx-ai-etl/issues)
+- **Contact**: ab@masxai.com
+- **Website**: [MASX AI](https://masxai.com)
+
 ---
 
-## 🔐 Security
-
-- `.env` file excluded via `.gitignore`
-- Uses proxy headers for safe scraping
-- Avoids persistent identifiers or PII
-
----
-
-## 🧠 Roadmap
-
-- [x] Airflow DAG support
-- [x] Kafka integration
-- [x] Redis auto-start and fallback
-- [ ] Vector DB embedding and similarity clustering
-- [ ] Doctrine alignment and threat tagging
-
----
-
-## 🙌 Author
-
-Developed by [Ateet Bahamani](https://ateetai.vercel.app)  
-Part of the [MASX AI](https://masxai.com) project — a multi-agent AI system for global strategic forecasting.
-
----
-
-## 🪪 License
-
-MIT License
+**Built with ❤️ for strategic AI intelligence and geopolitical forecasting**
