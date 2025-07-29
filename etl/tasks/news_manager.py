@@ -25,7 +25,7 @@ class NewsManager:
         """
         Get the news articles from the GDELT API.
         """
-        if not self.env_config[EnvKeyEnum.DEBUG_MODE.value]:
+        if not self.env_config[EnvKeyEnum.DEBUG.value]:
             articles = self.__fetch_gdelt_articles()
         else:
             articles = mock_data
