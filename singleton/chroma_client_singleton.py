@@ -48,7 +48,7 @@ class ChromaClientSingleton:
     def __get_persist_path(cls) -> str:
         """Get the persist path for the Chroma client."""
         env = EnvManager.get_env_vars()
-        is_debug = env.get(EnvKeyEnum.DEBUG_MODE.value, "false").lower() == "true"
+        is_debug = env.get(EnvKeyEnum.DEBUG.value, "false").lower() == "true"
 
         persist_path = (
             env.get(EnvKeyEnum.CHROMA_DEV_PERSIST_DIR.value, "./.chroma_storage")
