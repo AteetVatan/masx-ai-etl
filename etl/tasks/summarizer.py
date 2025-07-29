@@ -1,10 +1,13 @@
-from schemas import NewsArticle
 from nlp import Translator
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 import torch
 from singleton import ModelManager
 from nlp import Translator, NLPUtils
-
+from config import get_service_logger, get_settings
+from etl_data.etl_models import FeedModel
+from concurrent.futures import ThreadPoolExecutor
+import concurrent.futures
+from core.exceptions import ServiceException
 
 class Summarizer:
     """
@@ -18,54 +21,105 @@ class Summarizer:
     transformers
     """
 
-    def __init__(self, news_articles: list[NewsArticle]):
-        self.news_articles = news_articles
+    def __init__(self, feeds: list[FeedModel]):
+        self.feeds = feeds
         self.summarization_model, self.summarization_tokenizer, self.device = (
             ModelManager.get_summarization_model()
         )
         self.translator = Translator()
+        self.logger = get_service_logger("Summarizer")
+        self.settings = get_settings()
+        self.max_workers = self.settings.max_workers
+        self.prompt_prefix = "summarize: "
 
-    def summarize_all_articles(self):
+    def summarize_all_feeds(self):
         """
         Translate, compress if needed, and summarize each article.
-        """
-        prompt_prefix = "summarize: "
+        """       
+        try:
+            summarized_feeds = []
+            # apply the max_workers for threading
+            with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+                futures = [
+                    executor.submit(self.__summarize_feed, feed)
+                    for feed in self.feeds
+                ]
+                for future in concurrent.futures.as_completed(futures):
+                    result = future.result()
+                    if result:
+                        summarized_feeds.append(result)
+            return summarized_feeds
+        except Exception as e:
+            self.logger.error(f"[Summarizer] Error summarizing feeds: {e}")
+            raise ServiceException(f"Error summarizing feeds: {e}")
 
-        for article in self.news_articles:
-            # Step 1: Translate non-English articles to English
-            article.raw_text = self.translator.ensure_english(article.raw_text)
+    def __summarize_feed(self, feed: FeedModel):
+        """
+        Summarize a single feed.
+        """ 
+        try:
+            
+            # Step 1: Translate non-English articles to English    
+            try:                   
+                feed.raw_text_en = self.translator.ensure_english(feed.raw_text)
+            except Exception as e:
+                self.logger.error(f"[Summarizer] Error translating feed: {e}")
+                raise ServiceException(f"Error translating feed: {e}")
 
             # Step 2: Check if text fits the model, else compress using TF-IDF
-            if not NLPUtils.text_suitable_for_model(
-                self.summarization_tokenizer,
-                article.raw_text,
-                ModelManager.get_summarization_model_max_tokens(),
-            ):
-
-                text = NLPUtils.compress_text_tfidf(
-                    self.summarization_tokenizer,
-                    article.raw_text,
-                    ModelManager.get_summarization_model_max_tokens(),
-                    prompt_prefix=prompt_prefix,
+            try:
+                #tokenizer = self.summarization_tokenizer
+                tokenizer = self.summarization_tokenizer.__class__.from_pretrained(
+                    self.summarization_tokenizer.name_or_path
                 )
-            else:
-                text = article.raw_text
+                max_tokens = ModelManager.get_summarization_model_max_tokens()
+                if not NLPUtils.text_suitable_for_model(
+                    tokenizer,
+                    feed.raw_text_en,
+                    max_tokens,
+                ):
+                    self.logger.info(f"[Summarizer] Compressing text using TF-IDF")
+                    text = NLPUtils.compress_text_tfidf(
+                        tokenizer,
+                        feed.raw_text_en,
+                        max_tokens,
+                        prompt_prefix=self.prompt_prefix,
+                    )
+                else:
+                        text = feed.raw_text_en
+            except Exception as e:
+                self.logger.error(f"[Summarizer] Error compressing text: {e}")
+                raise ServiceException(f"Error compressing text: {e}")
 
             # Step 3: Summarize using the BART model
-            article.summary = NLPUtils.summarize_text(
-                self.summarization_model,
-                self.summarization_tokenizer,
-                self.device,
-                prompt_prefix + text,
-                ModelManager.get_summarization_model_max_tokens()
-            )
+            try:
+                self.logger.info(f"[Summarizer] Summarizing text using BART model")
+                max_tokens = ModelManager.get_summarization_model_max_tokens()
+                summarizer = self.summarization_model
+                tokenizer = self.summarization_tokenizer.__class__.from_pretrained(
+                    self.summarization_tokenizer.name_or_path
+                )
+                device = self.device
+                feed.summary = NLPUtils.summarize_text(
+                    summarizer,
+                    tokenizer,
+                    device,
+                    self.prompt_prefix + text,
+                    max_tokens
+                    )
+            except Exception as e:
+                self.logger.error(f"[Summarizer] Error summarizing text: {e}")
+                raise ServiceException(f"Error summarizing text: {e}")
 
-        # step 5: Generate questions from summary
-        # self.generate_questions_from_summary(max_questions=3)
+            # step 5: Generate questions from summary
+            # self.generate_questions_from_summary(max_questions=3)
 
-        # Step 4: Push serializable version of all NewsArticle objects
-        #serialized = [a.model_dump() for a in self.news_articles]
-        return self.news_articles
+            # Step 4: Push serializable version of all NewsArticle objects
+            #serialized = [a.model_dump() for a in self.news_articles]
+            return feed
+        except Exception as e:
+            self.logger.error(f"[Summarizer] Error summarizing feed: {e}")
+            raise ServiceException(f"Error summarizing feed: {e}")
 
     # ─── Generate Questions from Summary ──────────────────────────────────────────────On trial for now
     def generate_questions_from_summary(self, max_questions: int = 3) -> list:
@@ -78,9 +132,9 @@ class Summarizer:
         tokenizer = AutoTokenizer.from_pretrained(model_name)
         model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
 
-        for article in self.news_articles:
+        for feed in self.feeds:
 
-            prompt = f"Generate {max_questions} questions based on this summary:\n{article.summary}"
+            prompt = f"Generate {max_questions} questions based on this summary:\n{feed.summary}"
 
             inputs = tokenizer(
                 prompt, return_tensors="pt", truncation=True, max_length=512
@@ -103,4 +157,4 @@ class Summarizer:
             questions = [
                 q.strip("- ").strip() for q in generated_text.split("\n") if q.strip()
             ]
-            article.questions = questions
+            feed.questions = questions
