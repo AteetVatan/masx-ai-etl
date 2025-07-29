@@ -27,7 +27,7 @@ class FlashpointModel(BaseModel):
     description: str
     entities: List[str]
     domains: List[str]
-    flashpoint_feeds: Optional[List[FeedModel]]
+    feeds: Optional[List[FeedModel]] = []
     run_id: Optional[str]
     created_at: str
     updated_at: str
