@@ -8,11 +8,9 @@ import requests
 from bs4 import BeautifulSoup
 import logging
 from datetime import datetime, timedelta
-from config import headers_list
-from enums import EnvKeyEnum
-from singleton import EnvManager
+from config import get_settings, headers_list, get_service_logger
 
-logger = logging.getLogger("proxy_manager")
+
 
 
 # convert this class to a singleton
@@ -22,13 +20,14 @@ class ProxyManager:
     """
 
     __proxies = []
-    __env_config = EnvManager.get_env_vars()
-    __proxy_webpage = __env_config[EnvKeyEnum.PROXY_WEBPAGE.value]
-    __proxy_testing_url = __env_config[EnvKeyEnum.PROXY_TESTING_URL.value]
-    __max_workers = __env_config[EnvKeyEnum.MAX_WORKERS.value]
+    __settings = get_settings()
+    __proxy_webpage = __settings.proxy_webpage
+    __proxy_testing_url = __settings.proxy_testing_url
+    __max_workers = __settings.max_workers
     __headers_list = headers_list
     __proxy_expiration = timedelta(minutes=5)
     __proxy_timestamp = datetime.now()
+    __logger = get_service_logger("ProxyManager")
 
     @classmethod
     def proxies(cls):
