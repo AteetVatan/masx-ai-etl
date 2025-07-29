@@ -25,11 +25,14 @@ class FeedModel(BaseModel):
     flashpoint_id: str
     url: str
     title: str
-    seendate: Optional[str]
-    domain: Optional[str]
-    language: Optional[str]
-    sourcecountry: Optional[str]
-    description: Optional[str]
-    image: Optional[str]
+    seendate: Optional[str] = ""
+    domain: Optional[str] = ""
+    language: Optional[str] = ""
+    sourcecountry: Optional[str] = ""
+    description: Optional[str] = ""
+    raw_text: Optional[str] = ""
+    raw_text_en: Optional[str] = ""
+    summary: Optional[str] = ""
+    image: Optional[str] = ""
     created_at: str
     updated_at: str
