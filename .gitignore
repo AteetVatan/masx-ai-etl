@@ -337,7 +337,6 @@ standalone_admin_password.txt
 # Docker
 Dockerfile.prod
 docker-compose.override.yml
-.dockerignore
 *.pid
 *.sock
 

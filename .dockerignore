@@ -1,0 +1,44 @@
+# Ignore virtual environments
+.venv/
+env/
+venv/
+
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Hugging Face model cache
+.hf_cache/
+
+# Local environment files
+.env
+*.env
+
+# OS and editor files
+*.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Git files
+.git/
+.gitignore
+
+# Logs
+*.log
+
+# Test and mock data (if not needed in container)
+tests/
+mock_data/
+
+# Markdown, diagrams, and docs (optional if not needed at runtime)
+*.md
+*.png
+*.jpg
+*.jpeg
+*.pdf
+
+# License and local configs (if not required inside container)
+LICENSE
