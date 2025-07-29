@@ -6,7 +6,7 @@ from enum import Enum
 class EnvKeyEnum(Enum):
     """Enum for the environment variables keys."""
 
-    DEBUG_MODE = "DEBUG_MODE"
+    DEBUG = "DEBUG"
     PROXY_WEBPAGE = "PROXY_WEBPAGE"
     PROXY_TESTING_URL = "PROXY_TESTING_URL"
     MAX_WORKERS = "MAX_WORKERS"
