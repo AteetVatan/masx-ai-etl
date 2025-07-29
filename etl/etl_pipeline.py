@@ -1,48 +1,100 @@
 import time
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 from etl.tasks import NewsManager, NewsContentExtractor, Summarizer, VectorizeArticles, ClusterSummaryGenerator
 from nlp import HDBSCANClusterer, KMeansClusterer
-
+from config import get_settings
+from etl_data import Flashpoints, FlashpointsCluster
+from etl_data.etl_models import FlashpointModel, FeedModel
+from config import get_service_logger
+from typing import Optional
 class ETLPipeline:
+    
+    def __init__(self):
+        self.settings = get_settings()
+        self.logger = get_service_logger("ETLPipeline")
+        self.date = "2025-07-28"
+        self.db_flashpoints_cluster = FlashpointsCluster(self.date)
+        
+    def get_flashpoints(self, date: Optional[str] = None):
+        try:
+            flashpoints_service = Flashpoints()
+            dataset = asyncio.run(flashpoints_service.get_flashpoint_dataset(date))
+            return dataset
+        except Exception as e:
+            self.logger.error(f"Error: {e}")
+            raise e
+        
+        
+    def run_all_etl_pipelines(self):    
+        try:
+            flashpoints = self.get_flashpoints(self.date)
+            flashpoints = flashpoints[:2]
+            
+            #multi threading for each flashpoint
+            with ThreadPoolExecutor(max_workers=len(flashpoints)) as executor:
+                futures = [executor.submit(self.run_etl_pipeline, flashpoint) for flashpoint in flashpoints]
+                results = [future.result() for future in futures]
+                return results
+           
+            return dataset
+        except Exception as e:
+            self.logger.error(f"Error: {e}")
+            raise e
+        
+    
 
-    @staticmethod
-    def run_etl_pipeline():
+    def run_etl_pipeline(self, flashpoint: FlashpointModel):
         print("Starting MASX News ETL (Standalone Debug Mode)")
 
         try:
-            start_time = time.time()
-
-            print("\n Running NewsManager...")
-            news_mgr = NewsManager()
-            news_articles = news_mgr.news_articles()
-
-            print("\n Running NewsContentExtractor...")
-            extractor = NewsContentExtractor(news_articles)
-            scraped_articles = extractor.extract_articles()
-
-            print("\n Running Summarizer...")
-            summarizer = Summarizer(scraped_articles)
-            summarized_articles = summarizer.summarize_all_articles()
+            start_time = time.time()           
+            flashpoint_id = flashpoint.id
+            self.logger.info("Running NewsContentExtractor...")
+            extractor = NewsContentExtractor(flashpoint.feeds[:11])
+            scraped_feeds = extractor.extract_feeds()
             
-            print("\n Running VectorizeArticles...")
-            vectorizer = VectorizeArticles()
-            collection_name = vectorizer.get_collection_name()
-            vectorizer.run(summarized_articles)
+
+            self.logger.info("Running Summarizer...")
+            summarizer = Summarizer(scraped_feeds)
+            summarized_feeds = summarizer.summarize_all_feeds()
             
-            print("\n Running ClusterSummaryGenerator...")
-            article_count = len(summarized_articles)
-            if article_count < 20:
-                print(f"Small dataset detected ({article_count} articles) — using KMeans clustering")
-                n_clusters = min(3, article_count)  # safe default
+            self.logger.info("Running VectorizeArticles...")
+            vectorizer = VectorizeArticles(flashpoint_id)
+            #collection_name = vectorizer.get_flashpoint_id()
+            vectorizer.run(summarized_feeds)
+            
+            self.logger.info("Running ClusterSummaryGenerator...")
+            feed_count = len(summarized_feeds)
+            if feed_count < 50:
+                self.logger.info(f"Small dataset detected ({feed_count} articles) — using KMeans clustering")
+                n_clusters = min(3, feed_count)  # safe default
                 clusterer = KMeansClusterer(n_clusters=n_clusters)
             else:
-                print(f"Dataset size ({article_count} articles) — using HDBSCAN clustering")
+                self.logger.info(f"Dataset size ({feed_count} articles) — using HDBSCAN clustering")
                 clusterer = HDBSCANClusterer()
                 
-            cluster_summary_generator = ClusterSummaryGenerator(collection_name, clusterer)                    
+            cluster_summary_generator = ClusterSummaryGenerator(flashpoint_id, clusterer)                    
             cluster_summaries = cluster_summary_generator.generate()
+            
+            #If HDBSCAN returns all noise
+            if len(cluster_summaries) == 0:
+                self.logger.info("[Clustering] HDBSCAN returned all noise. Falling back to KMeans.")
+                n_clusters = min(5, max(2, feed_count // 2))  # dynamic fallback
+                clusterer = KMeansClusterer(n_clusters=n_clusters)
+                cluster_summary_generator = ClusterSummaryGenerator(flashpoint_id, clusterer)                    
+                cluster_summaries = cluster_summary_generator.generate()     
+            
+            self.db_flashpoints_cluster.db_cluster_operations(flashpoint_id, cluster_summaries, self.date)
+            
             
             # get the time now
             end_time = time.time()
-            print(f"Time taken: {end_time - start_time} seconds")
+            self.logger.info(f"Time taken: {end_time - start_time} seconds")
         except Exception as e:
-            print(f"Error: {e}")
+            self.logger.error(f"Error: {e}")
+            raise e
+        finally:
+            self.db_flashpoints_cluster.close()
+            self.logger.info("ETL Pipeline completed")
+        
