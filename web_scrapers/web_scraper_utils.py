@@ -11,7 +11,7 @@ class WebScraperUtils:
     """
 
     @staticmethod
-    def remove_links_images_ui_junk(markdown: str) -> str:
+    def remove_links_images_ui_junk(text: str) -> str:
         # Step 0: Normalize invisible characters
         text = text.replace("\u200b", "")  # Zero-width space
 
