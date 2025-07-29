@@ -295,7 +295,7 @@ graph TD
 ### Environment Variables (`EnvKeyEnum`)
 ```bash
 # Debug Configuration
-DEBUG_MODE=true/false
+DEBUG=true/false
 
 # API Configuration
 MASX_GDELT_API_KEY=your_api_key

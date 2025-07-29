@@ -45,7 +45,7 @@
 
 ## ⚙️ Stack Overview
 
-| Layer         | Technology                         |
+| Layer         | Technology                          |
 |---------------|-------------------------------------|
 | Language      | Python 3.11                         |
 | Extraction    | BeautifulSoup, crawl4ai             |
