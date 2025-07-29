@@ -21,6 +21,7 @@
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, pipeline
 from threading import Lock
 from typing import Dict
+import torch
 
 
 class NLLBTranslatorSingleton:
@@ -44,8 +45,15 @@ class NLLBTranslatorSingleton:
             return
 
         self.model_name = "facebook/nllb-200-distilled-600M"
+        
+        # Detect device (GPU if available, else CPU)
+        self.device = 0 if torch.cuda.is_available() else -1
+        
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
-        self.model = AutoModelForSeq2SeqLM.from_pretrained(self.model_name)
+        #self.model = AutoModelForSeq2SeqLM.from_pretrained(self.model_name)
+        self.model = AutoModelForSeq2SeqLM.from_pretrained(self.model_name).to(
+            torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        )
         self._initialized = True
 
         # Cache translation pipelines to avoid re-init
@@ -64,6 +72,7 @@ class NLLBTranslatorSingleton:
                 src_lang=src_lang,
                 tgt_lang=tgt_lang,
                 max_length=512,
+                device=self.device,
             )
         return self.pipelines[key]
 

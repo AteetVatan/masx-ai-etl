@@ -30,18 +30,15 @@ class ETLPipeline:
         try:
             flashpoints = self.get_flashpoints(self.date)
             #flashpoints = flashpoints[:1]
-            flashpoints = [flashpoints[1]]
+            #flashpoints = [flashpoints[1]]
             #multi threading for each flashpoint
             with ThreadPoolExecutor(max_workers=len(flashpoints)) as executor:
                 futures = [executor.submit(self.run_etl_pipeline, flashpoint) for flashpoint in flashpoints]
                 results = [future.result() for future in futures]
                 return results
-           
-            return dataset
         except Exception as e:
             self.logger.error(f"Error: {e}")
-            raise e
-        
+            raise e        
     
 
     def run_etl_pipeline(self, flashpoint: FlashpointModel):
@@ -51,7 +48,7 @@ class ETLPipeline:
             start_time = time.time()           
             flashpoint_id = flashpoint.id
             self.logger.info("Running NewsContentExtractor...")
-            extractor = NewsContentExtractor(flashpoint.feeds[:11])
+            extractor = NewsContentExtractor(flashpoint.feeds)
             scraped_feeds = extractor.extract_feeds()
             
 

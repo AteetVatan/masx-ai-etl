@@ -30,7 +30,7 @@ class Translator:
             return text
         return self.translate(text, lang, "en")
     
-    def translate_1(self, text: str, source_lang: str, target_lang: str) -> str:
+    def translate(self, text: str, source_lang: str, target_lang: str) -> str:
         """
         Try NLLB first, then fallback to Google Translate if NLLB fails or is unavailable.
         """
@@ -56,7 +56,7 @@ class Translator:
             self.logger.error(f"Translation failed: {e}", exc_info=True)
             raise TranslationException(f"Batch translation failed: {str(e)}")
 
-    def translate(self, text: str, source_lang: str, target_lang: str) -> str:
+    def translate_1(self, text: str, source_lang: str, target_lang: str) -> str:
         """
         Try Google Translate first, then fallback to NLLB if Google fails or is unavailable.
         """
