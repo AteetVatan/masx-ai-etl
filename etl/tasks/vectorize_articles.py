@@ -2,21 +2,22 @@ from typing import List
 from uuid import uuid4
 from singleton import ModelManager
 from nlp import VectorDBManager
-from schemas.news_article import NewsArticle  # adjust path if needed
+from etl_data.etl_models.feed_model import FeedModel
+from config import get_service_logger
 
 
 class VectorizeArticles:
     """ETL Task: Vectorize NewsArticle objects and store them using VectorDBManager."""
-
-    def __init__(self, collection_name: str = None):
-        self.__collection_name = collection_name or f"masx_articles_{uuid4()}"
+    
+    def __init__(self, flashpoint_id: str):
+        self.__flashpoint_id = flashpoint_id
         self.__embedding_model = ModelManager.get_embedding_model()
         self.__db = VectorDBManager()
-
+        self._logger = get_service_logger("VectorizeArticles")
 
     #gettters
-    def get_collection_name(self) -> str:
-        return self.__collection_name
+    def get_flashpoint_id(self) -> str:
+        return self.__flashpoint_id
     
     def get_embedding_model(self):   
         return self.__embedding_model
@@ -24,7 +25,7 @@ class VectorizeArticles:
     def get_db(self) -> VectorDBManager:
         return self.__db
 
-    def run(self, articles: List[NewsArticle]) -> str:
+    def run(self, feeds: List[FeedModel]) -> str:
         """
         Vectorize and store NewsArticles in Chroma vector DB.
 
@@ -35,33 +36,41 @@ class VectorizeArticles:
         """
         texts, metadatas, ids = [], [], []
 
-        for article in articles:
-            text = article.summary.strip()
-            if not text:
-                continue
+        try: 
+            for feed in feeds:
+                text = feed.summary.strip()
+                if not text:
+                    continue
 
-            texts.append(text)
-            metadatas.append({
-                "url": article.url,
-                "domain": article.domain,
-                "sourcecountry": article.sourcecountry,
-                "language": article.language or "unknown"
-            })
-            ids.append(str(uuid4()))  # each vector gets a unique ID
+                texts.append(text)
+                metadatas.append({
+                    "url": feed.url,
+                    "domain": feed.domain,
+                    "sourcecountry": feed.sourcecountry,
+                    "language": feed.language or "unknown"
+                })
+                ids.append(str(uuid4()))  # each vector gets a unique ID why?
 
-        if not texts:
-            print("No valid articles to vectorize.")
-            return self.__collection_name
+            if not texts:
+                self._logger.info("No valid articles to vectorize.")
+                return self.__flashpoint_id
 
-        # Embed and insert into Chroma
-        embeddings = self.__embedding_model.encode(texts, batch_size=32, show_progress_bar=True)
-        self.__db.insert_documents(
-            collection_name=self.__collection_name,
-            texts=texts, #Stored as "documents"  use include=["documents"]
-            metadatas=metadatas, #Stored as "metadatas"  use include=["metadatas"]
-            ids=ids,
-            embeddings=embeddings
-        )
+            # Embed and insert into Chroma
+            self._logger.info(f"Vectorizing {len(texts)} articles into collection: {self.__flashpoint_id}")
+            embeddings = self.__embedding_model.encode(texts, batch_size=32, show_progress_bar=True)
+            
+            self._logger.info(f"Inserting {len(texts)} articles into collection: {self.__flashpoint_id}")
+            self.__db.insert_documents(
+                collection_name=self.__flashpoint_id,
+                texts=texts, #Stored as "documents"  use include=["documents"]
+                metadatas=metadatas, #Stored as "metadatas"  use include=["metadatas"]
+                ids=ids,
+                embeddings=embeddings
+            )
 
-        print(f"Vectorized {len(texts)} articles into collection: {self.__collection_name}")
-        return self.__collection_name
+            self._logger.info(f"Vectorized {len(texts)} articles into collection: {self.__flashpoint_id}")
+            return self.__flashpoint_id
+        
+        except Exception as e:
+            self._logger.error(f"Error vectorizing articles: {e}")
+            return self.__flashpoint_id
