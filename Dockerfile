@@ -1,23 +1,28 @@
-FROM nvidia/cuda:12.1.1-runtime-ubuntu22.04  # For GPU (or python:3.12-slim for CPU only)
+FROM nvidia/cuda:12.1.1-runtime-ubuntu22.04 AS base
+
+
+RUN apt-get update && apt-get install -y \
+    software-properties-common && \
+    add-apt-repository ppa:deadsnakes/ppa && \
+    apt-get update && \
+    apt-get install -y python3.11 python3.11-venv python3.11-dev python3-pip && \
+    rm -rf /var/lib/apt/lists/*
+
 
 WORKDIR /app
 
-# Install dependencies
-RUN apt-get update && apt-get install -y \
-    python3 python3-pip git wget curl && \
-    rm -rf /var/lib/apt/lists/*
+
+RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.11 1 && \
+    python -m ensurepip --upgrade
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+RUN python -m pip install --no-cache-dir --upgrade pip && \
+    python -m pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# Expose FastAPI port
 EXPOSE 8000
 
-# Set environment variables
 ENV PYTHONUNBUFFERED=1
 
-# Run your script (uses uvicorn.run inside main.py)
 CMD ["python", "main.py"]
