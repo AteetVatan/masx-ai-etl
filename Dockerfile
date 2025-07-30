@@ -1,5 +1,7 @@
 FROM nvidia/cuda:12.1.1-runtime-ubuntu22.04 AS base
 
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=Etc/UTC
 
 RUN apt-get update && apt-get install -y \
     software-properties-common && \
