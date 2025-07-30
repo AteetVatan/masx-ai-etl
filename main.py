@@ -10,6 +10,7 @@ if __name__ == "__main__":
     settings = get_settings()
     port = int(os.environ.get("PORT", 8000))
     print(f"Starting API on port {port}...")
+    
     # uvicorn.run(
     #     "main:app" if settings.api_reload else app,
     #     host=settings.api_host or "0.0.0.0",
