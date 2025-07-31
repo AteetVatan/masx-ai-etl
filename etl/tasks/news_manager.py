@@ -6,7 +6,7 @@ import requests
 from enums import EnvKeyEnum
 from schemas import ArticleListSchema, NewsArticle
 from singleton import EnvManager
-from mock_data.mock_data import mock_data
+#from mock_data.mock_data import mock_data
 
 
 class NewsManager:
@@ -28,7 +28,7 @@ class NewsManager:
         if not self.env_config[EnvKeyEnum.DEBUG.value]:
             articles = self.__fetch_gdelt_articles()
         else:
-            articles = mock_data
+            articles = [] # mock_data # list[dict}]
 
         gdelt_articles = self.__validate_gdelt_articles(articles)
 
