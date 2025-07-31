@@ -3,14 +3,14 @@ FROM nvidia/cuda:12.1.1-runtime-ubuntu22.04 AS base
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=Etc/UTC
 ENV PYTHONUNBUFFERED=1
-#ENV PYTHONPATH=/app
+ENV PYTHONPATH=/app
 
-RUN apt-get update && apt-get install -y \
-    software-properties-common && \
-    add-apt-repository ppa:deadsnakes/ppa && \
-    apt-get update && \
-    apt-get install -y python3.11 python3.11-venv python3.11-dev python3-pip && \
-    rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    software-properties-common \
+    && add-apt-repository ppa:deadsnakes/ppa \
+    && apt-get update && apt-get install -y --no-install-recommends \
+    python3.11 python3.11-venv python3.11-dev python3-pip \
+    && rm -rf /var/lib/apt/lists/*
 
 
 WORKDIR /app
