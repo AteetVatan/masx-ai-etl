@@ -1,7 +1,7 @@
 import os
 import uvicorn
-from app_api import create_app
-from config.settings import get_settings
+from app.api.app import create_app
+from app.config.settings import get_settings
 
 print("Starting API...")
 app = create_app()
