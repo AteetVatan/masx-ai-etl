@@ -23,7 +23,6 @@ import shutil
 
 from chromadb import Client as ChromaClient
 from chromadb.config import Settings
-from app.enums import EnvKeyEnum
 from app.config import get_settings
 
 class ChromaClientSingleton:
