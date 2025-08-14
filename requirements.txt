@@ -1,6 +1,5 @@
-# MASX AI - Cleaned requirements.txt
-# Only core, actually used, production dependencies are listed below.
-# For dev/build/test tools, use a separate dev-requirements.txt.
+# So pip installs CUDA 12.1 PyTorch wheels. Works on CPU too....no GPU required.
+--extra-index-url https://download.pytorch.org/whl/cu121
 
 # Core FastAPI Framework
 fastapi==0.104.1
