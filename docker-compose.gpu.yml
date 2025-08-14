@@ -1,0 +1,7 @@
+#docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
+version: "3.9"
+services:
+  etl:
+    gpus: all
+    environment:
+      MASX_DEVICE: "auto"  # or "cuda" if you want to force-fail when GPU missing
