@@ -42,3 +42,6 @@ mock_data/
 
 # License and local configs (if not required inside container)
 LICENSE
+
+.cache/
+data/
