@@ -60,7 +60,11 @@ class ETLPipeline:
     def run_all_etl_pipelines(self):
         try:
             flashpoints = self.get_flashpoints(self.date)
-            flashpoints = [flashpoints[0]]
+            flashpoints = self._clean_flashpoints(flashpoints)
+            if self.settings.debug:
+                flashpoints = [flashpoints[0]]
+            else:
+                flashpoints = flashpoints
             # flashpoints = [flashpoints[1]]
             # multi threading for each flashpoint
             with ThreadPoolExecutor(max_workers=len(flashpoints)) as executor:
@@ -73,6 +77,9 @@ class ETLPipeline:
         except Exception as e:
             self.logger.error(f"Error: {e}")
             raise e
+      
+
+
 
     def run_etl_pipeline(self, flashpoint: FlashpointModel):
         print("Starting MASX News ETL (Standalone Debug Mode)")
@@ -80,7 +87,12 @@ class ETLPipeline:
         try:
             start_time = time.time()
             flashpoint_id = flashpoint.id
-            feeds = flashpoint.feeds[:10]
+            
+            if self.settings.debug:
+                feeds = flashpoint.feeds[:10]
+            else:
+                feeds = flashpoint.feeds
+                
             self.logger.info("Running NewsContentExtractor...")
             extractor = NewsContentExtractor(feeds)
             scraped_feeds = extractor.extract_feeds()
@@ -138,3 +150,7 @@ class ETLPipeline:
         finally:
             self.db_flashpoints_cluster.close()
             self.logger.info("ETL Pipeline completed")
+
+    def _clean_flashpoints(self, flashpoints: list[FlashpointModel]):
+        # clean the flashpoints
+        return [x for x in flashpoints if x.feeds is not None and len(x.feeds) > 0]
