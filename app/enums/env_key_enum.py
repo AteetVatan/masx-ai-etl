@@ -1,0 +1,18 @@
+"""Enum for the environment variables keys."""
+
+from enum import Enum
+
+
+class EnvKeyEnum(Enum):
+    """Enum for the environment variables keys."""
+
+    DEBUG = "DEBUG"
+    PROXY_WEBPAGE = "PROXY_WEBPAGE"
+    PROXY_TESTING_URL = "PROXY_TESTING_URL"
+    MAX_WORKERS = "MAX_WORKERS"
+    MASX_GDELT_API_KEY = "MASX_GDELT_API_KEY"
+    MASX_GDELT_API_URL = "MASX_GDELT_API_URL"
+    MASX_GDELT_API_KEYWORDS = "MASX_GDELT_API_KEYWORDS"
+    MASX_GDELT_MAX_RECORDS = "MASX_GDELT_MAX_RECORDS"
+    CHROMA_DEV_PERSIST_DIR = "CHROMA_DEV_PERSIST_DIR"
+    CHROMA_PROD_PERSIST_DIR = "CHROMA_PROD_PERSIST_DIR"

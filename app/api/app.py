@@ -37,9 +37,9 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 import structlog
 
-from config.settings import get_settings
-from config.logging_config import get_api_logger
-from core.exceptions import (
+from app.config.settings import get_settings
+from app.config.logging_config import get_api_logger
+from app.core.exceptions import (
     MASXException,
     ConfigurationException,
     DatabaseException,
@@ -47,7 +47,7 @@ from core.exceptions import (
     EmbeddingException,
     AgentException,
 )
-from api.routes import services
+from app.api.routes import services
 
 
 async def verify_api_key(request: Request):
@@ -354,9 +354,9 @@ def _register_routes(app: FastAPI):
             "description": "Global Signal Grid (GSG) Agentic AI System",
             "status": "operational",
             "endpoints": {
-                # "health": "/health",
-                # "workflows": "/workflows",
-                # "data": "/data",
+                "health": "/health",
+                "workflows": "/workflows",
+                "data": "/data",
                 "services": "/services",
                 "docs": "/docs",
             },
