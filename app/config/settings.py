@@ -53,7 +53,12 @@ class Settings(BaseSettings):
 
     # Environment Configuration
     environment: str = Field(default="development", description="Environment name")
-    debug: bool = Field(default=True, description="Enable debug mode")
+
+    debug: bool = Field(
+        default=True if environment == "development" else False,
+        description="Enable debug mode",
+    )
+
     log_level: str = Field(default="INFO", description="Logging level")
 
     # PROXY SETTINGS
