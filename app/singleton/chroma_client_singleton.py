@@ -25,12 +25,13 @@ from chromadb import Client as ChromaClient
 from chromadb.config import Settings
 from app.enums import EnvKeyEnum
 from app.singleton import EnvManager
-
+from app.config import get_settings
 
 class ChromaClientSingleton:
     """Singleton for Chroma client — supports local dev & Hugging Face prod modes."""
 
     _instance: Optional[ChromaClient] = None
+    settings = get_settings()
 
     @classmethod
     def get_client(cls) -> ChromaClient:
@@ -64,13 +65,11 @@ class ChromaClientSingleton:
 
     @classmethod
     def __get_persist_path(cls) -> str:
-        """Get the persist path for the Chroma client."""
-        env = EnvManager.get_env_vars()
-        is_debug = env.get(EnvKeyEnum.DEBUG.value, "false").lower() == "true"
+        """Get the persist path for the Chroma client."""     
 
         persist_path = (
-            env.get(EnvKeyEnum.CHROMA_DEV_PERSIST_DIR.value, "./.chroma_storage")
-            if is_debug
-            else env.get(EnvKeyEnum.CHROMA_PROD_PERSIST_DIR.value, "/tmp/chroma")
+            cls.settings.chroma_dev_persist_dir
+            if cls.settings.debug
+            else cls.settings.chroma_prod_persist_dir
         )
         return persist_path
