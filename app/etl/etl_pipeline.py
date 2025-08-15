@@ -121,7 +121,6 @@ class ETLPipeline:
                 n_clusters = round(
                     sqrt(feed_count / 2)
                 )  # min(3, feed_count)  # safe default
-                n_clusters = 3 if n_clusters < 3 else n_clusters
                 clusterer = KMeansClusterer(n_clusters=n_clusters)
             else:
                 self.logger.info(
