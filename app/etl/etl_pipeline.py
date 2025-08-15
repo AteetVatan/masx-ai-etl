@@ -21,6 +21,8 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from typing import Optional
+from math import sqrt
+import json
 
 from app.etl.tasks import (
     NewsContentExtractor,
@@ -35,7 +37,6 @@ from app.etl_data.etl_models import FlashpointModel
 from app.config import get_service_logger
 
 
-
 class ETLPipeline:
 
     def __init__(self, date: Optional[str] = None):
@@ -45,7 +46,7 @@ class ETLPipeline:
             self.date = date
         else:
             self.date = datetime.now().strftime("%Y-%m-%d")
-        #self.date = today_date  # "2025-07-28"
+        # self.date = today_date  # "2025-07-28"
         self.db_flashpoints_cluster = FlashpointsCluster(self.date)
 
     def get_flashpoints(self, date: Optional[str] = None):
@@ -77,9 +78,6 @@ class ETLPipeline:
         except Exception as e:
             self.logger.error(f"Error: {e}")
             raise e
-      
-
-
 
     def run_etl_pipeline(self, flashpoint: FlashpointModel):
         print("Starting MASX News ETL (Standalone Debug Mode)")
@@ -87,19 +85,26 @@ class ETLPipeline:
         try:
             start_time = time.time()
             flashpoint_id = flashpoint.id
-            
+
             if self.settings.debug:
-                feeds = flashpoint.feeds[:10]
+                if self.settings.test_summarizer == "HDBSCAN":
+                    feeds = flashpoint.feeds[:50]
+                else:
+                    feeds = flashpoint.feeds[:10]
             else:
                 feeds = flashpoint.feeds
-                
-            self.logger.info("Running NewsContentExtractor...")
-            extractor = NewsContentExtractor(feeds)
-            scraped_feeds = extractor.extract_feeds()
 
-            self.logger.info("Running Summarizer...")
-            summarizer = Summarizer(scraped_feeds)
-            summarized_feeds = summarizer.summarize_all_feeds()
+            # load summarized feeds from file
+            if self.settings.debug and self.settings.test_summarizer == "HDBSCAN":
+                summarized_feeds = self._load_summarized_feeds(flashpoint_id)
+            else:
+                self.logger.info("Running NewsContentExtractor...")
+                extractor = NewsContentExtractor(feeds)
+                scraped_feeds = extractor.extract_feeds()
+
+                self.logger.info("Running Summarizer...")
+                summarizer = Summarizer(scraped_feeds)
+                summarized_feeds = summarizer.summarize_all_feeds()
 
             self.logger.info("Running VectorizeArticles...")
             vectorizer = VectorizeArticles(flashpoint_id)
@@ -108,11 +113,15 @@ class ETLPipeline:
 
             self.logger.info("Running ClusterSummaryGenerator...")
             feed_count = len(summarized_feeds)
+
             if feed_count < 50:
                 self.logger.info(
                     f"Small dataset detected ({feed_count} articles) — using KMeans clustering"
                 )
-                n_clusters = min(3, feed_count)  # safe default
+                n_clusters = round(
+                    sqrt(feed_count / 2)
+                )  # min(3, feed_count)  # safe default
+                n_clusters = 3 if n_clusters < 3 else n_clusters
                 clusterer = KMeansClusterer(n_clusters=n_clusters)
             else:
                 self.logger.info(
@@ -130,7 +139,10 @@ class ETLPipeline:
                 self.logger.info(
                     "[Clustering] HDBSCAN returned all noise. Falling back to KMeans."
                 )
-                n_clusters = min(5, max(2, feed_count // 2))  # dynamic fallback
+                n_clusters = round(
+                    sqrt(feed_count / 2)
+                )  # min(5, max(2, feed_count // 2))  # dynamic fallback
+                n_clusters = 3 if n_clusters < 3 else n_clusters
                 clusterer = KMeansClusterer(n_clusters=n_clusters)
                 cluster_summary_generator = ClusterSummaryGenerator(
                     flashpoint_id, clusterer
@@ -154,3 +166,47 @@ class ETLPipeline:
     def _clean_flashpoints(self, flashpoints: list[FlashpointModel]):
         # clean the flashpoints
         return [x for x in flashpoints if x.feeds is not None and len(x.feeds) > 0]
+
+    def _load_summarized_feeds(self, flashpoint_id: str):
+        from app.etl_data.etl_models.feed_model import FeedModel
+        import json
+        from pathlib import Path
+
+        path = Path("debug_data/summarized_feed.json")
+
+        # Best-first: UTF-8; fallback to UTF-8 with BOM; final fallback replaces bad bytes
+        def load_json_textsafe(path: Path):
+            for enc in ("utf-8", "utf-8-sig"):
+                try:
+                    with path.open("r", encoding=enc) as f:
+                        return json.load(f)
+                except UnicodeDecodeError:
+                    continue
+            # last resort: don't crash; replace undecodable bytes
+            with path.open("r", encoding="utf-8", errors="replace") as f:
+                return json.load(f)
+
+        summarized_feeds_json = load_json_textsafe(path)
+        summarized_feeds = [FeedModel(**feed) for feed in summarized_feeds_json]
+        return summarized_feeds
+
+    def _store_summarized_feeds(self, summarized_feeds: list[dict]):
+        import json
+        import re
+
+        def clean_text(val):
+            if isinstance(val, str):
+                # Remove newlines and tabs
+                val = val.replace("\n", " ").replace("\r", " ").replace("\t", " ")
+                # Collapse multiple spaces into one
+                val = re.sub(r"\s+", " ", val).strip()
+                return val
+            elif isinstance(val, list):
+                return [clean_text(v) for v in val]
+            elif isinstance(val, dict):
+                return {k: clean_text(v) for k, v in val.items()}
+            return val
+
+        cleaned_feeds = [clean_text(feed.dict()) for feed in summarized_feeds]
+
+        json_str = json.dumps(cleaned_feeds, ensure_ascii=False, indent=4)
