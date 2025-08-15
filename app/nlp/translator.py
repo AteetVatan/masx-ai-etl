@@ -24,7 +24,7 @@ import re
 import time
 import unicodedata
 
-from app.config import get_service_logger
+from app.config import get_service_logger, get_settings
 from app.core.exceptions import TranslationException
 from app.constants import ISO_TO_NLLB_MERGED
 from app.singleton import ModelManager, NLLBTranslatorSingleton
@@ -42,15 +42,20 @@ class Translator:
         self.nllb_translator = NLLBTranslatorSingleton()
         self.translator = ModelManager.get_translator(lang="en")
         self.logger = get_service_logger("Translator")
+        self.settings = get_settings()
 
     def ensure_english(self, text: str) -> str:
         """Return text as-is if it's English, otherwise return translated-to-English version."""
         lang = ModelManager.detect_language(text[:1000])
         if lang == "en":
             return text
-        return self.translate(text, lang, "en")
+        
+        if self.settings.debug:
+            return self.translate(text, lang, "en")
+        else:
+            return self.translate_prod(text, lang, "en")
 
-    def translate_1(self, text: str, source_lang: str, target_lang: str) -> str:
+    def translate_prod(self, text: str, source_lang: str, target_lang: str) -> str:
         """
         Try NLLB first, then fallback to Google Translate if NLLB fails or is unavailable.
         """
