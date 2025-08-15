@@ -162,6 +162,9 @@ class Settings(BaseSettings):
     )
     enable_api_docs: bool = Field(default=True, description="Enable GDELT integration")
 
+    # TEST_SUMMARIZER=HDBSCANC
+    test_summarizer: str = Field(default="HDBSCAN", description="Test summarizer")
+
     # Validators
     @field_validator("environment")
     def validate_environment(cls, v: str) -> str:
