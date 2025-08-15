@@ -17,26 +17,26 @@
 # Contact: ab@masxai.com | MASXAI.com
 """Cluster the vectorized documents stored in ChromaDB and generate a concise summary for each cluster."""
 
-import hdbscan
-import numpy as np
 from sklearn.cluster import KMeans
-from sklearn.preprocessing import normalize
-from abc import ABC, abstractmethod
-
 from app.config import get_service_logger
+import numpy as np
+from .base_clusterer import BaseClusterer
 
-
-class BaseClusterer(ABC):
+class KMeansClusterer(BaseClusterer):
     """
-    Abstract base class for all clustering strategies.
+    KMeans clustering strategy.
+    Suitable for uniform-sized, clearly separated clusters.
     """
 
-    @abstractmethod
+    def __init__(self, n_clusters: int = 10, random_state: int = 42):
+        self.n_clusters = n_clusters
+        self.random_state = random_state
+        self.logger = get_service_logger("KMeansClusterer")
+
     def cluster(self, embeddings: np.ndarray) -> list[int]:
-        """
-        Given a list of embeddings, return cluster labels.
-        """
-        pass
-
-
-
+        try:
+            model = KMeans(n_clusters=self.n_clusters, random_state=self.random_state)
+            return model.fit_predict(embeddings)
+        except Exception as e:
+            self.logger.error(f"Error: {e}")
+            raise e
