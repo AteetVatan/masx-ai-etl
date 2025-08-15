@@ -5,7 +5,8 @@ This module provides utilities to normalize and translate multilingual text to E
 from .translator import Translator
 from .nlp_utils import NLPUtils
 from .vector_db_manager import VectorDBManager
-from .clustering_strategies import BaseClusterer, KMeansClusterer, HDBSCANClusterer
+from .base_clusterer import BaseClusterer, KMeansClusterer
+from .hdbscan_clusterer import HDBSCANClusterer
 
 __all__ = [
     "Translator",
