@@ -29,7 +29,7 @@ import torch
 from deep_translator import GoogleTranslator
 from lingua import LanguageDetectorBuilder
 from sentence_transformers import SentenceTransformer
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, GenerationConfig
 
 from app.config import get_service_logger
 
@@ -149,8 +149,79 @@ class ModelManager:
         return identifier
 
     # ===== INTERNAL LOADERS =====
+
     @classmethod
     def __load_summarization_model(cls):
+        """Load summarization model with safe precision, tokenizer alignment, and sane generation defaults."""
+        try:
+            device = cls.get_device()
+            use_fp16 = device.type == "cuda"
+
+            # 1) Tokenizer (fast) + pad token safety
+            tok = AutoTokenizer.from_pretrained(
+                cls._summarization_model_name,
+                cache_dir=cls.get_model_cache_dir(),
+                use_fast=True,
+            )
+
+            # Some BART checkpoints don’t define pad_token explicitly.
+            if tok.pad_token is None and tok.eos_token is not None:
+                tok.pad_token = tok.eos_token
+
+            # 2) Model with dtype & memory‑efficient attention
+            model = AutoModelForSeq2SeqLM.from_pretrained(
+                cls._summarization_model_name,
+                cache_dir=cls.get_model_cache_dir(),
+                torch_dtype=torch.float16 if use_fp16 else torch.float32,
+                low_cpu_mem_usage=True,
+            )
+
+            # Enable SDPA where available (PyTorch 2+)
+            try:
+                model = model.to(device)
+                model.config.use_cache = True
+            except Exception:
+                model = model.to(device)
+
+            # 3) Tokenizer/model vocab alignment (prevents IndexError on new tokens)
+            if len(tok) != model.get_input_embeddings().num_embeddings:
+                model.resize_token_embeddings(len(tok))
+
+            # 4) Derive safe source length from positional embeddings
+            max_pos = int(getattr(model.config, "max_position_embeddings", 1024))
+            # buffer for special tokens; keep it conservative
+            cls._max_src_len = max(32, max_pos - 4)
+
+            # 5) Generation defaults (modern API; avoids overflows)
+            cls._gen_cfg = GenerationConfig(
+                num_beams=4,
+                length_penalty=2.0,
+                no_repeat_ngram_size=3,
+                early_stopping=True,
+                do_sample=False,
+            )
+
+            # 6) Finalize
+            model.eval()
+            if use_fp16:
+                # prefer fp16 matmul; TF32 for Ampere+ gives speedups too
+                torch.set_float32_matmul_precision("high")
+
+            cls._summarization_tokenizer = tok
+            cls._summarization_model = model
+            cls._device = device
+
+            cls._logger.info(
+                f"Loaded summarization model '{cls._summarization_model_name}' "
+                f"on {device} (dtype={model.dtype}, max_src_len={cls._max_src_len})"
+            )
+
+        except Exception as e:
+            cls._logger.error(f"Failed to load summarization model: {e}", exc_info=True)
+            raise RuntimeError(f"Failed to load summarization model: {e}")
+
+    @classmethod
+    def __load_summarization_model_1(cls):
         """Load summarization model onto GPU if available, else CPU."""
         try:
             cls._device = cls.get_device()
