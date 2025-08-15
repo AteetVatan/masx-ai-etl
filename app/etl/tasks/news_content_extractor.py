@@ -29,7 +29,6 @@ from app.config import get_settings, get_service_logger
 from app.web_scrapers import WebScraperUtils
 
 
-
 class NewsContentExtractor:
     """
     Extracts raw text from article URLs using BeautifulSoup and Crawl4AI as fallback.
@@ -94,7 +93,9 @@ class NewsContentExtractor:
                     text = BeautifulSoupExtractor.extract_text_from_soup(soup)
                     if text and len(text.strip()) >= 100:
                         feed.raw_text = text.strip()
-                        feed.raw_text = WebScraperUtils.remove_links_images_ui_junk(feed.raw_text)
+                        feed.raw_text = WebScraperUtils.remove_links_images_ui_junk(
+                            feed.raw_text
+                        )
                         self.logger.info(
                             f"Successfully scraped via BeautifulSoup: {feed.url}"
                         )

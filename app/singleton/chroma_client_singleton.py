@@ -25,6 +25,7 @@ from chromadb import Client as ChromaClient
 from chromadb.config import Settings
 from app.config import get_settings
 
+
 class ChromaClientSingleton:
     """Singleton for Chroma client — supports local dev & Hugging Face prod modes."""
 
@@ -63,7 +64,7 @@ class ChromaClientSingleton:
 
     @classmethod
     def __get_persist_path(cls) -> str:
-        """Get the persist path for the Chroma client."""     
+        """Get the persist path for the Chroma client."""
 
         persist_path = (
             cls.settings.chroma_dev_persist_dir

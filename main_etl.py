@@ -39,4 +39,4 @@ def run_etl_pipeline(date: Optional[str] = None):
 
 
 if __name__ == "__main__":
-     run_etl_pipeline()
+    run_etl_pipeline()

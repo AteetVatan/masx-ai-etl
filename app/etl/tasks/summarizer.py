@@ -27,6 +27,7 @@ from app.singleton import ModelManager
 from app.config import get_service_logger, get_settings
 from app.etl_data.etl_models import FeedModel
 
+
 class Summarizer:
     """
     Summarizes raw article texts using a BART model (facebook/bart-large-cnn).

@@ -59,7 +59,7 @@ class ProxyManager:
         if not cls.__proxies:
             # get all proxies
             cls.__logger.info("Getting proxies from proxy site...")
-            all_proxies = cls.__get_proxies()           
+            all_proxies = cls.__get_proxies()
             # test proxies
             cls.__logger.info("Testing proxies...")
             proxies = list(set(cls.__test_proxy(all_proxies)))
@@ -69,16 +69,15 @@ class ProxyManager:
 
         return cls.__proxies
 
-
     @classmethod
     def __get_proxies_2(cls):
 
         import requests
         import json
-        
+
         # URL of the raw JSON file from proxifly using jsDelivr CDN
         url = "https://cdn.jsdelivr.net/gh/proxifly/free-proxy-list@main/proxies/all/data.json"
-        
+
         try:
             # Download the JSON file
             response = requests.get(url)
@@ -86,14 +85,16 @@ class ProxyManager:
             proxies = response.json()
 
             # Extract only the IPs
-            ip_list = [str(proxy["ip"])+":"+str(proxy["port"]) for proxy in proxies if "ip" in proxy]
-
+            ip_list = [
+                str(proxy["ip"]) + ":" + str(proxy["port"])
+                for proxy in proxies
+                if "ip" in proxy
+            ]
 
         except requests.exceptions.RequestException as e:
             print(f"Error downloading proxies: {e}")
-        
-        return ip_list
 
+        return ip_list
 
     @classmethod
     def __get_proxies(cls):
@@ -109,7 +110,6 @@ class ProxyManager:
             proxies.append(proxy)
 
         return proxies
-    
 
     @classmethod
     def __test_proxy(cls, proxies):
