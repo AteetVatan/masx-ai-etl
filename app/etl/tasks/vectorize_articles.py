@@ -63,6 +63,7 @@ class VectorizeArticles:
                 metadatas.append(
                     {
                         "url": feed.url,
+                        "image": feed.image or "unknown",
                         "domain": feed.domain,
                         "sourcecountry": feed.sourcecountry,
                         "language": feed.language or "unknown",

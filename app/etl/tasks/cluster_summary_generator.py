@@ -197,16 +197,16 @@ class ClusterSummaryGenerator:
                 ).most_common(3)
             ]
             langs = sorted(set(m.get("language", "unknown") for m in meta))
-            urls = [m.get("url") for m in meta if m.get("url")]
-            sample_urls = urls
-
+            urls = [m.get("url") for m in meta if m.get("url")]           
+            images = [m.get("image") for m in meta if m.get("image") and m.get("image") != "unknown"]
             result = {
                 "cluster_id": cluster_id,
                 "summary": summary,
                 "article_count": len(texts),
                 "top_domains": top_domains,
                 "languages": langs,
-                "sample_urls": sample_urls,
+                "urls": urls,
+                "images": images,
             }
             return result
         except Exception as e:
