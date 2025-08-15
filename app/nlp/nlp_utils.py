@@ -139,7 +139,8 @@ class NLPUtils:
         # Step 2: Generate summary
         summary_ids = bart_model.generate(
             input_ids,
-            max_length=256,
+            max_length=800,  # detailed summaries
+            min_length=100,  # ensures it's not too short
             num_beams=4,
             length_penalty=1.5,
             early_stopping=True,
