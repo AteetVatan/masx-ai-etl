@@ -4,6 +4,8 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=Etc/UTC
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/app
+# Optional: store browsers in a fixed path for better layer caching
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     software-properties-common curl \
@@ -19,7 +21,16 @@ RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.11 1 &
 
 COPY requirements.txt .
 RUN python -m pip install --no-cache-dir --upgrade pip && \
-    python -m pip install --no-cache-dir -r requirements.txt
+    python -m pip install --no-cache-dir -r requirements.prod.txt
+
+# ---- Install Playwright browsers (Chromium only) + system deps ----
+# If "playwright" is already in requirements.txt, you don't need to pip install it again.
+# --with-deps ensures apt packages required by Chromium are installed in this image.
+RUN playwright install --with-deps chromium
+
+# (Optional) If you need fonts for better rendering:
+RUN apt-get update && apt-get install -y --no-install-recommends fonts-liberation && rm -rf /var/lib/apt/lists/*
+
 
 COPY . .
 EXPOSE 8000
