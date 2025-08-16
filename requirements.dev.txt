@@ -1,5 +1,8 @@
-# Torch: use the cu121 wheel index; works on CPU too (no GPU required)
---extra-index-url https://download.pytorch.org/whl/cu121
+# =============================================================================
+# MASX AI ETL - Development Requirements
+# =============================================================================
+# Includes development tools, testing frameworks, and optional GPU support
+# Install with: pip install -r requirements.dev.txt
 
 # Core FastAPI Framework
 fastapi==0.104.1
@@ -12,8 +15,14 @@ sentence-transformers==4.1.0
 nltk==3.9.1
 scikit-learn==1.7.0
 hdbscan==0.8.40
-umap-learn==0.5.6
 numpy==1.26.4
+
+# Optional GPU Support (CUDA 12.1) - Works on CPU too
+--extra-index-url https://download.pytorch.org/whl/cu121
+# Uncomment below for GPU acceleration in development
+# cupy-cuda12x==13.1.0
+# cuml-cu12==24.4.*
+# rmm-cu12==24.4.*
 
 # Database and ORM
 supabase==2.17.0
@@ -26,17 +35,52 @@ lxml==5.4.0
 crawl4ai>=0.1.0
 playwright
 
-# Logging and Config
+# Logging and Configuration
 structlog==23.2.0
 python-dotenv==1.1.0
 PyYAML==6.0.2
 
-# Other Core Libraries
+# Translation and Language Detection
 deep-translator==1.11.4
 langid>=1.1.6
 lingua-language-detector>=1.1.0
-chromadb==1.0.13
+
+# Vector Database
+chromadb==1.1.0
+
+# Retry and Backoff Logic
 tenacity==9.1.2
 backoff==2.2.1
+
+# Data Validation
 pydantic==2.11.7
 pydantic-settings>=2.0.0
+
+# =============================================================================
+# DEVELOPMENT & TESTING TOOLS
+# =============================================================================
+
+# Testing Framework
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+pytest-cov>=4.1.0
+pytest-mock>=3.11.0
+
+# Code Quality & Linting
+black>=23.0.0
+flake8>=6.0.0
+isort>=5.12.0
+mypy>=1.5.0
+
+# Development Utilities
+pre-commit>=3.3.0
+ipython>=8.14.0
+jupyter>=1.0.0
+
+# Debugging & Profiling
+memory-profiler>=0.61.0
+line-profiler>=4.1.0
+
+# Documentation
+sphinx>=7.1.0
+sphinx-rtd-theme>=1.3.0
