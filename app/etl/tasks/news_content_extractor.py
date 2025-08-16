@@ -72,7 +72,9 @@ class NewsContentExtractor:
             ]
             for future in concurrent.futures.as_completed(futures):
                 result = future.result()
-                if result and result.raw_text:
+                if (
+                    result and result.raw_text and len(result.raw_text) >= 1500
+                ):  # case sometime the JS is there to accept cookies, need a better solution.
                     scraped_feeds.append(result)
 
         return scraped_feeds
@@ -91,7 +93,9 @@ class NewsContentExtractor:
                 soup = BeautifulSoupExtractor.beautiful_soup_scrape(feed.url, proxy)
                 if soup:
                     text = BeautifulSoupExtractor.extract_text_from_soup(soup)
-                    if text and len(text.strip()) >= 100:
+                    if (
+                        text and len(text.strip()) >= 1000
+                    ):  # case sometime the JS is there to accept cookies, need a better solution.
                         feed.raw_text = text.strip()
                         feed.raw_text = WebScraperUtils.remove_links_images_ui_junk(
                             feed.raw_text
