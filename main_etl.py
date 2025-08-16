@@ -30,14 +30,15 @@ All aligned with real-world scale and performance in MASX AI
 """
 
 
-def run_etl_pipeline(date: Optional[str] = None):
+def run_etl_pipeline(date: Optional[str] = None, cleanup: bool = True):
     # centralize the cleanup right before invoking all of them
-    print("Deleting all tracked Chroma collections before pipeline runs...")
-    ChromaClientSingleton.cleanup_chroma()
-    date = "2025-08-15"
+    # print("Deleting all tracked Chroma collections before pipeline runs...")
+    if cleanup:
+        ChromaClientSingleton.cleanup_chroma()
+    
     etl_pipeline = ETLPipeline(date)
     etl_pipeline.run_all_etl_pipelines()
 
 
-if __name__ == "__main__":
-    run_etl_pipeline()
+# if __name__ == "__main__":
+#     run_etl_pipeline()
