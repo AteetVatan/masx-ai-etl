@@ -46,7 +46,7 @@ langid>=1.1.6
 lingua-language-detector>=1.1.0
 
 # Vector Database
-chromadb==1.1.0
+chromadb==1.0.13
 
 # Retry and Backoff Logic
 tenacity==9.1.2
@@ -55,3 +55,5 @@ backoff==2.2.1
 # Data Validation
 pydantic==2.11.7
 pydantic-settings>=2.0.0
+
+runpod>=0.10.0
