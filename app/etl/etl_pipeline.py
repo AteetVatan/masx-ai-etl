@@ -83,16 +83,90 @@ class ETLPipeline:
         print("Starting MASX News ETL (Standalone Debug Mode)")
 
         try:
+            if self.settings.debug:
+                self.run_etl_pipeline_debug(flashpoint)
+                return
+
+            start_time = time.time()
+            flashpoint_id = flashpoint.id
+            feeds = flashpoint.feeds
+
+            # load summarized feeds from file
+            self.logger.info("Running NewsContentExtractor...")
+            extractor = NewsContentExtractor(feeds)
+            scraped_feeds = extractor.extract_feeds()
+
+            self.logger.info("Running Summarizer...")
+            summarizer = Summarizer(scraped_feeds)
+            summarized_feeds = summarizer.summarize_all_feeds()
+
+            self.logger.info("Running VectorizeArticles...")
+            vectorizer = VectorizeArticles(flashpoint_id)
+            # collection_name = vectorizer.get_flashpoint_id()
+            vectorizer.run(summarized_feeds)
+
+            self.logger.info("Running ClusterSummaryGenerator...")
+            feed_count = len(summarized_feeds)
+
+            if feed_count < 50:
+                self.logger.info(
+                    f"Small dataset detected ({feed_count} articles) — using KMeans clustering"
+                )
+                n_clusters = round(
+                    sqrt(feed_count / 2)
+                )  # min(3, feed_count)  # safe default
+                clusterer = KMeansClusterer(n_clusters=n_clusters)
+            else:
+                self.logger.info(
+                    f"Dataset size ({feed_count} articles) — using HDBSCAN clustering"
+                )
+                clusterer = HDBSCANClusterer()
+
+            cluster_summary_generator = ClusterSummaryGenerator(
+                flashpoint_id, clusterer
+            )
+            cluster_summaries = cluster_summary_generator.generate()
+
+            # If HDBSCAN returns all noise
+            if len(cluster_summaries) == 0:
+                self.logger.info(
+                    "[Clustering] HDBSCAN returned all noise. Falling back to KMeans."
+                )
+                n_clusters = round(
+                    sqrt(feed_count / 2)
+                )  # min(5, max(2, feed_count // 2))  # dynamic fallback
+                n_clusters = 3 if n_clusters < 3 else n_clusters
+                clusterer = KMeansClusterer(n_clusters=n_clusters)
+                cluster_summary_generator = ClusterSummaryGenerator(
+                    flashpoint_id, clusterer
+                )
+                cluster_summaries = cluster_summary_generator.generate()
+
+            self.db_flashpoints_cluster.db_cluster_operations(
+                flashpoint_id, cluster_summaries, self.date
+            )
+
+            # get the time now
+            end_time = time.time()
+            self.logger.info(f"Time taken: {end_time - start_time} seconds")
+        except Exception as e:
+            self.logger.error(f"Error: {e}")
+            raise e
+        finally:
+            self.db_flashpoints_cluster.close()
+            self.logger.info("ETL Pipeline completed")
+
+    def run_etl_pipeline_debug(self, flashpoint: FlashpointModel):
+        print("Starting MASX News ETL (Standalone Debug Mode)")
+
+        try:
             start_time = time.time()
             flashpoint_id = flashpoint.id
 
-            if self.settings.debug:
-                if self.settings.test_summarizer == "HDBSCAN":
-                    feeds = flashpoint.feeds[:50]
-                else:
-                    feeds = flashpoint.feeds[:10]
+            if self.settings.test_summarizer == "HDBSCAN":
+                feeds = flashpoint.feeds[:50]
             else:
-                feeds = flashpoint.feeds
+                feeds = flashpoint.feeds[:10]
 
             # load summarized feeds from file
             if self.settings.debug and self.settings.test_summarizer == "HDBSCAN":
@@ -207,5 +281,4 @@ class ETLPipeline:
             return val
 
         cleaned_feeds = [clean_text(feed.dict()) for feed in summarized_feeds]
-
         json_str = json.dumps(cleaned_feeds, ensure_ascii=False, indent=4)
