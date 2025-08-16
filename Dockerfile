@@ -1,37 +1,43 @@
-FROM nvidia/cuda:12.1.1-runtime-ubuntu22.04 AS base
+# ---- Base: CUDA runtime + Ubuntu 22.04 ----
+FROM nvidia/cuda:12.1.1-runtime-ubuntu22.04
 
-ENV DEBIAN_FRONTEND=noninteractive
-ENV TZ=Etc/UTC
-ENV PYTHONUNBUFFERED=1
-ENV PYTHONPATH=/app
-# Optional: store browsers in a fixed path for better layer caching
-ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+ENV DEBIAN_FRONTEND=noninteractive \
+    TZ=Etc/UTC \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app \
+    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
+    PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 
+WORKDIR /app
+
+# ---- OS deps: Python 3.11 + tini for clean PID 1 ----
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    software-properties-common curl \
+    software-properties-common curl ca-certificates tini git \
     && add-apt-repository ppa:deadsnakes/ppa \
     && apt-get update && apt-get install -y --no-install-recommends \
     python3.11 python3.11-venv python3.11-dev python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /app
+RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.11 1 \
+    && python -m ensurepip --upgrade \
+    && python -m pip install --no-cache-dir --upgrade pip
 
-RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.11 1 && \
-    python -m ensurepip --upgrade
+# ---- Python deps (serverless + ETL + Playwright Python) ----
+# Ensure requirements.prod.txt contains: runpod>=0.10.0 and playwright>=1.46.0
+COPY requirements.prod.txt /app/requirements.prod.txt
+RUN python -m pip install --no-cache-dir -r /app/requirements.prod.txt
 
-COPY requirements.txt .
-RUN python -m pip install --no-cache-dir --upgrade pip && \
-    python -m pip install --no-cache-dir -r requirements.prod.txt
+# ---- Playwright browsers + system deps (Chromium) ----
+RUN python -m playwright install --with-deps chromium
 
-# ---- Install Playwright browsers (Chromium only) + system deps ----
-# If "playwright" is already in requirements.txt, you don't need to pip install it again.
-# --with-deps ensures apt packages required by Chromium are installed in this image.
-RUN playwright install --with-deps chromium
+# (Optional) Fonts for better rendering of some sites
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    fonts-liberation fonts-dejavu-core \
+    && rm -rf /var/lib/apt/lists/*
 
-# (Optional) If you need fonts for better rendering:
-RUN apt-get update && apt-get install -y --no-install-recommends fonts-liberation && rm -rf /var/lib/apt/lists/*
+# ---- App code (root files + app/ package) ----
+COPY . /app
 
-
-COPY . .
-EXPOSE 8000
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--log-level", "info"]
+# ---- Serverless entry (no EXPOSE, no Uvicorn) ----
+ENTRYPOINT ["/usr/bin/tini","--"]
+CMD ["python","-u","/app/handler.py"]
