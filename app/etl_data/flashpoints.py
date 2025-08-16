@@ -28,6 +28,7 @@ from app.etl_data.etl_models import FlashpointModel, FeedModel
 from app.db import DBOperations
 from app.config import get_db_logger
 import asyncio
+from app.core.exceptions import DatabaseException
 
 
 class Flashpoints:
@@ -98,8 +99,11 @@ class Flashpoints:
         self.logger.info("Flashpoints retrieval started")
 
         try:
+            await self.db.connect()
             # async Supabase client
-            client = self.db.client
+            client = self.db.get_client()
+            if not client:
+                raise DatabaseException("Supabase client not connected")
 
             # Determine table name (based on provided date or default)
             if date:
@@ -143,6 +147,8 @@ class Flashpoints:
         except Exception as e:
             self.logger.error(f"Flashpoints retrieval failed: {e}")
             raise
+        finally:
+            await self.db.disconnect()
 
     async def get_feeds_per_flashpoint(
         self,
@@ -167,8 +173,11 @@ class Flashpoints:
         )
 
         try:
+            await self.db.connect()
             # async Supabase client
-            client = self.db.client
+            client = self.db.get_client()
+            if not client:
+                raise DatabaseException("Supabase client not connected")
 
             # Determine feed table (based on date or default to today)
             if date:
@@ -245,3 +254,5 @@ class Flashpoints:
         except Exception as e:
             self.logger.error(f"Feeds per flashpoint retrieval failed: {e}")
             raise
+        finally:
+            await self.db.disconnect()

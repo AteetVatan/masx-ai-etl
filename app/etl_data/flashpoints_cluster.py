@@ -76,11 +76,16 @@ class FlashpointsCluster:
         """
         Dynamically create a daily news_clusters table if it doesn't exist.
         """
-        conn = await self.db.get_new_connection()  # asyncpg connection for DDL
+        #conn = await self.db.get_new_connection()  # asyncpg connection for DDL
         try:
+            await self.db.connect()
+            pool = self.db.get_pool()
+            if not pool:
+                raise DatabaseException("PostgreSQL pool not initialized")
+            
             table_name = self.db.get_daily_table_name(self.cluster_table_prefix, date)
-            query = f"""
-            CREATE TABLE IF NOT EXISTS public."{table_name}" (
+            create_table_query = f"""
+            CREATE TABLE IF NOT EXISTS "{table_name}" (
                 id BIGSERIAL PRIMARY KEY,
                 flashpoint_id UUID NOT NULL,
                 cluster_id INT NOT NULL,
@@ -88,34 +93,45 @@ class FlashpointsCluster:
                 article_count INT NOT NULL,
                 top_domains JSONB DEFAULT '[]'::jsonb,
                 languages JSONB DEFAULT '[]'::jsonb,
-                sample_urls JSONB DEFAULT '[]'::jsonb,
+                urls JSONB DEFAULT '[]'::jsonb,
+                images JSONB DEFAULT '[]'::jsonb,
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
             );
-            """
-            await conn.execute(query)
-            return table_name
+            """            
+            rls_policies = self.__get_all_rls_policies_cmd(table_name)
+        
+            async with pool.acquire() as conn:
+                await conn.execute(create_table_query)                  
+                for policy in rls_policies:
+                    await conn.execute(policy)
+                self.logger.info(f"Table ensured: {table_name}")
+    
         except Exception as e:
             self.logger.error(f"Error: {e}")
             raise DatabaseException(f"Error: {e}")
         finally:
-            await conn.close()
+            await self.db.disconnect()
 
     async def delete_news_cluster_table(self, date: Optional[datetime] = None) -> str:
         """
         Dynamically delete a daily news_clusters table if it exists using asyncpg.
-        """
-        conn = await self.db.get_new_connection()  # asyncpg connection for DDL
+        """        
         try:
+            await self.db.connect()
+            pool = self.db.get_pool()
+            if not pool:
+                raise DatabaseException("PostgreSQL pool not initialized")
             table_name = self.db.get_daily_table_name(self.cluster_table_prefix, date)
             query = f'DROP TABLE IF EXISTS public."{table_name}";'  # Use quotes to handle special characters
-            await conn.execute(query)
+            async with pool.acquire() as conn:
+                await conn.execute(query)
             self.logger.info(f"Deleted table: {table_name}")
             return table_name
         except Exception as e:
             self.logger.error(f"Error deleting table: {e}")
             raise DatabaseException(f"Error deleting table: {e}")
         finally:
-            await conn.close()
+            await self.db.disconnect()
 
     @retry(
         retry=retry_if_exception_type(Exception),  # Retry on any exception
@@ -177,7 +193,11 @@ class FlashpointsCluster:
         """
         try:
             table_name = self.db.get_daily_table_name(self.cluster_table_prefix, date)
+            await self.db.connect()
             client = self.db.get_client()  # Supabase client for DML
+            if not client:
+                raise DatabaseException("Supabase client not connected")
+            
             payload = [
                 {
                     "flashpoint_id": str(flashpoint_id),  # ensure string
@@ -186,7 +206,8 @@ class FlashpointsCluster:
                     "article_count": int(c["article_count"]),  # convert np.int32 → int
                     "top_domains": json.dumps(c.get("top_domains", [])),
                     "languages": json.dumps(c.get("languages", [])),
-                    "sample_urls": json.dumps(c.get("sample_urls", [])),
+                    "urls": json.dumps(c.get("urls", [])),
+                    "images": json.dumps(c.get("images", [])),
                 }
                 for c in clusters
             ]
@@ -199,6 +220,8 @@ class FlashpointsCluster:
         except Exception as e:
             self.logger.error(f"Error: {e}")
             raise DatabaseException(f"Error: {e}")
+        finally:
+            await self.db.disconnect()
 
     @retry(
         retry=retry_if_exception_type(Exception),
@@ -256,6 +279,7 @@ class FlashpointsCluster:
         """
         self.logger.info("Flashpoints retrieval started")
         try:
+            await self.db.connect()
             client = self.db.get_client()  # Supabase client for DML
 
             if date:
@@ -296,6 +320,8 @@ class FlashpointsCluster:
         except Exception as e:
             self.logger.error(f"Flashpoints retrieval failed: {e}")
             raise
+        finally:
+            await self.db.disconnect()
 
     async def get_feeds_per_flashpoint(
         self,
@@ -319,6 +345,7 @@ class FlashpointsCluster:
             f"Feeds per flashpoint requested - flashpoint_id: {flashpoint_id}"
         )
         try:
+            await self.db.connect()
             client = self.db.get_client()  # Supabase client for DML
 
             if date:
@@ -391,3 +418,80 @@ class FlashpointsCluster:
         except Exception as e:
             self.logger.error(f"Feeds per flashpoint retrieval failed: {e}")
             raise
+        finally:
+            await self.db.disconnect()
+
+    def __get_all_rls_policies_cmd(self, table_name: str) -> List[str]:
+        """
+        Generate all RLS-related SQL commands for the given table:
+        - Enables and forces RLS
+        - Creates SELECT, INSERT, UPDATE, DELETE policies for 'authenticated' role
+        """
+
+        enable_rls_query = f"ALTER TABLE {table_name} ENABLE ROW LEVEL SECURITY;"
+        force_rls_query = f"ALTER TABLE {table_name} FORCE ROW LEVEL SECURITY;"
+
+        create_select_policy_query = f"""
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM pg_policies WHERE policyname = 'allow_select' AND tablename = '{table_name}'
+            ) THEN
+                EXECUTE format($sql$
+                    CREATE POLICY allow_select ON {table_name}
+                    FOR SELECT TO anon, authenticated USING (true);
+                $sql$);
+            END IF;
+        END $$;
+        """
+
+        create_insert_policy_query = f"""
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM pg_policies WHERE policyname = 'allow_insert' AND tablename = '{table_name}'
+            ) THEN
+                EXECUTE format($sql$
+                    CREATE POLICY allow_insert ON {table_name}
+                    FOR INSERT TO anon, authenticated WITH CHECK (true);
+                $sql$);
+            END IF;
+        END $$;
+        """
+
+        create_update_policy_query = f"""
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM pg_policies WHERE policyname = 'allow_update' AND tablename = '{table_name}'
+            ) THEN
+                EXECUTE format($sql$
+                    CREATE POLICY allow_update ON {table_name}
+                    FOR UPDATE TO anon, authenticated USING (true) WITH CHECK (true);
+                $sql$);
+            END IF;
+        END $$;
+        """
+
+        create_delete_policy_query = f"""
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM pg_policies WHERE policyname = 'allow_delete' AND tablename = '{table_name}'
+            ) THEN
+                EXECUTE format($sql$
+                    CREATE POLICY allow_delete ON {table_name}
+                    FOR DELETE TO anon, authenticated USING (true);
+                $sql$);
+            END IF;
+        END $$;
+        """
+
+        return [
+            enable_rls_query,
+            force_rls_query,
+            create_select_policy_query,
+            create_insert_policy_query,
+            create_update_policy_query,
+            create_delete_policy_query
+        ]
