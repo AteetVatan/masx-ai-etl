@@ -49,7 +49,7 @@ class Translator:
         lang = ModelManager.detect_language(text[:1000])
         if lang == "en":
             return text
-        
+
         if self.settings.debug:
             return self.translate(text, lang, "en")
         else:

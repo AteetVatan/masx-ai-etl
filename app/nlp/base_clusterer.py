@@ -37,6 +37,3 @@ class BaseClusterer(ABC):
         Given a list of embeddings, return cluster labels.
         """
         pass
-
-
-

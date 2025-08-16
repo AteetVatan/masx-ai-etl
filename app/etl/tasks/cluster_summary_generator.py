@@ -197,8 +197,12 @@ class ClusterSummaryGenerator:
                 ).most_common(3)
             ]
             langs = sorted(set(m.get("language", "unknown") for m in meta))
-            urls = [m.get("url") for m in meta if m.get("url")]           
-            images = [m.get("image") for m in meta if m.get("image") and m.get("image") != "unknown"]
+            urls = [m.get("url") for m in meta if m.get("url")]
+            images = [
+                m.get("image")
+                for m in meta
+                if m.get("image") and m.get("image") != "unknown"
+            ]
             result = {
                 "cluster_id": cluster_id,
                 "summary": summary,

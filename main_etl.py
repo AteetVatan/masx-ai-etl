@@ -34,6 +34,7 @@ def run_etl_pipeline(date: Optional[str] = None):
     # centralize the cleanup right before invoking all of them
     print("Deleting all tracked Chroma collections before pipeline runs...")
     ChromaClientSingleton.cleanup_chroma()
+    date = "2025-08-15"
     etl_pipeline = ETLPipeline(date)
     etl_pipeline.run_all_etl_pipelines()
 

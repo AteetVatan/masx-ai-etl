@@ -76,13 +76,13 @@ class FlashpointsCluster:
         """
         Dynamically create a daily news_clusters table if it doesn't exist.
         """
-        #conn = await self.db.get_new_connection()  # asyncpg connection for DDL
+        # conn = await self.db.get_new_connection()  # asyncpg connection for DDL
         try:
             await self.db.connect()
             pool = self.db.get_pool()
             if not pool:
                 raise DatabaseException("PostgreSQL pool not initialized")
-            
+
             table_name = self.db.get_daily_table_name(self.cluster_table_prefix, date)
             create_table_query = f"""
             CREATE TABLE IF NOT EXISTS "{table_name}" (
@@ -97,15 +97,15 @@ class FlashpointsCluster:
                 images JSONB DEFAULT '[]'::jsonb,
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
             );
-            """            
+            """
             rls_policies = self.__get_all_rls_policies_cmd(table_name)
-        
+
             async with pool.acquire() as conn:
-                await conn.execute(create_table_query)                  
+                await conn.execute(create_table_query)
                 for policy in rls_policies:
                     await conn.execute(policy)
                 self.logger.info(f"Table ensured: {table_name}")
-    
+
         except Exception as e:
             self.logger.error(f"Error: {e}")
             raise DatabaseException(f"Error: {e}")
@@ -115,7 +115,7 @@ class FlashpointsCluster:
     async def delete_news_cluster_table(self, date: Optional[datetime] = None) -> str:
         """
         Dynamically delete a daily news_clusters table if it exists using asyncpg.
-        """        
+        """
         try:
             await self.db.connect()
             pool = self.db.get_pool()
@@ -197,7 +197,7 @@ class FlashpointsCluster:
             client = self.db.get_client()  # Supabase client for DML
             if not client:
                 raise DatabaseException("Supabase client not connected")
-            
+
             payload = [
                 {
                     "flashpoint_id": str(flashpoint_id),  # ensure string
@@ -493,5 +493,5 @@ class FlashpointsCluster:
             create_select_policy_query,
             create_insert_policy_query,
             create_update_policy_query,
-            create_delete_policy_query
+            create_delete_policy_query,
         ]

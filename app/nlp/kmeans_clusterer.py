@@ -22,6 +22,7 @@ from app.config import get_service_logger
 import numpy as np
 from .base_clusterer import BaseClusterer
 
+
 class KMeansClusterer(BaseClusterer):
     """
     KMeans clustering strategy.

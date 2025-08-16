@@ -43,10 +43,9 @@ class DBOperations:
 
         # Initialize DB parameters
         self._initialize_connection()
-        
 
         # Auto-connect on instantiation (sync wrapper)
-        #asyncio.run(self._sync_initialize_connections())
+        # asyncio.run(self._sync_initialize_connections())
 
     async def get_new_connection(self):
         return await asyncpg.connect(self._connection_params["database_url"])
