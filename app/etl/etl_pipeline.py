@@ -71,7 +71,9 @@ class ETLPipeline:
             # flashpoints = [flashpoints[1]]
             # multi threading for each flashpoint
             start_time = time.time()
-            self.logger.info(f"Starting ALL ETL Pipeline for {len(flashpoints)} flashpoints")
+            self.logger.info(
+                f"Starting ALL ETL Pipeline for {len(flashpoints)} flashpoints"
+            )
             with ThreadPoolExecutor(max_workers=len(flashpoints)) as executor:
                 futures = [
                     executor.submit(self.run_etl_pipeline, flashpoint)
@@ -79,7 +81,9 @@ class ETLPipeline:
                 ]
                 results = [future.result() for future in futures]
                 end_time = time.time()
-                self.logger.info(f"****Time taken: {end_time - start_time} seconds for ALL ETL Pipeline*****")
+                self.logger.info(
+                    f"****Time taken: {end_time - start_time} seconds for ALL ETL Pipeline*****"
+                )
                 return results
         except Exception as e:
             self.logger.error(f"Error: {e}")
@@ -130,8 +134,7 @@ class ETLPipeline:
             cluster_summary_generator = ClusterSummaryGenerator(
                 flashpoint_id, clusterer
             )
-            cluster_summaries = cluster_summary_generator.generate()           
-           
+            cluster_summaries = cluster_summary_generator.generate()
 
             # If HDBSCAN returns all noise
             if len(cluster_summaries) == 0:
@@ -148,9 +151,10 @@ class ETLPipeline:
                 )
                 cluster_summaries = cluster_summary_generator.generate()
 
+            self.logger.info(
+                f" number of cluster summaries for flashpoint {flashpoint_id}: {len(cluster_summaries)}"
+            )
 
-            self.logger.info(f" number of cluster summaries for flashpoint {flashpoint_id}: {len(cluster_summaries)}")
-            
             self.logger.info("Running db_cluster_operations...")
             self.db_flashpoints_cluster.db_cluster_operations(
                 flashpoint_id, cluster_summaries, self.date
@@ -232,14 +236,16 @@ class ETLPipeline:
                 )
                 cluster_summaries = cluster_summary_generator.generate()
 
-            self.logger.info("Running db_cluster_operations...")  
+            self.logger.info("Running db_cluster_operations...")
             self.db_flashpoints_cluster.db_cluster_operations(
                 flashpoint_id, cluster_summaries, self.date
             )
 
             # get the time now
             end_time = time.time()
-            self.logger.info(f"Time taken: {end_time - start_time} seconds for flashpoint {flashpoint_id}")
+            self.logger.info(
+                f"Time taken: {end_time - start_time} seconds for flashpoint {flashpoint_id}"
+            )
         except Exception as e:
             self.logger.error(f"Error: {e}")
             raise e

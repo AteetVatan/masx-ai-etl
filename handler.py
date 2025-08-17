@@ -29,11 +29,13 @@ sys.path.append(os.environ.get("PYTHONPATH", "/app"))
 # ---- Import your ETL (ABSOLUTE import; no leading dot) ----
 # If your file is /app/main_etl.py:
 from main_etl import run_etl_pipeline
+
 # If it's /app/app/main_etl.py, use:
 # from app.main_etl import run_etl_pipeline
 
 # Defaults via env
 ALLOW_CLEANUP = os.environ.get("MASX_ETL_CLEANUP", "true").lower() == "true"
+
 
 def run(job: Dict[str, Any]):
     """
@@ -54,7 +56,11 @@ def run(job: Dict[str, Any]):
     try:
         # Warm requests used by CI/Actions to pre-pull image/models
         if payload.get("mode") == "warm" or payload.get("trigger") == "warm":
-            return {"ok": True, "status": "warmed", "elapsed_sec": round(time.time() - start, 3)}
+            return {
+                "ok": True,
+                "status": "warmed",
+                "elapsed_sec": round(time.time() - start, 3),
+            }
 
         date = _parse_date(payload.get("date"))
         cleanup = bool(payload.get("cleanup", ALLOW_CLEANUP))
@@ -76,7 +82,8 @@ def run(job: Dict[str, Any]):
             "trigger": trigger,
             "duration_sec": round(time.time() - start, 3),
         }
-        
+
+
 def _parse_date(s: Optional[str]) -> str:
     """Accept 'YYYY-MM-DD' or ISO strings; fallback to today."""
     if not s:

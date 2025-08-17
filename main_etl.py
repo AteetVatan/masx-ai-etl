@@ -35,7 +35,7 @@ def run_etl_pipeline(date: Optional[str] = None, cleanup: bool = True):
     # print("Deleting all tracked Chroma collections before pipeline runs...")
     if cleanup:
         ChromaClientSingleton.cleanup_chroma()
-    
+
     etl_pipeline = ETLPipeline(date)
     etl_pipeline.run_all_etl_pipelines()
 
