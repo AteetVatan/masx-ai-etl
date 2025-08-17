@@ -45,18 +45,19 @@ class FlashpointsCluster:
         self.db = DBOperations()
         self.logger = get_db_logger("flashpoints_cluster")
         self.cluster_table_prefix = self.CLUSTER_TABLE_PREFIX
+        self.date = date
 
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
+        # try:
+        #     loop = asyncio.get_running_loop()
+        # except RuntimeError:
+        #     loop = asyncio.new_event_loop()
+        #     asyncio.set_event_loop(loop)
 
-        if loop.is_running():
-            # For environments like FastAPI
-            return asyncio.create_task(self._db_cluster_init(date))
-        else:
-            return loop.run_until_complete(self._db_cluster_init(date))
+        # if loop.is_running():
+        #     # For environments like FastAPI
+        #     return asyncio.create_task(self._db_cluster_init(date))
+        # else:
+        #     return loop.run_until_complete(self._db_cluster_init(date))
 
     def close(self):
         self.db.close()
@@ -192,6 +193,11 @@ class FlashpointsCluster:
             date: Optional date for daily table.
         """
         try:
+            
+            #create the table if it doesn't exist
+            await self._db_cluster_init(date)            
+            
+            
             table_name = self.db.get_daily_table_name(self.cluster_table_prefix, date)
             await self.db.connect()
             client = self.db.get_client()  # Supabase client for DML
