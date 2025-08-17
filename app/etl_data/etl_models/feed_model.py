@@ -18,7 +18,7 @@
 
 from pydantic import BaseModel
 from typing import Optional
-
+from datetime import datetime
 
 class FeedModel(BaseModel):
     """Model for feed data."""
@@ -36,5 +36,5 @@ class FeedModel(BaseModel):
     raw_text_en: Optional[str] = ""
     summary: Optional[str] = ""
     image: Optional[str] = ""
-    created_at: str
-    updated_at: str
+    created_at: datetime
+    updated_at: datetime

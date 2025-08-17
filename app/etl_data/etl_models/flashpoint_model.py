@@ -16,6 +16,7 @@
 #
 # Contact: ab@masxai.com | MASXAI.com
 
+from datetime import datetime
 from pydantic import BaseModel
 from typing import List, Optional
 from .feed_model import FeedModel
@@ -31,5 +32,5 @@ class FlashpointModel(BaseModel):
     domains: List[str]
     feeds: Optional[List[FeedModel]] = []
     run_id: Optional[str]
-    created_at: str
-    updated_at: str
+    created_at: datetime
+    updated_at: datetime

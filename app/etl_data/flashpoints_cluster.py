@@ -16,11 +16,9 @@
 #
 # Contact: ab@masxai.com | MASXAI.com
 
-import asyncio
 import json
 from datetime import datetime
 from typing import Any, Dict, List, Optional
-
 
 from tenacity import (
     retry,
@@ -38,6 +36,7 @@ from app.core.exceptions import DatabaseException
 class FlashpointsCluster:
     """
     Flashpoints class for retrieving flashpoints and their associated feeds.
+    Synchronous version to avoid async issues on RunPod.io.
     """
 
     CLUSTER_TABLE_PREFIX = "news_clusters"
@@ -46,35 +45,30 @@ class FlashpointsCluster:
         self.db = DBOperations()
         self.logger = get_db_logger("flashpoints_cluster")
         self.cluster_table_prefix = self.CLUSTER_TABLE_PREFIX
-        self.date = date        
-       
+        self.date = date
 
     def close(self):
         self.db.close()
 
-    async def _db_cluster_init(self, date: Optional[datetime] = None):
+    def _db_cluster_init_sync(self, date: Optional[datetime] = None):
         """
-        Initialize the flashpoints cluster table (async version).
+        Initialize the flashpoints cluster table (synchronous version).
         """
         try:
-            await self.delete_news_cluster_table(date)
-            await self.create_news_cluster_table(date)
+            self.delete_news_cluster_table_sync(date)
+            self.create_news_cluster_table_sync(date)
         except Exception as e:
             self.logger.error(f"Error initializing flashpoints cluster: {e}")
             raise DatabaseException(f"Error initializing flashpoints cluster: {e}")
 
-    async def create_news_cluster_table(self, date: Optional[datetime] = None) -> str:
+    def create_news_cluster_table_sync(self, date: Optional[datetime] = None) -> str:
         """
-        Dynamically create a daily news_clusters table if it doesn't exist.
+        Dynamically create a daily news_clusters table if it doesn't exist (sync).
         """
-        # conn = await self.db.get_new_connection()  # asyncpg connection for DDL
         try:
-            await self.db.connect()
-            pool = self.db.get_pool()
-            if not pool:
-                raise DatabaseException("PostgreSQL pool not initialized")
-
             table_name = self.db.get_daily_table_name(self.cluster_table_prefix, date)
+            
+            # Create table with proper schema
             create_table_query = f"""
             CREATE TABLE IF NOT EXISTS "{table_name}" (
                 id BIGSERIAL PRIMARY KEY,
@@ -89,48 +83,45 @@ class FlashpointsCluster:
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
             );
             """
+            
+            # Execute table creation
+            self.db.execute_sync_query(create_table_query)
+            
+            # Apply RLS policies
             rls_policies = self.__get_all_rls_policies_cmd(table_name)
-
-            async with pool.acquire() as conn:
-                await conn.execute(create_table_query)
-                for policy in rls_policies:
-                    await conn.execute(policy)
-                self.logger.info(f"Table ensured: {table_name}")
+            for policy in rls_policies:
+                self.db.execute_sync_query(policy)
+            
+            self.logger.info(f"Table created successfully: {table_name}")
+            return table_name
 
         except Exception as e:
-            self.logger.error(f"Error: {e}")
-            raise DatabaseException(f"Error: {e}")
-        finally:
-            await self.db.disconnect()
+            self.logger.error(f"Error creating table: {e}")
+            raise DatabaseException(f"Error creating table: {e}")
 
-    async def delete_news_cluster_table(self, date: Optional[datetime] = None) -> str:
+    def delete_news_cluster_table_sync(self, date: Optional[datetime] = None) -> str:
         """
-        Dynamically delete a daily news_clusters table if it exists using asyncpg.
+        Dynamically delete a daily news_clusters table if it exists (sync).
         """
         try:
-            await self.db.connect()
-            pool = self.db.get_pool()
-            if not pool:
-                raise DatabaseException("PostgreSQL pool not initialized")
             table_name = self.db.get_daily_table_name(self.cluster_table_prefix, date)
-            query = f'DROP TABLE IF EXISTS public."{table_name}";'  # Use quotes to handle special characters
-            async with pool.acquire() as conn:
-                await conn.execute(query)
-            self.logger.info(f"Deleted table: {table_name}")
+            
+            # Drop table if exists
+            query = f'DROP TABLE IF EXISTS public."{table_name}";'
+            self.db.execute_sync_query(query)
+            
+            self.logger.info(f"Table deleted successfully: {table_name}")
             return table_name
+            
         except Exception as e:
             self.logger.error(f"Error deleting table: {e}")
             raise DatabaseException(f"Error deleting table: {e}")
-        finally:
-            await self.db.disconnect()
 
     @retry(
-        retry=retry_if_exception_type(Exception),  # Retry on any exception
-        wait=wait_exponential(
-            multiplier=1, min=2, max=10
-        ),  # Exponential backoff (2s → 4s → 8s … up to 10s)
-        stop=stop_after_attempt(3),  # Retry up to 3 times
-        reraise=True,  # Raise the last exception if all retries fail
+        retry=retry_if_exception_type(Exception),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        stop=stop_after_attempt(3),
+        reraise=True,
     )
     def db_cluster_operations(
         self,
@@ -142,133 +133,81 @@ class FlashpointsCluster:
         Synchronous method to create the daily cluster table and insert cluster summaries.
         """
         try:
-            # Check if we're in an async context
-            try:
-                loop = asyncio.get_running_loop()
-                # We're in an async context (e.g., FastAPI, RunPod.io)                
-                # On RunPod.io, we need to be more careful with async operations
-                # Create a task but don't return it - this method should be synchronous
-                self.logger.info("RunPod.io environment detected - using async task")
-                asyncio.create_task(
-                    self.insert_cluster_summaries(flashpoint_id, clusters, date)
-                )
-                # For synchronous callers, we'll just return success
-                return True
-                
-            except RuntimeError:
-                # No event loop running, create one and run synchronously
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                try:
-                    return loop.run_until_complete(
-                        self.insert_cluster_summaries(flashpoint_id, clusters, date)
-                    )
-                finally:
-                    loop.close()
+            # Initialize the table synchronously
+            self._db_cluster_init_sync(date)
+            
+            # Insert cluster summaries synchronously
+            return self.insert_cluster_summaries_sync(flashpoint_id, clusters, date)
+            
         except Exception as e:
             self.logger.error(
                 f"[DBOperations] Error inserting clusters: {e}", exc_info=True
             )
             raise DatabaseException(f"Database cluster operation failed: {e}")
 
-    async def db_cluster_operations_async(
+    def insert_cluster_summaries_sync(
         self,
         flashpoint_id: str,
         clusters: List[Dict[str, Any]],
         date: Optional[datetime] = None,
     ):
         """
-        Async version of db_cluster_operations for use in async contexts.
+        Insert multiple cluster summaries into the daily table (synchronous).
         """
         try:
-            return await self.insert_cluster_summaries(flashpoint_id, clusters, date)
-        except Exception as e:
-            self.logger.error(
-                f"[DBOperations] Error inserting clusters: {e}", exc_info=True
-            )
-            raise DatabaseException(f"Database cluster operation failed: {e}")
-
-    @retry(
-        retry=retry_if_exception_type(Exception),
-        wait=wait_exponential(multiplier=1, min=2, max=10),
-        stop=stop_after_attempt(3),
-        reraise=True,
-    )
-    async def insert_cluster_summaries(
-        self,
-        flashpoint_id: str,
-        clusters: List[Dict[str, Any]],
-        date: Optional[datetime] = None,
-    ):
-        """
-        Insert multiple cluster summaries into the daily table.
-
-        Args:
-            clusters: List of cluster summary dicts.
-            date: Optional date for daily table.
-        """
-        try:
-            
-            #create the table if it doesn't exist
-            await self._db_cluster_init(date)            
-            
-            
             table_name = self.db.get_daily_table_name(self.cluster_table_prefix, date)
-            await self.db.connect()
-            client = self.db.get_client()  # Supabase client for DML
-            if not client:
-                raise DatabaseException("Supabase client not connected")
-
-            payload = [
-                {
-                    "flashpoint_id": str(flashpoint_id),  # ensure string
-                    "cluster_id": int(c["cluster_id"]),  # convert np.int32 → int
-                    "summary": c["summary"],
-                    "article_count": int(c["article_count"]),  # convert np.int32 → int
-                    "top_domains": json.dumps(c.get("top_domains", [])),
-                    "languages": json.dumps(c.get("languages", [])),
-                    "urls": json.dumps(c.get("urls", [])),
-                    "images": json.dumps(c.get("images", [])),
-                }
-                for c in clusters
-            ]
-
-            result = client.table(table_name).insert(payload).execute()
-            print(result)
-            self.logger.info(
-                f"Inserted {len(clusters)} cluster summaries into {table_name}"
-            )
+            
+            # Prepare batch insert for better performance
+            insert_query = f"""
+            INSERT INTO "{table_name}" (
+                flashpoint_id, cluster_id, summary, article_count,
+                top_domains, languages, urls, images
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """
+            
+            # Prepare batch data
+            batch_queries = []
+            for cluster in clusters:
+                params = (
+                    str(flashpoint_id),
+                    int(cluster["cluster_id"]),
+                    cluster["summary"],
+                    int(cluster["article_count"]),
+                    json.dumps(cluster.get("top_domains", [])),
+                    json.dumps(cluster.get("languages", [])),
+                    json.dumps(cluster.get("urls", [])),
+                    json.dumps(cluster.get("images", []))
+                )
+                batch_queries.append((insert_query, params))
+            
+            # Execute batch insert
+            if batch_queries:
+                self.db.execute_sync_batch(batch_queries)
+                self.logger.info(
+                    f"Successfully inserted {len(clusters)} cluster summaries into {table_name}"
+                )
+            else:
+                self.logger.warning("No clusters to insert")
+            
+            return True
+            
         except Exception as e:
-            self.logger.error(f"Error: {e}")
-            raise DatabaseException(f"Error: {e}")
-        finally:
-            await self.db.disconnect()
+            self.logger.error(f"Error inserting cluster summaries: {e}")
+            raise DatabaseException(f"Error inserting cluster summaries: {e}")
 
-    @retry(
-        retry=retry_if_exception_type(Exception),
-        wait=wait_exponential(multiplier=1, min=2, max=10),
-        stop=stop_after_attempt(3),
-        reraise=True,
-    )
-    async def get_flashpoint_dataset(
+    def get_flashpoint_dataset_sync(
         self, date: Optional[str] = None
     ) -> List[FlashpointModel]:
         """
-        Retrieve all flashpoints along with their associated feeds.
-        Retries up to 3 times in case of transient errors.
+        Retrieve all flashpoints along with their associated feeds (synchronous).
         """
         try:
-            # Fetch all flashpoints
-            flashpoints = await self.get_all_flashpoints(date)
+            # Fetch all flashpoints synchronously
+            flashpoints = self.get_all_flashpoints_sync(date)
 
-            # Fetch feeds concurrently for each flashpoint
-            feed_tasks = [
-                self.get_feeds_per_flashpoint(fp.id, date) for fp in flashpoints
-            ]
-            feeds_results = await asyncio.gather(*feed_tasks)
-
-            # Attach feeds to each flashpoint
-            for flashpoint, feeds in zip(flashpoints, feeds_results):
+            # Fetch feeds for each flashpoint synchronously
+            for flashpoint in flashpoints:
+                feeds = self.get_feeds_per_flashpoint_sync(flashpoint.id, date)
                 flashpoint.feeds = feeds
 
             self.logger.info(
@@ -282,173 +221,153 @@ class FlashpointsCluster:
             )
             raise
 
-    async def get_all_flashpoints(
+    def get_all_flashpoints_sync(
         self, date: Optional[str] = None
     ) -> List[FlashpointModel]:
         """
-        Retrieve all flashpoints from the daily flashpoint table.
-        Optionally filter by date (YYYY-MM-DD format).
-
-        Args:
-            date (str, optional): Date filter in YYYY-MM-DD format.
-
-        Returns:
-            List[FlashpointModel]: All flashpoints for the given date or current date.
-
-        Raises:
-            Exception: If database query or date parsing fails.
+        Retrieve all flashpoints from the daily flashpoint table (synchronous).
         """
         self.logger.info("Flashpoints retrieval started")
         try:
-            await self.db.connect()
-            client = self.db.get_client()  # Supabase client for DML
-
+            # Determine table name
             if date:
                 try:
                     target_date = datetime.strptime(date, "%Y-%m-%d")
-                    table_name = self.db.get_daily_table_name(
-                        "flash_point", target_date
-                    )
+                    table_name = self.db.get_daily_table_name("flash_point", target_date)
                 except ValueError:
                     self.logger.error("Invalid date format. Use YYYY-MM-DD")
                     return []
             else:
                 table_name = self.db.get_daily_table_name("flash_point")
-
-            # Query all flashpoints asynchronously via Supabase client
-            result = client.table(table_name).select("*").execute()
-
-            if not result.data:
+            
+            # Query all flashpoints
+            query = f'SELECT * FROM "{table_name}"'
+            results = self.db.execute_sync_query(query, fetch=True)
+            
+            if not results:
                 self.logger.warning("No flashpoints found")
                 return []
-
-            flashpoints = [
-                FlashpointModel(
-                    id=fp.get("id", ""),
-                    title=fp.get("title", ""),
-                    description=fp.get("description", ""),
-                    entities=self.db.parse_json_field(fp.get("entities")),
-                    domains=self.db.parse_json_field(fp.get("domains")),
-                    run_id=fp.get("run_id"),
-                    created_at=fp.get("created_at", ""),
-                    updated_at=fp.get("updated_at", ""),
-                )
-                for fp in result.data
-            ]
-
+            
+            # Convert to FlashpointModel instances
+            flashpoints = []
+            for fp in results:
+                try:
+                    flashpoint = FlashpointModel(
+                        id=fp.get("id", ""),
+                        title=fp.get("title", ""),
+                        description=fp.get("description", ""),
+                        entities=self.db.parse_json_field(fp.get("entities")),
+                        domains=self.db.parse_json_field(fp.get("domains")),
+                        run_id=fp.get("run_id"),
+                        created_at=fp.get("created_at", ""),
+                        updated_at=fp.get("updated_at", ""),
+                    )
+                    flashpoints.append(flashpoint)
+                except Exception as e:
+                    self.logger.warning(f"Failed to parse flashpoint {fp.get('id')}: {e}")
+                    continue
+            
             self.logger.info(f"Flashpoints retrieved: {len(flashpoints)} records")
             return flashpoints
+            
         except Exception as e:
             self.logger.error(f"Flashpoints retrieval failed: {e}")
             raise
-        finally:
-            await self.db.disconnect()
 
-    async def get_feeds_per_flashpoint(
+    def get_feeds_per_flashpoint_sync(
         self,
         flashpoint_id: str,
         date: Optional[str] = None,
     ) -> List[FeedModel]:
         """
-        Retrieve all feeds associated with a specific flashpoint (handles Supabase 1000-row limit with pagination).
-
-        Args:
-            flashpoint_id (str): UUID of the flashpoint.
-            date (str, optional): Date filter in YYYY-MM-DD format.
-
-        Returns:
-            List[FeedModel]: List of feed data for the flashpoint.
-
-        Raises:
-            Exception: If database query or date parsing fails.
+        Retrieve all feeds associated with a specific flashpoint (synchronous).
         """
         self.logger.info(
             f"Feeds per flashpoint requested - flashpoint_id: {flashpoint_id}"
         )
         try:
-            await self.db.connect()
-            client = self.db.get_client()  # Supabase client for DML
-
+            # Determine feed table name
             if date:
                 try:
                     target_date = datetime.strptime(date, "%Y-%m-%d")
-                    feed_table = self.db.get_daily_table_name(
-                        "feed_entries", target_date
-                    )
+                    feed_table = self.db.get_daily_table_name("feed_entries", target_date)
                 except ValueError:
                     self.logger.error("Invalid date format. Use YYYY-MM-DD")
                     return []
             else:
                 feed_table = self.db.get_daily_table_name("feed_entries")
-
+            
+            # Query feeds with pagination to handle large datasets
             all_records = []
             batch_size = 500
             offset = 0
-
+            
             while True:
-                result = (
-                    client.table(feed_table)
-                    .select("*")
-                    .eq("flashpoint_id", flashpoint_id)
-                    .range(offset, offset + batch_size - 1)
-                    .execute()
-                )
-
-                if not result.data:
+                query = f"""
+                SELECT * FROM "{feed_table}" 
+                WHERE flashpoint_id = %s 
+                ORDER BY created_at 
+                LIMIT %s OFFSET %s
+                """
+                params = (flashpoint_id, batch_size, offset)
+                
+                result = self.db.execute_sync_query(query, params, fetch=True)
+                
+                if not result:
                     break
-
-                all_records.extend(result.data)
+                
+                all_records.extend(result)
                 offset += batch_size
-
+                
                 self.logger.debug(
-                    f"Fetched {len(result.data)} feeds (total: {len(all_records)})"
+                    f"Fetched {len(result)} feeds (total: {len(all_records)})"
                 )
-
-                if len(result.data) < batch_size:
+                
+                if len(result) < batch_size:
                     break
-
+            
             if not all_records:
                 self.logger.warning(
                     f"No feeds found for flashpoint_id: {flashpoint_id}"
                 )
                 return []
-
-            feeds = [
-                FeedModel(
-                    id=feed.get("id", ""),
-                    flashpoint_id=feed.get("flashpoint_id", ""),
-                    url=feed.get("url", ""),
-                    title=feed.get("title", ""),
-                    seendate=feed.get("seendate"),
-                    domain=feed.get("domain"),
-                    language=feed.get("language"),
-                    sourcecountry=feed.get("sourcecountry"),
-                    description=feed.get("description"),
-                    image=feed.get("image"),
-                    created_at=feed.get("created_at", ""),
-                    updated_at=feed.get("updated_at", ""),
-                )
-                for feed in all_records
-            ]
-
+            
+            # Convert to FeedModel instances
+            feeds = []
+            for feed in all_records:
+                try:
+                    feed_model = FeedModel(
+                        id=feed.get("id", ""),
+                        flashpoint_id=feed.get("flashpoint_id", ""),
+                        url=feed.get("url", ""),
+                        title=feed.get("title", ""),
+                        seendate=feed.get("seendate"),
+                        domain=feed.get("domain"),
+                        language=feed.get("language"),
+                        sourcecountry=feed.get("sourcecountry"),
+                        description=feed.get("description"),
+                        image=feed.get("image"),
+                        created_at=feed.get("created_at", ""),
+                        updated_at=feed.get("updated_at", ""),
+                    )
+                    feeds.append(feed_model)
+                except Exception as e:
+                    self.logger.warning(f"Failed to parse feed {feed.get('id')}: {e}")
+                    continue
+            
             self.logger.info(
                 f"Feeds retrieved for flashpoint_id={flashpoint_id}: {len(feeds)} records"
             )
             return feeds
-
+            
         except Exception as e:
             self.logger.error(f"Feeds per flashpoint retrieval failed: {e}")
             raise
-        finally:
-            await self.db.disconnect()
 
     def __get_all_rls_policies_cmd(self, table_name: str) -> List[str]:
         """
-        Generate all RLS-related SQL commands for the given table:
-        - Enables and forces RLS
-        - Creates SELECT, INSERT, UPDATE, DELETE policies for 'authenticated' role
+        Generate all RLS-related SQL commands for the given table.
         """
-
         enable_rls_query = f"ALTER TABLE {table_name} ENABLE ROW LEVEL SECURITY;"
         force_rls_query = f"ALTER TABLE {table_name} FORCE ROW LEVEL SECURITY;"
 

@@ -16,7 +16,6 @@
 #
 # Contact: ab@masxai.com | MASXAI.com
 
-import asyncio
 import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
@@ -52,7 +51,7 @@ class ETLPipeline:
     def get_flashpoints(self, date: Optional[str] = None):
         try:
             flashpoints_service = Flashpoints()
-            dataset = asyncio.run(flashpoints_service.get_flashpoint_dataset(date))
+            dataset = flashpoints_service.get_flashpoint_dataset(date)
             return dataset
         except Exception as e:
             self.logger.error(f"Error: {e}")
