@@ -33,6 +33,7 @@ sys.path.append(os.environ.get("PYTHONPATH", "/app"))
 # Defaults via env
 ALLOW_CLEANUP = os.environ.get("MASX_ETL_CLEANUP", "true").lower() == "true"
 
+
 def _parse_date(s: Optional[str]) -> str:
     """Accept 'YYYY-MM-DD' or ISO strings; fallback to today."""
     if not s:
@@ -47,8 +48,8 @@ def _parse_date(s: Optional[str]) -> str:
             return datetime.strptime(s, "%Y-%m-%d").date().isoformat()
         except Exception as e:
             raise ValueError(f"invalid 'date': {s} ({e})")
-        
-        
+
+
 def run(job: Dict[str, Any]):
     """
     RunPod serverless entrypoint.
@@ -76,9 +77,10 @@ def run(job: Dict[str, Any]):
 
         date = _parse_date(payload.get("date"))
         cleanup = bool(payload.get("cleanup", ALLOW_CLEANUP))
-        
-        #lazy import to avoid boot-time crashes
+
+        # lazy import to avoid boot-time crashes
         from main_etl import run_etl_pipeline
+
         run_etl_pipeline(date=date, cleanup=cleanup)
 
         return {
@@ -97,6 +99,7 @@ def run(job: Dict[str, Any]):
             "trigger": trigger,
             "duration_sec": round(time.time() - start, 3),
         }
-        
+
+
 if __name__ == "__main__":
     runpod.serverless.start({"handler": run})
