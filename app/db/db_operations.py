@@ -16,12 +16,11 @@
 #
 # Contact: ab@masxai.com | MASXAI.com
 
-import asyncio
 import json
 from datetime import datetime
 from typing import Optional, List, Any
 
-import asyncpg
+# import asyncpg  # Commented out to prevent async issues
 from supabase import create_client, Client
 from supabase.lib.client_options import ClientOptions
 
@@ -55,18 +54,19 @@ class DBOperations:
         self.settings = get_settings()
         self.logger = get_service_logger("FlashpointDatabaseService")
         self.client: Optional[Client] = None  # Supabase client
-        self.pool: Optional[asyncpg.Pool] = None  # asyncpg pool
+        self.pool = None  # asyncpg pool (disabled)
         self.sync_pool: Optional[SimpleConnectionPool] = None  # psycopg2 pool
         self._connection_params = {}
 
-        # Initialize DB parameters
+        # Initialize DB parameters (synchronous only)
         self._initialize_connection()
 
-        # Auto-connect on instantiation (sync wrapper)
-        # asyncio.run(self._sync_initialize_connections())
+        # DO NOT initialize any async connections during __init__
+        # This prevents the TypeError: __init__() should return None, not '_asyncio.Task'
+        self.logger.info("DBOperations initialized (async connections deferred)")
 
-    async def get_new_connection(self):
-        return await asyncpg.connect(self._connection_params["database_url"])
+    # async def get_new_connection(self):
+    #     return await asyncpg.connect(self._connection_params["database_url"])
 
     def _initialize_connection(self):
         """Initialize database connection parameters."""
@@ -82,11 +82,9 @@ class DBOperations:
                 "min_connections": self.settings.database_min_connections or 1,
             }
 
-            # Initialize synchronous connection pool if available
-            if POOL_AVAILABLE and self._connection_params.get("database_url"):
-                self._initialize_sync_pool()
-
-            self.logger.info("Database connection parameters initialized")
+            # DO NOT initialize connection pools during __init__ to prevent async issues
+            # Pools will be initialized lazily when first needed
+            self.logger.info("Database connection parameters initialized (pools deferred)")
 
         except Exception as e:
             self.logger.error(f"Failed to initialize database connection: {e}")
@@ -117,56 +115,56 @@ class DBOperations:
             # Don't fail initialization if pool creation fails
             self.sync_pool = None
 
-    async def connect(self):
-        """Establish async DB connections."""
-        try:
-            # Initialize Supabase client
-            options = ClientOptions(
-                schema="public", headers={"X-Client-Info": "masx-ai-system"}
-            )
-            self.client = create_client(
-                self._connection_params["supabase_url"],
-                self._connection_params["supabase_key"],
-                options=options,
-            )
+    # async def connect(self):
+    #     """Establish async DB connections."""
+    #     try:
+    #         # Initialize Supabase client
+    #         options = ClientOptions(
+    #             schema="public", headers={"X-Client-Info": "masx_ai-system"}
+    #         )
+    #         self.client = create_client(
+    #             self._connection_params["supabase_url"],
+    #             self._connection_params["supabase_key"],
+    #             options=options,
+    #         )
 
-            # Initialize asyncpg pool if DB URL exists
-            database_url = self._connection_params.get("database_url")
-            if database_url:
-                self.pool = await asyncpg.create_pool(
-                    database_url,
-                    min_size=self._connection_params["min_connections"],
-                    max_size=self._connection_params["max_connections"],
-                    command_timeout=60,
-                    server_settings={"application_name": "masx_ai_system"},
-                )
+    #         # Initialize asyncpg pool if DB URL exists
+    #         database_url = self._connection_params.get("database_url")
+    #         if database_url:
+    #             self.pool = await asyncpg.create_pool(
+    #                 database_url,
+    #                 min_size=self._connection_params["min_connections"],
+    #                 max_size=self._connection_params["max_connections"],
+    #                 command_timeout=60,
+    #                 server_settings={"application_name": "masx_ai_system"},
+    #             )
 
-            self.logger.info("Database connections established successfully")
+    #         self.logger.info("Database connections established successfully")
 
-        except Exception as e:
-            self.logger.error(f"Failed to establish database connections: {e}")
-            raise DatabaseException(f"Database connection failed: {str(e)}")
+    #     except Exception as e:
+    #         self.logger.error(f"Failed to establish database connections: {e}")
+    #         raise DatabaseException(f"Database connection failed: {str(e)}")
 
-    async def _sync_initialize_connections(self):
-        """Internal helper for initializing connections in sync context."""
-        await self.connect()
+    # async def _sync_initialize_connections(self):
+    #     """Internal helper for initializing connections in sync context."""
+    #     await self.connect()
 
-    async def disconnect(self):
-        """Close async DB connections."""
-        try:
-            if self.pool:
-                await self.pool.close()
-                self.pool = None
+    # async def disconnect(self):
+    #     """Close async DB connections."""
+    #     try:
+    #         if self.pool:
+    #             await self.pool.close()
+    #             self.pool = None
 
-            if self.client:
-                self.client = None
+    #         if self.client:
+    #             self.client = None
 
-            self.logger.info("Database connections closed")
-        except Exception as e:
-            self.logger.error(f"Error closing database connections: {e}")
+    #         self.logger.info("Database connections closed")
+    #     except Exception as e:
+    #         self.logger.error(f"Error closing database connections: {e}")
 
     def close(self):
-        """Sync wrapper for disconnect."""
+        """Close database connections."""
         try:
             # Close synchronous connection pool
             if self.sync_pool:
@@ -176,31 +174,31 @@ class DBOperations:
         except Exception as e:
             self.logger.warning(f"Error closing synchronous connection pool: {e}")
         
-        # Close async connections
-        try:
-            asyncio.run(self.disconnect())
-        except Exception as e:
-            self.logger.warning(f"Error closing async connections: {e}")
+        # Note: Async connections are not automatically closed to avoid async issues
+        # They will be cleaned up when the process ends
+        self.logger.info("Database operations closed (async connections preserved)")
 
-    async def __aenter__(self):
-        """Async context manager entry."""
-        await self.connect()
-        return self
+    # async def __aenter__(self):
+    #     """Async context manager entry."""
+    #     await self.connect()
+    #     return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        """Async context manager exit."""
-        await self.disconnect()
+    # async def __aexit__(self, exc_type, exc_val, exc_tb):
+    #     """Async context manager exit."""
+    #     await self.disconnect()
 
     def get_client(self) -> Client:
         """Sync accessor for Supabase client."""
         if not self.client:
-            asyncio.run(self._sync_initialize_connections())
+            # Note: Client initialization is deferred to avoid async issues
+            self.logger.warning("Supabase client not initialized - async operations disabled")
         return self.client
 
-    def get_pool(self) -> asyncpg.Pool:
+    def get_pool(self):
         """Sync accessor for asyncpg pool."""
         if not self.pool:
-            asyncio.run(self._sync_initialize_connections())
+            # Note: Pool initialization is deferred to avoid async issues
+            self.logger.warning("Async pool not initialized - async operations disabled")
         return self.pool
 
     def get_sync_connection(self):
@@ -215,6 +213,10 @@ class DBOperations:
             database_url = self._connection_params.get("database_url")
             if not database_url:
                 raise DatabaseException("Database URL not configured")
+            
+            # Initialize sync pool lazily if not already done
+            if not self.sync_pool and POOL_AVAILABLE:
+                self._initialize_sync_pool()
             
             # Try to get connection from pool first
             if self.sync_pool:
