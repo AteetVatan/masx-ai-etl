@@ -46,7 +46,7 @@ class ETLPipeline:
         else:
             self.date = datetime.now().strftime("%Y-%m-%d")
         # self.date = today_date  # "2025-07-28"
-        self.db_flashpoints_cluster = None
+        self.db_flashpoints_cluster = FlashpointsCluster(self.date)
 
     def get_flashpoints(self, date: Optional[str] = None):
         try:
@@ -58,8 +58,7 @@ class ETLPipeline:
             raise e
 
     def run_all_etl_pipelines(self):
-        try:           
-            self.db_flashpoints_cluster = FlashpointsCluster(self.date)
+        try:
             flashpoints = self.get_flashpoints(self.date)
             flashpoints = self._clean_flashpoints(flashpoints)
             if self.settings.debug:
