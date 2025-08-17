@@ -24,6 +24,7 @@ from datetime import datetime
 from typing import Any, Dict, Optional
 import runpod
 from app.config import get_service_logger
+
 logger = get_service_logger("Handler")
 
 # Make sure root is importable
@@ -83,7 +84,10 @@ def run(job: Dict[str, Any]):
 
         # lazy import to avoid boot-time crashes
         from main_etl import run_etl_pipeline
-        logger.info(f"running handler  foretl pipeline for date: {date} and cleanup: {cleanup} ")
+
+        logger.info(
+            f"running handler  foretl pipeline for date: {date} and cleanup: {cleanup} "
+        )
         run_etl_pipeline(date=date, cleanup=cleanup)
         logger.info(f"handler completed")
         return {

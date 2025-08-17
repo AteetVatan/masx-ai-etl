@@ -21,6 +21,7 @@ from app.etl import ETLPipeline
 from app.singleton import ChromaClientSingleton
 from typing import Optional
 from app.config import get_service_logger
+
 logger = get_service_logger("ETLPipeline")
 
 """
@@ -41,6 +42,7 @@ def run_etl_pipeline(date: Optional[str] = None, cleanup: bool = True):
 
     etl_pipeline = ETLPipeline(date)
     etl_pipeline.run_all_etl_pipelines()
+
 
 if __name__ == "__main__":
     run_etl_pipeline()

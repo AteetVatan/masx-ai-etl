@@ -28,6 +28,7 @@ from supabase.lib.client_options import ClientOptions
 try:
     import psycopg2
     from psycopg2.extras import RealDictCursor
+
     PSYCOPG2_AVAILABLE = True
 except ImportError:
     PSYCOPG2_AVAILABLE = False
@@ -39,6 +40,7 @@ from app.config import get_settings, get_service_logger
 # Add connection pooling for synchronous operations
 try:
     from psycopg2.pool import SimpleConnectionPool
+
     POOL_AVAILABLE = True
 except ImportError:
     POOL_AVAILABLE = False
@@ -84,7 +86,9 @@ class DBOperations:
 
             # DO NOT initialize connection pools during __init__ to prevent async issues
             # Pools will be initialized lazily when first needed
-            self.logger.info("Database connection parameters initialized (pools deferred)")
+            self.logger.info(
+                "Database connection parameters initialized (pools deferred)"
+            )
 
         except Exception as e:
             self.logger.error(f"Failed to initialize database connection: {e}")
@@ -95,23 +99,25 @@ class DBOperations:
         try:
             if not POOL_AVAILABLE:
                 return
-                
+
             database_url = self._connection_params.get("database_url")
             if not database_url:
                 return
-            
+
             # Create connection pool
             self.sync_pool = SimpleConnectionPool(
                 minconn=self._connection_params["min_connections"],
                 maxconn=self._connection_params["max_connections"],
                 dsn=database_url,
-                cursor_factory=RealDictCursor
+                cursor_factory=RealDictCursor,
             )
-            
+
             self.logger.info("Synchronous connection pool initialized")
-            
+
         except Exception as e:
-            self.logger.warning(f"Failed to initialize synchronous connection pool: {e}")
+            self.logger.warning(
+                f"Failed to initialize synchronous connection pool: {e}"
+            )
             # Don't fail initialization if pool creation fails
             self.sync_pool = None
 
@@ -173,7 +179,7 @@ class DBOperations:
                 self.logger.info("Synchronous connection pool closed")
         except Exception as e:
             self.logger.warning(f"Error closing synchronous connection pool: {e}")
-        
+
         # Note: Async connections are not automatically closed to avoid async issues
         # They will be cleaned up when the process ends
         self.logger.info("Database operations closed (async connections preserved)")
@@ -191,14 +197,18 @@ class DBOperations:
         """Sync accessor for Supabase client."""
         if not self.client:
             # Note: Client initialization is deferred to avoid async issues
-            self.logger.warning("Supabase client not initialized - async operations disabled")
+            self.logger.warning(
+                "Supabase client not initialized - async operations disabled"
+            )
         return self.client
 
     def get_pool(self):
         """Sync accessor for asyncpg pool."""
         if not self.pool:
             # Note: Pool initialization is deferred to avoid async issues
-            self.logger.warning("Async pool not initialized - async operations disabled")
+            self.logger.warning(
+                "Async pool not initialized - async operations disabled"
+            )
         return self.pool
 
     def get_sync_connection(self):
@@ -207,17 +217,19 @@ class DBOperations:
         Returns a connection object that can be used for synchronous operations.
         """
         if not PSYCOPG2_AVAILABLE:
-            raise DatabaseException("psycopg2 is not available. Install it with: pip install psycopg2-binary")
-        
+            raise DatabaseException(
+                "psycopg2 is not available. Install it with: pip install psycopg2-binary"
+            )
+
         try:
             database_url = self._connection_params.get("database_url")
             if not database_url:
                 raise DatabaseException("Database URL not configured")
-            
+
             # Initialize sync pool lazily if not already done
             if not self.sync_pool and POOL_AVAILABLE:
                 self._initialize_sync_pool()
-            
+
             # Try to get connection from pool first
             if self.sync_pool:
                 try:
@@ -228,42 +240,50 @@ class DBOperations:
                         cursor.execute("SELECT 1")
                         cursor.fetchone()
                         cursor.close()
-                        
-                        self.logger.debug("Synchronous database connection obtained from pool")
+
+                        self.logger.debug(
+                            "Synchronous database connection obtained from pool"
+                        )
                         return conn
                 except Exception as e:
-                    self.logger.warning(f"Pool connection failed, falling back to direct connection: {e}")
+                    self.logger.warning(
+                        f"Pool connection failed, falling back to direct connection: {e}"
+                    )
                     # Return connection to pool if it's broken
                     if conn:
                         self.sync_pool.putconn(conn, close=True)
-            
+
             # Fallback to direct connection
             conn = psycopg2.connect(
                 database_url,
                 cursor_factory=RealDictCursor,
-                application_name="masx_ai_system_sync"
+                application_name="masx_ai_system_sync",
             )
-            
+
             # Set autocommit to False for transaction control
             conn.autocommit = False
-            
+
             # Test connection
             cursor = conn.cursor()
             cursor.execute("SELECT 1")
             cursor.fetchone()
             cursor.close()
-            
-            self.logger.debug("Synchronous database connection established and validated")
+
+            self.logger.debug(
+                "Synchronous database connection established and validated"
+            )
             return conn
-            
+
         except Exception as e:
-            self.logger.error(f"Failed to establish synchronous database connection: {e}")
+            self.logger.error(
+                f"Failed to establish synchronous database connection: {e}"
+            )
             raise DatabaseException(f"Synchronous connection failed: {str(e)}")
 
     def return_sync_connection(self, conn):
         """
         Return a connection to the pool if using connection pooling.
-        
+
         Args:
             conn: Database connection to return
         """
@@ -288,7 +308,7 @@ class DBOperations:
     def test_sync_connection(self) -> bool:
         """
         Test if synchronous database connection is working.
-        
+
         Returns:
             bool: True if connection is successful, False otherwise
         """
@@ -304,12 +324,12 @@ class DBOperations:
     def execute_sync_query(self, query: str, params: tuple = None, fetch: bool = False):
         """
         Execute a synchronous database query with proper error handling.
-        
+
         Args:
             query: SQL query string
             params: Query parameters (optional)
             fetch: Whether to fetch and return results
-            
+
         Returns:
             Query results if fetch=True, otherwise None
         """
@@ -317,19 +337,19 @@ class DBOperations:
         try:
             conn = self.get_sync_connection()
             cursor = conn.cursor()
-            
+
             if params:
                 cursor.execute(query, params)
             else:
                 cursor.execute(query)
-            
+
             if fetch:
                 results = cursor.fetchall()
                 return results
             else:
                 conn.commit()
                 return None
-                
+
         except Exception as e:
             if conn:
                 try:
@@ -346,10 +366,10 @@ class DBOperations:
     def execute_sync_batch(self, queries: List[tuple]):
         """
         Execute multiple queries in a single transaction.
-        
+
         Args:
             queries: List of (query, params) tuples
-            
+
         Returns:
             List of results for each query
         """
@@ -358,13 +378,13 @@ class DBOperations:
             conn = self.get_sync_connection()
             cursor = conn.cursor()
             results = []
-            
+
             for query, params in queries:
                 if params:
                     cursor.execute(query, params)
                 else:
                     cursor.execute(query)
-                
+
                 # Try to fetch results if available
                 try:
                     result = cursor.fetchall()
@@ -372,10 +392,10 @@ class DBOperations:
                 except psycopg2.ProgrammingError:
                     # No results to fetch (INSERT, UPDATE, DELETE)
                     results.append(None)
-            
+
             conn.commit()
             return results
-            
+
         except Exception as e:
             if conn:
                 try:

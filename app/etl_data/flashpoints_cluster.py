@@ -67,7 +67,7 @@ class FlashpointsCluster:
         """
         try:
             table_name = self.db.get_daily_table_name(self.cluster_table_prefix, date)
-            
+
             # Create table with proper schema
             create_table_query = f"""
             CREATE TABLE IF NOT EXISTS "{table_name}" (
@@ -83,15 +83,15 @@ class FlashpointsCluster:
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
             );
             """
-            
+
             # Execute table creation
             self.db.execute_sync_query(create_table_query)
-            
+
             # Apply RLS policies
             rls_policies = self.__get_all_rls_policies_cmd(table_name)
             for policy in rls_policies:
                 self.db.execute_sync_query(policy)
-            
+
             self.logger.info(f"Table created successfully: {table_name}")
             return table_name
 
@@ -105,14 +105,14 @@ class FlashpointsCluster:
         """
         try:
             table_name = self.db.get_daily_table_name(self.cluster_table_prefix, date)
-            
+
             # Drop table if exists
             query = f'DROP TABLE IF EXISTS public."{table_name}";'
             self.db.execute_sync_query(query)
-            
+
             self.logger.info(f"Table deleted successfully: {table_name}")
             return table_name
-            
+
         except Exception as e:
             self.logger.error(f"Error deleting table: {e}")
             raise DatabaseException(f"Error deleting table: {e}")
@@ -135,10 +135,10 @@ class FlashpointsCluster:
         try:
             # Initialize the table synchronously
             self._db_cluster_init_sync(date)
-            
+
             # Insert cluster summaries synchronously
             return self.insert_cluster_summaries_sync(flashpoint_id, clusters, date)
-            
+
         except Exception as e:
             self.logger.error(
                 f"[DBOperations] Error inserting clusters: {e}", exc_info=True
@@ -156,7 +156,7 @@ class FlashpointsCluster:
         """
         try:
             table_name = self.db.get_daily_table_name(self.cluster_table_prefix, date)
-            
+
             # Prepare batch insert for better performance
             insert_query = f"""
             INSERT INTO "{table_name}" (
@@ -164,7 +164,7 @@ class FlashpointsCluster:
                 top_domains, languages, urls, images
             ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             """
-            
+
             # Prepare batch data
             batch_queries = []
             for cluster in clusters:
@@ -176,10 +176,10 @@ class FlashpointsCluster:
                     json.dumps(cluster.get("top_domains", [])),
                     json.dumps(cluster.get("languages", [])),
                     json.dumps(cluster.get("urls", [])),
-                    json.dumps(cluster.get("images", []))
+                    json.dumps(cluster.get("images", [])),
                 )
                 batch_queries.append((insert_query, params))
-            
+
             # Execute batch insert
             if batch_queries:
                 self.db.execute_sync_batch(batch_queries)
@@ -188,9 +188,9 @@ class FlashpointsCluster:
                 )
             else:
                 self.logger.warning("No clusters to insert")
-            
+
             return True
-            
+
         except Exception as e:
             self.logger.error(f"Error inserting cluster summaries: {e}")
             raise DatabaseException(f"Error inserting cluster summaries: {e}")
@@ -233,21 +233,23 @@ class FlashpointsCluster:
             if date:
                 try:
                     target_date = datetime.strptime(date, "%Y-%m-%d")
-                    table_name = self.db.get_daily_table_name("flash_point", target_date)
+                    table_name = self.db.get_daily_table_name(
+                        "flash_point", target_date
+                    )
                 except ValueError:
                     self.logger.error("Invalid date format. Use YYYY-MM-DD")
                     return []
             else:
                 table_name = self.db.get_daily_table_name("flash_point")
-            
+
             # Query all flashpoints
             query = f'SELECT * FROM "{table_name}"'
             results = self.db.execute_sync_query(query, fetch=True)
-            
+
             if not results:
                 self.logger.warning("No flashpoints found")
                 return []
-            
+
             # Convert to FlashpointModel instances
             flashpoints = []
             for fp in results:
@@ -264,12 +266,14 @@ class FlashpointsCluster:
                     )
                     flashpoints.append(flashpoint)
                 except Exception as e:
-                    self.logger.warning(f"Failed to parse flashpoint {fp.get('id')}: {e}")
+                    self.logger.warning(
+                        f"Failed to parse flashpoint {fp.get('id')}: {e}"
+                    )
                     continue
-            
+
             self.logger.info(f"Flashpoints retrieved: {len(flashpoints)} records")
             return flashpoints
-            
+
         except Exception as e:
             self.logger.error(f"Flashpoints retrieval failed: {e}")
             raise
@@ -290,18 +294,20 @@ class FlashpointsCluster:
             if date:
                 try:
                     target_date = datetime.strptime(date, "%Y-%m-%d")
-                    feed_table = self.db.get_daily_table_name("feed_entries", target_date)
+                    feed_table = self.db.get_daily_table_name(
+                        "feed_entries", target_date
+                    )
                 except ValueError:
                     self.logger.error("Invalid date format. Use YYYY-MM-DD")
                     return []
             else:
                 feed_table = self.db.get_daily_table_name("feed_entries")
-            
+
             # Query feeds with pagination to handle large datasets
             all_records = []
             batch_size = 500
             offset = 0
-            
+
             while True:
                 query = f"""
                 SELECT * FROM "{feed_table}" 
@@ -310,28 +316,28 @@ class FlashpointsCluster:
                 LIMIT %s OFFSET %s
                 """
                 params = (flashpoint_id, batch_size, offset)
-                
+
                 result = self.db.execute_sync_query(query, params, fetch=True)
-                
+
                 if not result:
                     break
-                
+
                 all_records.extend(result)
                 offset += batch_size
-                
+
                 self.logger.debug(
                     f"Fetched {len(result)} feeds (total: {len(all_records)})"
                 )
-                
+
                 if len(result) < batch_size:
                     break
-            
+
             if not all_records:
                 self.logger.warning(
                     f"No feeds found for flashpoint_id: {flashpoint_id}"
                 )
                 return []
-            
+
             # Convert to FeedModel instances
             feeds = []
             for feed in all_records:
@@ -354,12 +360,12 @@ class FlashpointsCluster:
                 except Exception as e:
                     self.logger.warning(f"Failed to parse feed {feed.get('id')}: {e}")
                     continue
-            
+
             self.logger.info(
                 f"Feeds retrieved for flashpoint_id={flashpoint_id}: {len(feeds)} records"
             )
             return feeds
-            
+
         except Exception as e:
             self.logger.error(f"Feeds per flashpoint retrieval failed: {e}")
             raise
