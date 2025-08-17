@@ -156,6 +156,7 @@ class ETLPipeline:
             )
 
             self.logger.info("Running db_cluster_operations...")
+            # Use the synchronous version to avoid async issues
             self.db_flashpoints_cluster.db_cluster_operations(
                 flashpoint_id, cluster_summaries, self.date
             )
@@ -237,6 +238,7 @@ class ETLPipeline:
                 cluster_summaries = cluster_summary_generator.generate()
 
             self.logger.info("Running db_cluster_operations...")
+            # Use the synchronous version to avoid async issues on RunPod.io
             self.db_flashpoints_cluster.db_cluster_operations(
                 flashpoint_id, cluster_summaries, self.date
             )

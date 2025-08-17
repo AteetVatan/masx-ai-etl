@@ -21,6 +21,7 @@ import json
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
+
 from tenacity import (
     retry,
     stop_after_attempt,
@@ -45,19 +46,8 @@ class FlashpointsCluster:
         self.db = DBOperations()
         self.logger = get_db_logger("flashpoints_cluster")
         self.cluster_table_prefix = self.CLUSTER_TABLE_PREFIX
-        self.date = date
-
-        # try:
-        #     loop = asyncio.get_running_loop()
-        # except RuntimeError:
-        #     loop = asyncio.new_event_loop()
-        #     asyncio.set_event_loop(loop)
-
-        # if loop.is_running():
-        #     # For environments like FastAPI
-        #     return asyncio.create_task(self._db_cluster_init(date))
-        # else:
-        #     return loop.run_until_complete(self._db_cluster_init(date))
+        self.date = date        
+       
 
     def close(self):
         self.db.close()
@@ -152,21 +142,46 @@ class FlashpointsCluster:
         Synchronous method to create the daily cluster table and insert cluster summaries.
         """
         try:
+            # Check if we're in an async context
             try:
                 loop = asyncio.get_running_loop()
+                # We're in an async context (e.g., FastAPI, RunPod.io)                
+                # On RunPod.io, we need to be more careful with async operations
+                # Create a task but don't return it - this method should be synchronous
+                self.logger.info("RunPod.io environment detected - using async task")
+                asyncio.create_task(
+                    self.insert_cluster_summaries(flashpoint_id, clusters, date)
+                )
+                # For synchronous callers, we'll just return success
+                return True
+                
             except RuntimeError:
+                # No event loop running, create one and run synchronously
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
+                try:
+                    return loop.run_until_complete(
+                        self.insert_cluster_summaries(flashpoint_id, clusters, date)
+                    )
+                finally:
+                    loop.close()
+        except Exception as e:
+            self.logger.error(
+                f"[DBOperations] Error inserting clusters: {e}", exc_info=True
+            )
+            raise DatabaseException(f"Database cluster operation failed: {e}")
 
-            if loop.is_running():
-                # For environments like FastAPI
-                return asyncio.create_task(
-                    self.insert_cluster_summaries(flashpoint_id, clusters, date)
-                )
-            else:
-                return loop.run_until_complete(
-                    self.insert_cluster_summaries(flashpoint_id, clusters, date)
-                )
+    async def db_cluster_operations_async(
+        self,
+        flashpoint_id: str,
+        clusters: List[Dict[str, Any]],
+        date: Optional[datetime] = None,
+    ):
+        """
+        Async version of db_cluster_operations for use in async contexts.
+        """
+        try:
+            return await self.insert_cluster_summaries(flashpoint_id, clusters, date)
         except Exception as e:
             self.logger.error(
                 f"[DBOperations] Error inserting clusters: {e}", exc_info=True
