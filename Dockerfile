@@ -40,4 +40,4 @@ COPY . /app
 
 # ---- Serverless entry (no EXPOSE, no Uvicorn) ----
 ENTRYPOINT ["/usr/bin/tini","--"]
-CMD ["python","-u","/app/handler.py"]
+CMD ["python","-m","runpod.serverless.start","--handler","handler.run"]
