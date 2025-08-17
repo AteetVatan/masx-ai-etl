@@ -104,42 +104,86 @@ flowchart LR
 | **NLP Models** | Hugging Face Transformers | Summarization, embeddings, translation |
 | **Vector Database** | ChromaDB | High-performance vector storage |
 | **Structured DB** | Supabase/PostgreSQL | Relational data and analytics |
-| **Caching** | Redis | Proxy management and session caching |
 | **Web Scraping** | BeautifulSoup + Crawl4AI | Robust content extraction |
 | **Configuration** | Pydantic Settings | Type-safe environment management |
 | **Logging** | Structlog | Structured logging with rotation |
 | **Async Processing** | ThreadPoolExecutor | Parallel task execution |
+| **Cloud Computing** | RunPod | GPU-accelerated processing |
 
 ## 📦 Installation
 
 ### Prerequisites
 - Python 3.11+
-- Redis (for proxy management)
 - PostgreSQL/Supabase (for structured data)
+- Optional: CUDA-compatible GPU for acceleration
 
 ### Quick Start
+
+#### 1. Clone the Repository
 ```bash
-# Clone the repository
 git clone https://github.com/masx-ai/masx-ai-etl.git
 cd masx-ai-etl
+```
 
-# Install dependencies
+#### 2. Choose Installation Method
+
+**For Production (with GPU support):**
+```bash
+pip install -r requirements.prod.txt
+```
+
+**For Development (with testing tools):**
+```bash
+pip install -r requirements.dev.txt
+```
+
+**For Basic Usage:**
+```bash
 pip install -r requirements.txt
+```
 
-# Set up environment variables
-cp .env.example .env
+#### 3. Set Up Environment
+```bash
+# Copy environment template
+cp env.example .env
+
 # Edit .env with your configuration
+nano .env
+```
 
-# Run the ETL pipeline
+#### 4. Run the ETL Pipeline
+```bash
+# Run main ETL pipeline
 python main_etl.py
+
+# Or run the API server
+python main.py
 ```
 
 ### Environment Configuration
+
+The system uses a comprehensive configuration system. Copy `env.example` to `.env` and configure:
+
 ```env
-# Database Configuration
-SUPABASE_URL=your_supabase_url
-SUPABASE_ANON_KEY=your_supabase_key
-SUPABASE_SERVICE_ROLE_KEY=your_service_key
+# Core Configuration
+ENVIRONMENT=development
+LOG_LEVEL=INFO
+
+# API Configuration
+API_HOST=0.0.0.0
+API_PORT=8000
+ETL_API_KEY=your_etl_api_key_here
+
+# Database Configuration (Supabase)
+SUPABASE_URL=your_supabase_project_url
+SUPABASE_ANON_KEY=your_supabase_anonymous_key
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+SUPABASE_DB_URL=your_supabase_database_url
+
+# GDELT API Configuration
+GDELT_API_KEY=your_gdelt_api_key
+GDELT_API_URL=https://api.gdeltproject.org/v2/search/gkg
+GDELT_API_KEYWORDS=ai,technology,innovation
 
 # ChromaDB Configuration
 CHROMA_DEV_PERSIST_DIR=./.chroma_storage
@@ -149,18 +193,14 @@ CHROMA_PROD_PERSIST_DIR=/mnt/data/chroma
 MAX_WORKERS=20
 REQUEST_TIMEOUT=30
 RETRY_ATTEMPTS=3
-
-# Logging
-LOG_LEVEL=INFO
-LOG_FORMAT=json
 ```
 
 ## 🚀 Usage
 
 ### Basic ETL Pipeline
 ```python
-from etl import ETLPipeline
-from singleton import ChromaClientSingleton
+from app.etl.etl_pipeline import ETLPipeline
+from app.singleton.chroma_client_singleton import ChromaClientSingleton
 
 # Initialize and run pipeline
 etl_pipeline = ETLPipeline()
@@ -169,7 +209,7 @@ etl_pipeline.run_all_etl_pipelines()
 
 ### Custom Configuration
 ```python
-from config import get_settings
+from app.config.settings import get_settings
 
 settings = get_settings()
 print(f"Environment: {settings.environment}")
@@ -179,7 +219,7 @@ print(f"Chroma Path: {settings.chroma_dev_persist_dir}")
 
 ### Vector Database Operations
 ```python
-from nlp.vector_db_manager import VectorDBManager
+from app.nlp.vector_db_manager import VectorDBManager
 
 # Initialize vector DB manager
 vdb = VectorDBManager()
@@ -205,7 +245,7 @@ results = vdb.query_similar(
 The system uses singleton patterns for efficient model loading:
 
 ```python
-from singleton import ModelManager
+from app.singleton.model_manager import ModelManager
 
 # Get pre-loaded models
 summarizer_model, tokenizer, device = ModelManager.get_summarization_model()
@@ -214,7 +254,8 @@ max_tokens = ModelManager.get_summarization_model_max_tokens()
 
 ### Clustering Strategies
 ```python
-from nlp.clustering_strategies import HDBSCANClusterer, KMeansClusterer
+from app.nlp.hdbscan_clusterer import HDBSCANClusterer
+from app.nlp.kmeans_clusterer import KMeansClusterer
 
 # HDBSCAN for large, noisy datasets
 clusterer = HDBSCANClusterer(
@@ -286,12 +327,12 @@ table: flashpoints_clusters
 ### Health Checks
 ```python
 # Check ChromaDB connection
-from singleton import ChromaClientSingleton
+from app.singleton.chroma_client_singleton import ChromaClientSingleton
 client = ChromaClientSingleton.get_client()
 collections = client.list_collections()
 
 # Monitor model performance
-from singleton import ModelManager
+from app.singleton.model_manager import ModelManager
 model_info = ModelManager.get_model_info()
 print(f"Active models: {model_info}")
 ```
@@ -316,10 +357,11 @@ logger.info("ETL pipeline started",
 
 ### GPU Acceleration
 ```bash
-# Install CUDA-enabled PyTorch
-pip install torch==2.3.0+cu118 --find-links https://download.pytorch.org/whl/torch_stable.html
+# Production requirements include CUDA 12.1 support
+pip install -r requirements.prod.txt
 
 # The system automatically detects and uses GPU if available
+# GPU dependencies: cupy-cuda12x, cuml-cu12, rmm-cu12
 ```
 
 ### Production Deployment
@@ -330,16 +372,17 @@ docker run -d --name masx-etl \
   -e SUPABASE_URL=$SUPABASE_URL \
   -e SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY \
   masx-ai-etl
+
+# Or use GPU-enabled Docker
+docker-compose -f docker-compose.gpu.yml up -d
 ```
 
-## 🤝 Contributing
-
-We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
+## 🧪 Development & Testing
 
 ### Development Setup
 ```bash
-# Install development dependencies
-pip install -r requirements-dev.txt
+# Install development dependencies (includes testing tools)
+pip install -r requirements.dev.txt
 
 # Run tests
 python -m pytest tests/
@@ -347,7 +390,58 @@ python -m pytest tests/
 # Code formatting
 black .
 isort .
+
+# Pre-commit hooks
+pre-commit install
 ```
+
+### Testing Framework
+The development requirements include comprehensive testing tools:
+- **pytest** - Core testing framework
+- **pytest-asyncio** - Async testing support
+- **pytest-cov** - Coverage reporting
+- **pytest-mock** - Mocking utilities
+
+### Code Quality
+- **black** - Code formatting
+- **flake8** - Linting
+- **isort** - Import sorting
+- **mypy** - Type checking
+
+## 📁 Project Structure
+
+```
+masx-ai-etl/
+├── app/                          # Main application code
+│   ├── api/                     # FastAPI endpoints
+│   ├── config/                  # Configuration management
+│   ├── core/                    # Core exceptions and utilities
+│   ├── db/                      # Database operations
+│   ├── etl/                     # ETL pipeline components
+│   ├── nlp/                     # NLP processing modules
+│   ├── schemas/                 # Pydantic data models
+│   ├── singleton/               # Singleton managers
+│   └── web_scrapers/            # Web scraping utilities
+├── requirements.txt              # Base dependencies
+├── requirements.prod.txt         # Production dependencies (GPU)
+├── requirements.dev.txt          # Development dependencies
+├── env.example                  # Environment configuration template
+├── main.py                      # API server entry point
+└── main_etl.py                  # ETL pipeline entry point
+```
+
+## 🤝 Contributing
+
+We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
+
+### Development Workflow
+1. Fork the repository
+2. Create a feature branch
+3. Install development dependencies: `pip install -r requirements.dev.txt`
+4. Make your changes
+5. Run tests: `python -m pytest tests/`
+6. Format code: `black . && isort .`
+7. Submit a pull request
 
 ## 📄 License
 
