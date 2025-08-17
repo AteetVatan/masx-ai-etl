@@ -22,13 +22,10 @@ import time
 import traceback
 from datetime import datetime
 from typing import Any, Dict, Optional
+import runpod
 
 # Make sure root is importable
 sys.path.append(os.environ.get("PYTHONPATH", "/app"))
-
-# ---- Import your ETL (ABSOLUTE import; no leading dot) ----
-# If your file is /app/main_etl.py:
-from main_etl import run_etl_pipeline
 
 # If it's /app/app/main_etl.py, use:
 # from app.main_etl import run_etl_pipeline
@@ -36,7 +33,22 @@ from main_etl import run_etl_pipeline
 # Defaults via env
 ALLOW_CLEANUP = os.environ.get("MASX_ETL_CLEANUP", "true").lower() == "true"
 
-
+def _parse_date(s: Optional[str]) -> str:
+    """Accept 'YYYY-MM-DD' or ISO strings; fallback to today."""
+    if not s:
+        return datetime.now().strftime("%Y-%m-%d")
+    # Basic YYYY-MM-DD validation
+    try:
+        dt = datetime.fromisoformat(s.replace("Z", "+00:00"))
+        return dt.date().isoformat()
+    except Exception:
+        # Attempt strict YYYY-MM-DD
+        try:
+            return datetime.strptime(s, "%Y-%m-%d").date().isoformat()
+        except Exception as e:
+            raise ValueError(f"invalid 'date': {s} ({e})")
+        
+        
 def run(job: Dict[str, Any]):
     """
     RunPod serverless entrypoint.
@@ -64,6 +76,9 @@ def run(job: Dict[str, Any]):
 
         date = _parse_date(payload.get("date"))
         cleanup = bool(payload.get("cleanup", ALLOW_CLEANUP))
+        
+        #lazy import to avoid boot-time crashes
+        from main_etl import run_etl_pipeline
         run_etl_pipeline(date=date, cleanup=cleanup)
 
         return {
@@ -82,19 +97,6 @@ def run(job: Dict[str, Any]):
             "trigger": trigger,
             "duration_sec": round(time.time() - start, 3),
         }
-
-
-def _parse_date(s: Optional[str]) -> str:
-    """Accept 'YYYY-MM-DD' or ISO strings; fallback to today."""
-    if not s:
-        return datetime.now().strftime("%Y-%m-%d")
-    # Basic YYYY-MM-DD validation
-    try:
-        dt = datetime.fromisoformat(s.replace("Z", "+00:00"))
-        return dt.date().isoformat()
-    except Exception:
-        # Attempt strict YYYY-MM-DD
-        try:
-            return datetime.strptime(s, "%Y-%m-%d").date().isoformat()
-        except Exception as e:
-            raise ValueError(f"invalid 'date': {s} ({e})")
+        
+if __name__ == "__main__":
+    runpod.serverless.start({"handler": run})

@@ -38,6 +38,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # ---- App code (root files + app/ package) ----
 COPY . /app
 
-# ---- Serverless entry (no EXPOSE, no Uvicorn) ----
-ENTRYPOINT ["/usr/bin/tini","--"]
-CMD ["python","-m","runpod.serverless.start","--handler","handler.run"]
+# ---- Serverless entry (start handler directly; no EXPOSE, no Uvicorn) ----
+ENTRYPOINT ["/usr/bin/tini","-s","--"]
+CMD ["python","-u","/app/handler.py"]
