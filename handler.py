@@ -23,6 +23,8 @@ import traceback
 from datetime import datetime
 from typing import Any, Dict, Optional
 import runpod
+from app.config import get_service_logger
+logger = get_service_logger("Handler")
 
 # Make sure root is importable
 sys.path.append(os.environ.get("PYTHONPATH", "/app"))
@@ -69,6 +71,7 @@ def run(job: Dict[str, Any]):
     try:
         # Warm requests used by CI/Actions to pre-pull image/models
         if payload.get("mode") == "warm" or payload.get("trigger") == "warm":
+            logger.info(f"warm request received")
             return {
                 "ok": True,
                 "status": "warmed",
@@ -80,9 +83,9 @@ def run(job: Dict[str, Any]):
 
         # lazy import to avoid boot-time crashes
         from main_etl import run_etl_pipeline
-
+        logger.info(f"running handler  foretl pipeline for date: {date} and cleanup: {cleanup} ")
         run_etl_pipeline(date=date, cleanup=cleanup)
-
+        logger.info(f"handler completed")
         return {
             "ok": True,
             "date": date,
@@ -92,6 +95,7 @@ def run(job: Dict[str, Any]):
         }
 
     except Exception as e:
+        logger.error(f"Error in handler: {e}")
         return {
             "ok": False,
             "error": str(e),
