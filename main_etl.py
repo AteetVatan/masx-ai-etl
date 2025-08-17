@@ -42,6 +42,5 @@ def run_etl_pipeline(date: Optional[str] = None, cleanup: bool = True):
     etl_pipeline = ETLPipeline(date)
     etl_pipeline.run_all_etl_pipelines()
 
-
-# if __name__ == "__main__":
-#     run_etl_pipeline()
+if __name__ == "__main__":
+    run_etl_pipeline()
