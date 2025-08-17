@@ -63,30 +63,35 @@ class ETLPipeline:
             flashpoints = self.get_flashpoints(self.date)
             flashpoints = self._clean_flashpoints(flashpoints)
             if self.settings.debug:
+                self.logger.info("Running ETL Pipeline in Debug Mode")
                 flashpoints = [flashpoints[0]]
             else:
+                self.logger.info("Running ETL Pipeline in Production Mode")
                 flashpoints = flashpoints
             # flashpoints = [flashpoints[1]]
             # multi threading for each flashpoint
+            start_time = time.time()
+            self.logger.info(f"Starting ALL ETL Pipeline for {len(flashpoints)} flashpoints")
             with ThreadPoolExecutor(max_workers=len(flashpoints)) as executor:
                 futures = [
                     executor.submit(self.run_etl_pipeline, flashpoint)
                     for flashpoint in flashpoints
                 ]
                 results = [future.result() for future in futures]
+                end_time = time.time()
+                self.logger.info(f"****Time taken: {end_time - start_time} seconds for ALL ETL Pipeline*****")
                 return results
         except Exception as e:
             self.logger.error(f"Error: {e}")
             raise e
 
     def run_etl_pipeline(self, flashpoint: FlashpointModel):
-        print("Starting MASX News ETL (Standalone Debug Mode)")
-
         try:
             if self.settings.debug:
+                self.logger.info("Starting MASX News ETL (Standalone Debug Mode)")
                 self.run_etl_pipeline_debug(flashpoint)
                 return
-
+            self.logger.info("Starting MASX News ETL (Standalone Production Mode)")
             start_time = time.time()
             flashpoint_id = flashpoint.id
             feeds = flashpoint.feeds
@@ -125,7 +130,8 @@ class ETLPipeline:
             cluster_summary_generator = ClusterSummaryGenerator(
                 flashpoint_id, clusterer
             )
-            cluster_summaries = cluster_summary_generator.generate()
+            cluster_summaries = cluster_summary_generator.generate()           
+           
 
             # If HDBSCAN returns all noise
             if len(cluster_summaries) == 0:
@@ -142,6 +148,10 @@ class ETLPipeline:
                 )
                 cluster_summaries = cluster_summary_generator.generate()
 
+
+            self.logger.info(f" number of cluster summaries for flashpoint {flashpoint_id}: {len(cluster_summaries)}")
+            
+            self.logger.info("Running db_cluster_operations...")
             self.db_flashpoints_cluster.db_cluster_operations(
                 flashpoint_id, cluster_summaries, self.date
             )
@@ -222,13 +232,14 @@ class ETLPipeline:
                 )
                 cluster_summaries = cluster_summary_generator.generate()
 
+            self.logger.info("Running db_cluster_operations...")  
             self.db_flashpoints_cluster.db_cluster_operations(
                 flashpoint_id, cluster_summaries, self.date
             )
 
             # get the time now
             end_time = time.time()
-            self.logger.info(f"Time taken: {end_time - start_time} seconds")
+            self.logger.info(f"Time taken: {end_time - start_time} seconds for flashpoint {flashpoint_id}")
         except Exception as e:
             self.logger.error(f"Error: {e}")
             raise e
