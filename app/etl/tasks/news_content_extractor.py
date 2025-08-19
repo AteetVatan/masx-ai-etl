@@ -121,7 +121,7 @@ class NewsContentExtractor:
             self.logger.info(f"[Fallback] Invoking Crawl4AI for: {feed.url}")
             try:
                 text = asyncio.run(self.crawl4AIExtractor.crawl4ai_scrape(feed.url))
-                if not text or len(text.strip()) < 50:  # sanity check
+                if not text or len(text.strip()) < 1500:  # sanity check
                     raise ValueError("Crawl4AI returned empty or too short content.")
                 feed.raw_text = text.strip()
                 self.logger.info(f"Successfully scraped via Crawl4AI: {feed.url}")

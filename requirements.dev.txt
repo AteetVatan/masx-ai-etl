@@ -34,7 +34,8 @@ requests==2.32.4
 beautifulsoup4==4.13.4
 lxml==5.4.0
 crawl4ai>=0.1.0
-playwright
+#playwright install # python -m playwright install chromium
+playwright>=1.46.0
 
 # Logging and Configuration
 structlog==23.2.0

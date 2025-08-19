@@ -46,11 +46,12 @@ class FlashpointsCluster:
         self.logger = get_db_logger("flashpoints_cluster")
         self.cluster_table_prefix = self.CLUSTER_TABLE_PREFIX
         self.date = date
+        
 
     def close(self):
         self.db.close()
 
-    def _db_cluster_init_sync(self, date: Optional[datetime] = None):
+    def db_cluster_init_sync(self, date: Optional[datetime] = None):
         """
         Initialize the flashpoints cluster table (synchronous version).
         """
@@ -133,9 +134,6 @@ class FlashpointsCluster:
         Synchronous method to create the daily cluster table and insert cluster summaries.
         """
         try:
-            # Initialize the table synchronously
-            self._db_cluster_init_sync(date)
-
             # Insert cluster summaries synchronously
             return self.insert_cluster_summaries_sync(flashpoint_id, clusters, date)
 
