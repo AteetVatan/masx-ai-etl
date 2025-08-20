@@ -27,6 +27,7 @@ RUN micromamba create -y -n appenv -c conda-forge --strict-channel-priority \
     "python=3.11" \
     "faiss-gpu=1.8.*" \
     "cuda-version>=12,<13" \
+    "pynvml=11.4.1" \
     "pip" \
     && micromamba clean -a -y
 
