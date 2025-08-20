@@ -38,7 +38,7 @@ RUN micromamba create -y -n appenv -c conda-forge --strict-channel-priority \
         "faiss-gpu=1.8.*" \
         "cuda-version>=12,<13" \
         "pip" \
-    +&& micromamba clean -a -y
+    && micromamba clean -a -y
 
 # activate env for subsequent RUN/CMD
 ENV MAMBA_DEFAULT_ENV=appenv
