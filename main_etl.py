@@ -16,7 +16,7 @@
 #
 # Contact: ab@masxai.com | MASXAI.com
 
-
+import asyncio
 from app.etl import ETLPipeline
 from app.singleton import ChromaClientSingleton
 from typing import Optional
@@ -33,16 +33,23 @@ All aligned with real-world scale and performance in MASX AI
 """
 
 
-def run_etl_pipeline(date: Optional[str] = None, cleanup: bool = True):
+async def run_etl_pipeline(date: Optional[str] = None, cleanup: bool = True):
     # centralize the cleanup right before invoking all of them
     # print("Deleting all tracked Chroma collections before pipeline runs...")
     logger.info(f"run_etl_pipeline called")
     if cleanup:
         ChromaClientSingleton.cleanup_chroma()
 
+    # date = "2025-08-17"
+
     etl_pipeline = ETLPipeline(date)
-    etl_pipeline.run_all_etl_pipelines()
+    await etl_pipeline.run_all_etl_pipelines()
+
+
+def run_etl_pipeline_sync(date: Optional[str] = None, cleanup: bool = True):
+    """Synchronous wrapper for backward compatibility."""
+    return asyncio.run(run_etl_pipeline(date, cleanup))
 
 
 if __name__ == "__main__":
-    run_etl_pipeline()
+    run_etl_pipeline_sync()
