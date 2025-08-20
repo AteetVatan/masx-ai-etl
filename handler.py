@@ -53,9 +53,12 @@ def _parse_date(s: Optional[str]) -> str:
             raise ValueError(f"invalid 'date': {s} ({e})")
 
 
-def run(job: Dict[str, Any]):
+async def run(job: Dict[str, Any]):
     """
-    RunPod serverless entrypoint.
+    RunPod serverless entrypoint (Async version).
+    
+    RunPod supports async handlers, which is the correct approach
+    for our async ETL pipeline to avoid nested event loop conflicts.
 
     Expected inputs:
       {
@@ -86,10 +89,13 @@ def run(job: Dict[str, Any]):
         from main_etl import run_etl_pipeline
 
         logger.info(
-            f"running handler  foretl pipeline for date: {date} and cleanup: {cleanup} "
+            f"running async handler for ETL pipeline for date: {date} and cleanup: {cleanup}"
         )
-        run_etl_pipeline(date=date, cleanup=cleanup)
-        logger.info(f"handler completed")
+        
+        # Directly await the async ETL pipeline - no nested event loops!
+        await run_etl_pipeline(date=date, cleanup=cleanup)
+        
+        logger.info(f"async handler completed")
         return {
             "ok": True,
             "date": date,
@@ -99,7 +105,7 @@ def run(job: Dict[str, Any]):
         }
 
     except Exception as e:
-        logger.error(f"Error in handler: {e}")
+        logger.error(f"Error in async handler: {e}")
         return {
             "ok": False,
             "error": str(e),
@@ -110,4 +116,5 @@ def run(job: Dict[str, Any]):
 
 
 if __name__ == "__main__":
+    # RunPod supports async handlers - this will work correctly
     runpod.serverless.start({"handler": run})
