@@ -51,6 +51,7 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ steps.names.outputs.image }}
+          # keep latest for humans, but ALWAYS deploy using SHA (immutable)
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=sha
@@ -64,6 +65,7 @@ jobs:
             org.opencontainers.image.description=Serverless ETL for MASX on RunPod (Playwright+CUDA)
 
       - name: Build & Push (cached)
+        id: buildpush
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -74,14 +76,27 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          build-args: |
+            GIT_SHA=${{ github.sha }}
+            BUILD_TIME=${{ github.run_id }}
+
+      # <-- NEW: canonical ref (immutable digest)
+      - name: Compose canonical image ref
+        id: canon
+        run: |
+          echo "ref=${{ steps.names.outputs.image }}@${{ steps.buildpush.outputs.digest }}" >> "$GITHUB_OUTPUT"
+          echo "sha_tag=${{ steps.names.outputs.image }}:sha-${{ github.sha }}" >> "$GITHUB_OUTPUT"
 
       - name: Show published tags
         run: |
           echo "Image: ${{ steps.names.outputs.image }}"
-          echo "Tags:"
+          echo "All tags:"
           echo "${{ steps.meta.outputs.tags }}"
+          echo "Canonical ref: ${{ steps.canon.outputs.ref }}"
+          echo "SHA tag:       ${{ steps.canon.outputs.sha_tag }}"
 
-      # Warm only on main; secrets are checked inside the step
+      # ❗ Only 'warm' AFTER you've pointed the endpoint to the new ref.
+      # Otherwise you’re just reheating the old container.
       - name: Warm RunPod endpoint (main only)
         if: ${{ github.ref == 'refs/heads/main' }}
         continue-on-error: true
@@ -97,4 +112,4 @@ jobs:
           curl -fsSL -X POST "https://api.runpod.ai/v2/${RP_ENDPOINT}/runsync" \
             -H "Authorization: Bearer ${RP_API_KEY}" \
             -H "Content-Type: application/json" \
-            -d '{"input":{"mode":"warm"}}'
+            -d '{"input":{"mode":"warm","deploy_ref":"'"${{ steps.canon.outputs.ref }}"'"}}'
