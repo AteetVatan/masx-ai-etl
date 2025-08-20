@@ -53,7 +53,7 @@ def _parse_date(s: Optional[str]) -> str:
             raise ValueError(f"invalid 'date': {s} ({e})")
 
 
-async def run(job: Dict[str, Any]):
+async def handler(job: Dict[str, Any]):
     """
     RunPod serverless entrypoint (Async version).
     
@@ -117,4 +117,4 @@ async def run(job: Dict[str, Any]):
 
 if __name__ == "__main__":
     # RunPod supports async handlers - this will work correctly
-    runpod.serverless.start({"handler": run})
+    runpod.serverless.start({"handler": handler})
