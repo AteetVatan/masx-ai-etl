@@ -37,7 +37,14 @@ class KMeansClusterer(BaseClusterer):
     def cluster(self, embeddings: np.ndarray) -> list[int]:
         try:
             model = KMeans(n_clusters=self.n_clusters, random_state=self.random_state)
-            return model.fit_predict(embeddings)
+            labels = model.fit_predict(embeddings)
+
+            # Convert numpy array to Python list for consistency
+            if hasattr(labels, "tolist"):
+                return labels.tolist()
+            else:
+                return list(labels)
+
         except Exception as e:
             self.logger.error(f"Error: {e}")
             raise e

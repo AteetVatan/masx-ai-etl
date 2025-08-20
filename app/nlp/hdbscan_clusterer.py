@@ -22,15 +22,14 @@ import numpy as np
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import normalize
 from abc import ABC, abstractmethod
+from typing import Optional, Callable, List
 
 from app.config import get_service_logger, get_settings
 from .base_clusterer import BaseClusterer
-
 from app.singleton import ModelManager
-
+from app.core.concurrency import InferenceRuntime, RuntimeConfig
 
 import numpy as np
-from typing import Optional, Callable, List
 
 import hdbscan as cpu_hdbscan
 from sklearn.preprocessing import normalize as sk_normalize
@@ -64,13 +63,10 @@ try:
 except Exception:
     _HAS_TORCH = False
 
-from app.config import get_service_logger
-from .base_clusterer import BaseClusterer
-
 
 class HDBSCANClusterer(BaseClusterer):
     """
-    Production HDBSCAN with CPU<->GPU auto-switch.
+    Production HDBSCAN with CPU<->GPU auto-switch using InferenceRuntime.
     - Debug (settings.debug=True): force CPU for easy debugging.
     - Prod (settings.debug=False): use RAPIDS (GPU) if available, else CPU.
     - Text embeddings: L2 normalization (cosine geometry) + optional UMAP to 20D.
@@ -83,7 +79,6 @@ class HDBSCANClusterer(BaseClusterer):
 
     Returns labels as List[int] (HDBSCAN's -1 = noise).
 
-
     HDBSCAN  (Hierarchical Density-Based Spatial Clustering of Applications with Noise) clustering strategy.
     Auto-detects number of clusters, identifies noise.
     Suitable for real-world, dense, noisy data like news.
@@ -91,7 +86,6 @@ class HDBSCANClusterer(BaseClusterer):
     min_samples: Controls how conservative the clustering is. If not set, it defaults internally to the same value as min_cluster_size.
     metric: The metric to use for clustering.
     cluster_selection_method: The method to use for cluster selection.
-
     """
 
     def __init__(
@@ -136,6 +130,9 @@ class HDBSCANClusterer(BaseClusterer):
             (self.device.type == "cuda") and _HAS_GPU_STACK and (not self._debug)
         )
 
+        # Initialize inference runtime for clustering
+        self.inference_runtime: Optional[InferenceRuntime] = None
+
         # Try to init RMM pool when GPU path is enabled
         if self._gpu_enabled:
             try:
@@ -155,22 +152,49 @@ class HDBSCANClusterer(BaseClusterer):
 
     # ----------------- public API -----------------
 
-    def cluster(self, embeddings: np.ndarray) -> List[int]:
+    async def cluster_async(self, embeddings: np.ndarray) -> List[int]:
         """
-        Cluster embeddings and return labels as Python ints.
+        Cluster embeddings asynchronously using InferenceRuntime and return labels as Python ints.
         """
         try:
+            # Initialize inference runtime if not already done
+            if not self.inference_runtime:
+                await self._initialize_inference_runtime()
+
             # 1) Normalize to unit sphere for cosine geometry
             X = self._normalize_for_cosine(embeddings)
 
-            # 2) UMAP (GPU in prod if available, else CPU)
+            # 2) Use inference runtime for clustering
             if self._gpu_enabled:
                 try:
-                    Z = self._reduce_gpu(X) if self.use_umap else X
-                    labels = self._cluster_gpu(Z)
-                    self._labels = labels
-                    self.logger.info(f"[GPU] HDBSCAN done. n={len(labels)}")
-                    return labels.tolist()
+                    # Prepare payload for GPU clustering
+                    payload = {
+                        "embeddings": X,
+                        "use_umap": self.use_umap,
+                        "umap_n_components": self.umap_n_components,
+                        "umap_n_neighbors": self.umap_n_neighbors,
+                        "umap_min_dist": self.umap_min_dist,
+                        "min_cluster_size": self.min_cluster_size,
+                        "min_samples": self.min_samples,
+                        "metric": self.metric,
+                        "cluster_selection_method": self.cluster_selection_method,
+                        "cluster_selection_epsilon": self.epsilon,
+                        "allow_single_cluster": self.allow_single_cluster,
+                        "random_state": self.random_state,
+                    }
+
+                    # Use inference runtime for GPU clustering
+                    result = await self.inference_runtime.infer(payload)
+
+                    if isinstance(result, Exception):
+                        self.logger.error(f"GPU clustering failed: {result}")
+                        # Fallback to CPU clustering
+                        return await self._cluster_cpu_async(X)
+
+                    self._labels = result
+                    self.logger.info(f"[GPU] HDBSCAN done. n={len(result)}")
+                    return result.tolist()
+
                 except Exception as ge:
                     self.logger.error(
                         f"[GPU] clustering failed. Falling back to CPU. {ge}",
@@ -180,16 +204,132 @@ class HDBSCANClusterer(BaseClusterer):
                     self._gpu_enabled = False
 
             # CPU (debug or fallback)
+            return await self._cluster_cpu_async(X)
+
+        except Exception as e:
+            self.logger.error(
+                f"Error in HDBSCANClusterer.cluster_async: {e}", exc_info=True
+            )
+            raise
+
+    async def _cluster_cpu_async(self, X: np.ndarray) -> List[int]:
+        """CPU clustering with async wrapper."""
+        try:
+            # Prepare payload for CPU clustering
+            payload = {
+                "embeddings": X,
+                "use_umap": self.use_umap,
+                "umap_n_components": self.umap_n_components,
+                "umap_n_neighbors": self.umap_n_neighbors,
+                "umap_min_dist": self.umap_min_dist,
+                "min_cluster_size": self.min_cluster_size,
+                "min_samples": self.min_samples,
+                "metric": self.metric,
+                "cluster_selection_method": self.cluster_selection_method,
+                "cluster_selection_epsilon": self.epsilon,
+                "allow_single_cluster": self.allow_single_cluster,
+                "random_state": self.random_state,
+            }
+
+            # Use inference runtime for CPU clustering
+            result = await self.inference_runtime.infer(payload)
+
+            if isinstance(result, Exception):
+                self.logger.error(f"CPU clustering failed: {result}")
+                # Fallback to synchronous CPU clustering
+                return self._cluster_cpu_sync(X)
+
+            self._labels = result
+            mode = "CPU (debug)" if self._debug else "CPU (fallback)"
+            self.logger.info(f"[{mode}] HDBSCAN done. n={len(result)}")
+            if hasattr(result, "tolist"):
+                return result.tolist()
+            else:
+                return list(result)
+
+        except Exception as e:
+            self.logger.error(f"CPU clustering failed: {e}")
+            # Fallback to synchronous CPU clustering
+            return self._cluster_cpu_sync(X)
+
+    def cluster(self, embeddings: np.ndarray) -> List[int]:
+        """
+        Synchronous clustering method for backward compatibility.
+        """
+        import asyncio
+
+        return asyncio.run(self.cluster_async(embeddings))
+
+    def _cluster_cpu_sync(self, X: np.ndarray) -> List[int]:
+        """Synchronous CPU clustering fallback."""
+        try:
+            # 1) Normalize to unit sphere for cosine geometry
+            X = self._normalize_for_cosine(X)
+
+            # 2) UMAP (CPU only)
             Z = self._reduce_cpu(X) if (self.use_umap and _HAS_CPU_UMAP) else X
             labels = self._cluster_cpu(Z)
             self._labels = labels
             mode = "CPU (debug)" if self._debug else "CPU (fallback)"
             self.logger.info(f"[{mode}] HDBSCAN done. n={len(labels)}")
-            return labels.tolist()
+
+            # Convert numpy array to Python list for consistency
+            if hasattr(labels, "tolist"):
+                return labels.tolist()
+            else:
+                return list(labels)
+        except Exception as e:
+            self.logger.error(
+                f"Error in synchronous CPU clustering: {e}", exc_info=True
+            )
+            raise
+
+    async def _initialize_inference_runtime(self):
+        """Initialize the inference runtime for clustering."""
+        try:
+            # Create runtime config optimized for clustering
+            config = RuntimeConfig(
+                gpu_batch_size=self.settings.gpu_batch_size,
+                gpu_max_delay_ms=self.settings.gpu_max_delay_ms,
+                gpu_queue_size=self.settings.gpu_queue_size,
+                gpu_timeout=self.settings.gpu_timeout,
+                gpu_use_fp16=self.settings.gpu_use_fp16,
+                gpu_enable_warmup=self.settings.gpu_enable_warmup,
+                cpu_max_threads=self.settings.cpu_max_threads,
+                cpu_max_processes=self.settings.cpu_max_processes,
+            )
+
+            # Create and start inference runtime
+            self.inference_runtime = InferenceRuntime(
+                model_loader=self._get_clustering_model_loader, config=config
+            )
+
+            await self.inference_runtime.start()
+            self.logger.info("Inference runtime initialized for HDBSCAN clustering")
 
         except Exception as e:
-            self.logger.error(f"Error in HDBSCANClusterer.cluster: {e}", exc_info=True)
+            self.logger.error(f"Failed to initialize inference runtime: {e}")
             raise
+
+    def _get_clustering_model_loader(self):
+        """Model loader function for the inference runtime."""
+        # Return clustering configuration for the inference runtime
+        return {
+            "min_cluster_size": self.min_cluster_size,
+            "min_samples": self.min_samples,
+            "metric": self.metric,
+            "cluster_selection_method": self.cluster_selection_method,
+            "use_umap": self.use_umap,
+            "umap_n_components": self.umap_n_components,
+            "umap_n_neighbors": self.umap_n_neighbors,
+            "umap_min_dist": self.umap_min_dist,
+            "random_state": self.random_state,
+            "epsilon": self.epsilon,
+            "allow_single_cluster": self.allow_single_cluster,
+            "gpu_enabled": self._gpu_enabled,
+            "has_gpu_stack": _HAS_GPU_STACK,
+            "has_cpu_umap": _HAS_CPU_UMAP,
+        }
 
     # Optional consumers
     @property
@@ -320,3 +460,9 @@ class HDBSCANClusterer(BaseClusterer):
         )
         labels = model.fit_predict(Zg).astype(cp.int32)
         return cp.asnumpy(labels)
+
+    async def stop(self):
+        """Stop the inference runtime."""
+        if self.inference_runtime:
+            await self.inference_runtime.stop()
+            self.logger.info("HDBSCAN clusterer inference runtime stopped")

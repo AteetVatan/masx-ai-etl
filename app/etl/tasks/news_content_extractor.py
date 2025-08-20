@@ -18,15 +18,14 @@
 
 """This module handles all article-related operations in the MASX AI News ETL pipeline."""
 
-from concurrent.futures import ThreadPoolExecutor
 from random import choice
 import asyncio
-import concurrent.futures
 from app.web_scrapers import BeautifulSoupExtractor, Crawl4AIExtractor
 from app.singleton import ProxyManager
 from app.etl_data.etl_models import FeedModel
 from app.config import get_settings, get_service_logger
 from app.web_scrapers import WebScraperUtils
+from app.core.concurrency import CPUExecutors
 
 
 class NewsContentExtractor:
@@ -39,20 +38,22 @@ class NewsContentExtractor:
         # self.news_articles = self.context.pull(DagContextEnum.NEWS_ARTICLES.value)
         self.feeds = feeds
         self.settings = get_settings()
-        self.max_workers = self.settings.max_workers
         self.crawl4AIExtractor = Crawl4AIExtractor()
         self.logger = get_service_logger("NewsContentExtractor")
 
-    def extract_feeds(self) -> list[FeedModel]:
+        # Initialize CPU executors for async processing
+        self.cpu_executors = CPUExecutors()
+
+    async def extract_feeds(self) -> list[FeedModel]:
         """
-        Extract raw text for each article using proxy-enabled scraping.
+        Extract raw text for each article using proxy-enabled scraping with async concurrency.
         """
         if not self.feeds:
             self.logger.error("No feeds found in context.")
             raise ValueError("No feeds found in context.")
 
         self.logger.info(f"---- ProxyManager initiated ----")
-        proxies = ProxyManager.proxies()
+        proxies = await ProxyManager.proxies_async()
         self.logger.info(f"---- {len(proxies)} proxies found ----")
 
         if not proxies:
@@ -63,21 +64,68 @@ class NewsContentExtractor:
             f"-----Scraping {len(self.feeds)} feeds....Using {len(proxies)} proxies-----"
         )
 
+        # Process feeds using async CPU executors
         scraped_feeds = []
 
-        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            futures = [
-                executor.submit(self.__scrape_multilang_feeds, feed, choice(proxies))
-                for feed in self.feeds
-            ]
-            for future in concurrent.futures.as_completed(futures):
-                result = future.result()
-                if (
-                    result and result.raw_text and len(result.raw_text) >= 1500
-                ):  # case sometime the JS is there to accept cookies, need a better solution.
-                    scraped_feeds.append(result)
+        # Process in batches for efficiency
+        batch_size = 10
+        for i in range(0, len(self.feeds), batch_size):
+            batch = self.feeds[i : i + batch_size]
+            batch_results = await self._process_batch(batch, proxies)
+            scraped_feeds.extend([r for r in batch_results if r])
 
         return scraped_feeds
+
+    async def _process_batch(
+        self, feeds: list[FeedModel], proxies: list[str]
+    ) -> list[FeedModel]:
+        """Process a batch of feeds using async CPU executors."""
+        try:
+            # Create tasks for concurrent processing
+            tasks = []
+            for feed in feeds:
+                proxy = choice(proxies)
+                task = self.cpu_executors.run_in_thread(
+                    self.__scrape_multilang_feeds, feed, proxy
+                )
+                tasks.append(task)
+
+            # Execute all tasks concurrently
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+
+            # Process results
+            processed_feeds = []
+            for i, result in enumerate(results):
+                if isinstance(result, Exception):
+                    self.logger.error(f"Feed {i} processing failed: {result}")
+                    continue
+
+                if result and result.raw_text and len(result.raw_text) >= 1500:
+                    processed_feeds.append(result)
+
+            return processed_feeds
+
+        except Exception as e:
+            self.logger.error(f"Batch processing failed: {e}")
+            # Fallback to sequential processing
+            return await self._process_batch_sequential(feeds, proxies)
+
+    async def _process_batch_sequential(
+        self, feeds: list[FeedModel], proxies: list[str]
+    ) -> list[FeedModel]:
+        """Fallback sequential processing."""
+        results = []
+        for feed in feeds:
+            try:
+                proxy = choice(proxies)
+                result = await self.cpu_executors.run_in_thread(
+                    self.__scrape_multilang_feeds, feed, proxy
+                )
+                if result and result.raw_text and len(result.raw_text) >= 1500:
+                    results.append(result)
+            except Exception as e:
+                self.logger.error(f"Feed processing failed: {e}")
+        return results
 
     def __scrape_multilang_feeds(self, feed: FeedModel, proxy: str) -> FeedModel:
         """

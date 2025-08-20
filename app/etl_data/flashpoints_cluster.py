@@ -46,7 +46,6 @@ class FlashpointsCluster:
         self.logger = get_db_logger("flashpoints_cluster")
         self.cluster_table_prefix = self.CLUSTER_TABLE_PREFIX
         self.date = date
-        
 
     def close(self):
         self.db.close()

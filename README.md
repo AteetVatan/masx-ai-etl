@@ -18,10 +18,11 @@
 - **Load**: Vector storage (ChromaDB) + structured data (Supabase/PostgreSQL)
 
 ### **⚡ High-Performance Processing**
-- **Async Parallel Processing** - ThreadPoolExecutor with configurable workers
+- **Modern Async Concurrency** - Unified GPU/CPU runtime with micro-batching
 - **Smart Clustering** - HDBSCAN for noise-resistant clustering + KMeans fallback
 - **Memory Optimization** - TF-IDF text compression for large articles
 - **Proxy Rotation** - Redis-backed proxy management for robust scraping
+- **Isolated Web Rendering** - Playwright workers for JavaScript-heavy sites
 
 ### **🔧 Enterprise Features**
 - **Type-Safe Configuration** - Pydantic settings with environment validation
@@ -62,6 +63,54 @@ graph TD
     C4 --> D2
     C4 --> D3
 ```
+
+## 🚀 Concurrency Architecture
+
+### **Modern Async-First Design**
+
+The MASX AI ETL system uses a unified concurrency runtime that eliminates multithreading anti-patterns and provides optimal performance for both CPU and GPU workloads.
+
+#### **Key Features:**
+- **Single Source of Truth**: Centralized device detection and resource management
+- **GPU Micro-Batching**: Efficient inference with configurable batch sizes and delays
+- **CPU Parallelization**: Shared thread and process pools for optimal resource utilization
+- **Isolated Web Rendering**: Dedicated Playwright workers to prevent event loop conflicts
+- **Automatic Fallbacks**: Seamless GPU→CPU degradation with graceful error handling
+
+#### **Environment Configuration:**
+```bash
+# Device selection
+export MASX_FORCE_CPU=1      # Force CPU usage
+export MASX_FORCE_GPU=1      # Force GPU usage
+
+# GPU optimization
+export BATCH_SIZE=32          # Items per batch
+export BATCH_DELAY_MS=50      # Max wait time (ms)
+
+# CPU optimization
+export MAX_THREADS=20         # Thread pool size
+export MAX_PROCS=4            # Process pool size
+
+# Render optimization
+export RENDER_MAX_PAGES=5     # Concurrent pages
+export RENDER_TIMEOUT_S=30    # Page timeout
+```
+
+#### **Usage Example:**
+```python
+from app.core.concurrency import InferenceRuntime
+
+# Create runtime with automatic device selection
+runtime = InferenceRuntime(model_loader=load_model)
+await runtime.start()
+
+# Inference automatically routes to GPU or CPU
+results = await runtime.infer_many(data_items)
+
+await runtime.stop()
+```
+
+For detailed usage instructions, see [docs/HOWTO_CPU_GPU_STEP_BY_STEP.md](docs/HOWTO_CPU_GPU_STEP_BY_STEP.md).
 
 ## 🔄 Processing Flow
 
@@ -107,7 +156,7 @@ flowchart LR
 | **Web Scraping** | BeautifulSoup + Crawl4AI | Robust content extraction |
 | **Configuration** | Pydantic Settings | Type-safe environment management |
 | **Logging** | Structlog | Structured logging with rotation |
-| **Async Processing** | ThreadPoolExecutor | Parallel task execution |
+| **Async Processing** | Unified Concurrency Runtime | GPU micro-batching + CPU parallelization |
 | **Cloud Computing** | RunPod | GPU-accelerated processing |
 
 ## 📦 Installation
@@ -116,6 +165,24 @@ flowchart LR
 - Python 3.11+
 - PostgreSQL/Supabase (for structured data)
 - Optional: CUDA-compatible GPU for acceleration
+
+### New Concurrency Dependencies
+
+The refactored system includes new dependencies for modern async concurrency:
+
+```bash
+# Core concurrency
+asyncio-compat>=1.0.0
+tenacity>=8.0.0
+
+# Web rendering (if using Playwright)
+playwright>=1.46.0
+
+# Enhanced async libraries
+aiohttp>=3.8.0
+asyncpg>=0.27.0
+aiofiles>=0.8.0
+```
 
 ### Quick Start
 
@@ -198,6 +265,23 @@ RETRY_ATTEMPTS=3
 ## 🚀 Usage
 
 ### Basic ETL Pipeline
+
+**New Async Pattern (Recommended):**
+```python
+import asyncio
+from app.etl.etl_pipeline import ETLPipeline
+from app.singleton.chroma_client_singleton import ChromaClientSingleton
+
+async def main():
+    # Initialize and run pipeline
+    etl_pipeline = ETLPipeline()
+    await etl_pipeline.run_all_etl_pipelines()
+
+# Run the async pipeline
+asyncio.run(main())
+```
+
+**Legacy Sync Pattern (Backward Compatible):**
 ```python
 from app.etl.etl_pipeline import ETLPipeline
 from app.singleton.chroma_client_singleton import ChromaClientSingleton
@@ -205,6 +289,51 @@ from app.singleton.chroma_client_singleton import ChromaClientSingleton
 # Initialize and run pipeline
 etl_pipeline = ETLPipeline()
 etl_pipeline.run_all_etl_pipelines()
+```
+
+### Modern Concurrency Usage
+
+#### **Inference Runtime (GPU/CPU Auto-Selection)**
+```python
+from app.core.concurrency import InferenceRuntime, RuntimeConfig
+
+# Create runtime with automatic device selection
+config = RuntimeConfig(
+    gpu_batch_size=32,
+    gpu_max_delay_ms=50,
+    cpu_max_threads=20
+)
+
+runtime = InferenceRuntime(model_loader=load_model, config=config)
+await runtime.start()
+
+# Automatic routing to GPU or CPU
+results = await runtime.infer_many(data_items)
+
+await runtime.stop()
+```
+
+#### **CPU Executors (I/O vs CPU-Bound Work)**
+```python
+from app.core.concurrency.cpu_executors import run_in_thread, run_in_process
+
+# I/O bound work (file reading, HTTP requests)
+result = await run_in_thread(read_file, "data.txt")
+
+# CPU bound work (math, data processing)
+result = await run_in_process(complex_calculation, data)
+```
+
+#### **Web Rendering (Isolated Playwright Workers)**
+```python
+from app.infra_services.render import RenderClientContext
+
+async with RenderClientContext() as client:
+    # Render multiple pages concurrently
+    responses = await client.render_pages([
+        "https://example.com/1",
+        "https://example.com/2"
+    ])
 ```
 
 ### Custom Configuration

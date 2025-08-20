@@ -124,6 +124,31 @@ class Settings(BaseSettings):
         default=0.8, description="Maximum memory usage (0.0-1.0)"
     )
 
+    # Concurrency Configuration
+    # GPU settings
+    gpu_batch_size: int = Field(default=32, description="GPU batch size for inference")
+    gpu_max_delay_ms: int = Field(
+        default=50, description="GPU max delay before batch processing (ms)"
+    )
+    gpu_queue_size: int = Field(default=1000, description="GPU inference queue size")
+    gpu_timeout: float = Field(
+        default=30.0, description="GPU inference timeout (seconds)"
+    )
+    gpu_use_fp16: bool = Field(default=True, description="Use FP16 for GPU inference")
+    gpu_enable_warmup: bool = Field(default=True, description="Enable GPU model warmup")
+
+    # CPU settings
+    cpu_max_threads: int = Field(default=20, description="Maximum CPU threads")
+    cpu_max_processes: int = Field(default=4, description="Maximum CPU processes")
+
+    # Render settings
+    render_max_pages: int = Field(
+        default=5, description="Maximum concurrent render pages"
+    )
+    render_queue_max: int = Field(default=100, description="Maximum render queue size")
+    render_timeout_s: int = Field(default=30, description="Render timeout (seconds)")
+    render_retries: int = Field(default=3, description="Render retry attempts")
+
     # Security Configuration
     cors_origins: List[str] = Field(
         default=["http://localhost:3000"], description="Allowed CORS origins"

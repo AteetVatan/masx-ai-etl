@@ -49,7 +49,12 @@ class ClusterSummaryGenerator:
         )
         self.clusterer = clustering_strategy
 
-    def generate(self) -> list[dict]:
+        # Initialize logger
+        from app.config import get_service_logger
+
+        self.logger = get_service_logger("ClusterSummaryGenerator")
+
+    async def generate(self) -> list[dict]:
         """
         The collection is a ChromaDB collection.
         The collection has the following fields:
@@ -68,7 +73,7 @@ class ClusterSummaryGenerator:
             metadatas = docs["metadatas"]
 
             print(f"Clustering {len(documents)} articles...")
-            cluster_labels = self._cluster_embeddings(embeddings)
+            cluster_labels = await self._cluster_embeddings(embeddings)
 
             print("Generating cluster summaries...")
             return self._generate_cluster_summaries(
@@ -78,8 +83,18 @@ class ClusterSummaryGenerator:
             self.logger.error(f"Error generating cluster summaries: {e}")
             raise e
 
-    def _cluster_embeddings(self, embeddings: np.ndarray) -> list[int]:
-        return self.clusterer.cluster(embeddings)
+    async def _cluster_embeddings(self, embeddings: np.ndarray) -> list[int]:
+        try:
+            # Use async cluster method to avoid asyncio.run() conflicts
+            if hasattr(self.clusterer, "cluster_async"):
+                # HDBSCAN has async method
+                return await self.clusterer.cluster_async(embeddings)
+            else:
+                # KMeans only has sync method
+                return self.clusterer.cluster(embeddings)
+        except Exception as e:
+            self.logger.error(f"Error clustering embeddings: {e}")
+            raise e
 
     def _generate_cluster_summaries_KMean(
         self, documents: list[str], metadatas: list[dict], labels: list[int]

@@ -17,7 +17,7 @@
 # Contact: ab@masxai.com | MASXAI.com
 
 import time
-from concurrent.futures import ThreadPoolExecutor
+import asyncio
 from datetime import datetime
 from typing import Optional
 from math import sqrt
@@ -57,43 +57,43 @@ class ETLPipeline:
             self.logger.error(f"Error: {e}")
             raise e
 
-    def run_all_etl_pipelines(self):
-        try:           
+    async def run_all_etl_pipelines(self):
+        try:
             self.db_flashpoints_cluster = FlashpointsCluster(self.date)
+            self.db_flashpoints_cluster.db_cluster_init_sync(self.date)
             flashpoints = self.get_flashpoints(self.date)
             flashpoints = self._clean_flashpoints(flashpoints)
             if self.settings.debug:
                 self.logger.info("Running ETL Pipeline in Debug Mode")
-                flashpoints = [flashpoints[0]] #flashpoints[:2]
+                flashpoints = flashpoints[:2]  # [flashpoints[0]] #
             else:
                 self.logger.info("Running ETL Pipeline in Production Mode")
                 flashpoints = flashpoints
             # flashpoints = [flashpoints[1]]
-            # multi threading for each flashpoint
+            # async processing for each flashpoint
             start_time = time.time()
             self.logger.info(
                 f"Starting ALL ETL Pipeline for {len(flashpoints)} flashpoints"
             )
-            with ThreadPoolExecutor(max_workers=len(flashpoints)) as executor:
-                futures = [
-                    executor.submit(self.run_etl_pipeline, flashpoint)
-                    for flashpoint in flashpoints
-                ]
-                results = [future.result() for future in futures]
-                end_time = time.time()
-                self.logger.info(
-                    f"****Time taken: {end_time - start_time} seconds for ALL ETL Pipeline*****"
-                )
-                return results
+
+            # Process flashpoints concurrently using asyncio
+            tasks = [self.run_etl_pipeline(flashpoint) for flashpoint in flashpoints]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+
+            end_time = time.time()
+            self.logger.info(
+                f"****Time taken: {end_time - start_time} seconds for ALL ETL Pipeline*****"
+            )
+            return results
         except Exception as e:
             self.logger.error(f"Error: {e}")
             raise e
 
-    def run_etl_pipeline(self, flashpoint: FlashpointModel):
+    async def run_etl_pipeline(self, flashpoint: FlashpointModel):
         try:
             if self.settings.debug:
                 self.logger.info("Starting MASX News ETL (Standalone Debug Mode)")
-                self.run_etl_pipeline_debug(flashpoint)
+                await self.run_etl_pipeline_debug(flashpoint)
                 return
             self.logger.info("Starting MASX News ETL (Standalone Production Mode)")
             start_time = time.time()
@@ -103,16 +103,16 @@ class ETLPipeline:
             # load summarized feeds from file
             self.logger.info("Running NewsContentExtractor...")
             extractor = NewsContentExtractor(feeds)
-            scraped_feeds = extractor.extract_feeds()
+            scraped_feeds = await extractor.extract_feeds()
 
             self.logger.info("Running Summarizer...")
             summarizer = Summarizer(scraped_feeds)
-            summarized_feeds = summarizer.summarize_all_feeds()
+            summarized_feeds = await summarizer.summarize_all_feeds()
 
             self.logger.info("Running VectorizeArticles...")
             vectorizer = VectorizeArticles(flashpoint_id)
             # collection_name = vectorizer.get_flashpoint_id()
-            vectorizer.run(summarized_feeds)
+            await vectorizer.run(summarized_feeds)
 
             self.logger.info("Running ClusterSummaryGenerator...")
             feed_count = len(summarized_feeds)
@@ -134,7 +134,7 @@ class ETLPipeline:
             cluster_summary_generator = ClusterSummaryGenerator(
                 flashpoint_id, clusterer
             )
-            cluster_summaries = cluster_summary_generator.generate()
+            cluster_summaries = await cluster_summary_generator.generate()
 
             # If HDBSCAN returns all noise
             if len(cluster_summaries) == 0:
@@ -143,13 +143,13 @@ class ETLPipeline:
                 )
                 n_clusters = round(
                     sqrt(feed_count / 2)
-                )  # min(5, max(2, feed_count // 2))  # dynamic fallback
+                )  # min(5, max(2, feed_count // 2))  # dynamic falldown
                 n_clusters = 3 if n_clusters < 3 else n_clusters
                 clusterer = KMeansClusterer(n_clusters=n_clusters)
                 cluster_summary_generator = ClusterSummaryGenerator(
                     flashpoint_id, clusterer
                 )
-                cluster_summaries = cluster_summary_generator.generate()
+                cluster_summaries = await cluster_summary_generator.generate()
 
             self.logger.info(
                 f" number of cluster summaries for flashpoint {flashpoint_id}: {len(cluster_summaries)}"
@@ -171,7 +171,7 @@ class ETLPipeline:
             self.db_flashpoints_cluster.close()
             self.logger.info("ETL Pipeline completed")
 
-    def run_etl_pipeline_debug(self, flashpoint: FlashpointModel):
+    async def run_etl_pipeline_debug(self, flashpoint: FlashpointModel):
         print("Starting MASX News ETL (Standalone Debug Mode)")
 
         try:
@@ -181,7 +181,7 @@ class ETLPipeline:
             if self.settings.test_summarizer == "HDBSCAN":
                 feeds = flashpoint.feeds[:50]
             else:
-                feeds = flashpoint.feeds[:10]
+                feeds = flashpoint.feeds[:12]
 
             # load summarized feeds from file
             if self.settings.debug and self.settings.test_summarizer == "HDBSCAN":
@@ -189,16 +189,16 @@ class ETLPipeline:
             else:
                 self.logger.info("Running NewsContentExtractor...")
                 extractor = NewsContentExtractor(feeds)
-                scraped_feeds = extractor.extract_feeds()
+                scraped_feeds = await extractor.extract_feeds()
 
                 self.logger.info("Running Summarizer...")
                 summarizer = Summarizer(scraped_feeds)
-                summarized_feeds = summarizer.summarize_all_feeds()
+                summarized_feeds = await summarizer.summarize_all_feeds()
 
             self.logger.info("Running VectorizeArticles...")
             vectorizer = VectorizeArticles(flashpoint_id)
             # collection_name = vectorizer.get_flashpoint_id()
-            vectorizer.run(summarized_feeds)
+            collection_name = await vectorizer.run(summarized_feeds)
 
             self.logger.info("Running ClusterSummaryGenerator...")
             feed_count = len(summarized_feeds)
@@ -218,9 +218,9 @@ class ETLPipeline:
                 clusterer = HDBSCANClusterer()
 
             cluster_summary_generator = ClusterSummaryGenerator(
-                flashpoint_id, clusterer
+                collection_name, clusterer
             )
-            cluster_summaries = cluster_summary_generator.generate()
+            cluster_summaries = await cluster_summary_generator.generate()
 
             # If HDBSCAN returns all noise
             if len(cluster_summaries) == 0:
@@ -235,7 +235,7 @@ class ETLPipeline:
                 cluster_summary_generator = ClusterSummaryGenerator(
                     flashpoint_id, clusterer
                 )
-                cluster_summaries = cluster_summary_generator.generate()
+                cluster_summaries = await cluster_summary_generator.generate()
 
             self.logger.info("Running db_cluster_operations...")
             # Use the synchronous version to avoid async issues on RunPod.io

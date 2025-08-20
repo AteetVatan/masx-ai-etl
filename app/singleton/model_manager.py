@@ -83,7 +83,10 @@ class ModelManager:
     def get_device(cls) -> torch.device:
         """Detect GPU (CUDA) if available, else fallback to CPU."""
         if cls._device is None:
-            cls._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            # Use the centralized device detection
+            from app.core.concurrency.device import get_torch_device
+
+            cls._device = get_torch_device()
             cls._logger.info(f"Using device: {cls._device}")
         return cls._device
 
