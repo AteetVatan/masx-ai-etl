@@ -31,9 +31,9 @@
 # Optional GPU Libraries (for enhanced performance)
 # GPU-accelerated similarity search
 - faiss-gpu>=1.7.4
-+# FAISS will be installed via micromamba (conda-forge) in the Dockerfile.
-+# (Removed: PyPI faiss-gpu has no compatible wheel for Py3.11 + CUDA 12.1.)
-+
+# FAISS will be installed via micromamba (conda-forge) in the Dockerfile.
+# (Removed: PyPI faiss-gpu has no compatible wheel for Py3.11 + CUDA 12.1.)
+
  pynvml>=11.5.0    # NVIDIA GPU monitoring
  
  # Database and ORM
