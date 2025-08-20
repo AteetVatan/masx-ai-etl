@@ -29,7 +29,7 @@
  rmm-cu12==24.4.*
  
 -# Optional GPU Libraries (for enhanced performance)
-faiss-gpu>=1.7.4  # GPU-accelerated similarity search
+-faiss-gpu>=1.7.4  # GPU-accelerated similarity search
 +# FAISS will be installed via micromamba (conda-forge) in the Dockerfile.
 +# (Removed: PyPI faiss-gpu has no compatible wheel for Py3.11 + CUDA 12.1.)
 +

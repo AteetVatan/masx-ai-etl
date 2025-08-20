@@ -20,14 +20,25 @@ SHELL ["/bin/bash", "-lc"]
 RUN curl -L https://micro.mamba.pm/api/micromamba/linux-64/latest \
     | tar -xvj -C /usr/local/bin/ --strip-components=1 bin/micromamba
 
+# # Create env with py311 and GPU FAISS
+# # ADDED: faiss-gpu from conda-forge (works with Py3.11 + CUDA 12.x)
+# RUN micromamba create -y -n appenv -c conda-forge \
+#     python=3.11 \
+#     faiss-gpu=1.8.0 \
+#     cudatoolkit=12.1 \
+#     pip \
+#     && micromamba clean -a -y
+
 # Create env with py311 and GPU FAISS
-# ADDED: faiss-gpu from conda-forge (works with Py3.11 + CUDA 12.x)
-RUN micromamba create -y -n appenv -c conda-forge \
-    python=3.11 \
-    faiss-gpu=1.8.0 \
-    cudatoolkit=12.1 \
-    pip \
-    && micromamba clean -a -y
+# CHANGED: remove 'cudatoolkit=12.1' (not a conda-forge package for CUDA 12)
+# ADDED: constrain to CUDA 12 *range* via the virtual package 'cuda-version'
+ENV MAMBA_NO_BANNER=1
+RUN micromamba create -y -n appenv -c conda-forge --strict-channel-priority \
+        "python=3.11" \
+        "faiss-gpu=1.8.*" \
+        "cuda-version>=12,<13" \
+        "pip" \
+    +&& micromamba clean -a -y
 
 # activate env for subsequent RUN/CMD
 ENV MAMBA_DEFAULT_ENV=appenv
