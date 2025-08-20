@@ -6,13 +6,17 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
     PYTHONPATH=/app \
     PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
-    PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+    PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 \
+    CUDA_HOME=/usr/local/cuda \
+    PATH=/usr/local/cuda/bin:${PATH} \
+    LD_LIBRARY_PATH=/usr/local/cuda/lib64:${LD_LIBRARY_PATH}
 
 WORKDIR /app
 
-# ---- OS deps: Python 3.11 + tini for clean PID 1 ----
+# ---- OS deps: Python 3.11 + CUDA dev tools + tini for clean PID 1 ----
 RUN apt-get update && apt-get install -y --no-install-recommends \
     software-properties-common curl ca-certificates tini git \
+    build-essential pkg-config \
     && add-apt-repository ppa:deadsnakes/ppa \
     && apt-get update && apt-get install -y --no-install-recommends \
     python3.11 python3.11-venv python3.11-dev python3-pip \
@@ -37,6 +41,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # ---- App code (root files + app/ package) ----
 COPY . /app
+
+# ---- Verify GPU libraries are properly installed ----
+RUN python -c "import cupy; print(f'CuPy version: {cupy.__version__}')" && \
+    python -c "import cuml; print(f'cuML version: {cuml.__version__}')" && \
+    python -c "import rmm; print(f'RMM version: {rmm.__version__}')" && \
+    python -c "import umap; print(f'UMAP version: {umap.__version__}')" && \
+    python -c "import hdbscan; print(f'HDBSCAN version: {hdbscan.__version__}')"
 
 # ---- Serverless entry (start handler directly; no EXPOSE, no Uvicorn) ----
 ENTRYPOINT ["/usr/bin/tini","-s","--"]

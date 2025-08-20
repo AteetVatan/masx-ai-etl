@@ -16,6 +16,10 @@ nltk==3.9.1
 scikit-learn==1.7.0
 hdbscan==0.8.40
 numpy==1.26.4
+scipy>=1.11.0  # Required for scikit-learn and scientific computing
+
+# Dimensionality Reduction (Required for clustering)
+umap-learn>=0.5.5
 
 # GPU Acceleration (CUDA 12.1)
 --extra-index-url https://download.pytorch.org/whl/cu121
@@ -23,6 +27,10 @@ numpy==1.26.4
 cupy-cuda12x==13.1.0
 cuml-cu12==24.4.*
 rmm-cu12==24.4.*
+
+# Optional GPU Libraries (for enhanced performance)
+faiss-gpu>=1.7.4  # GPU-accelerated similarity search
+pynvml>=11.5.0    # NVIDIA GPU monitoring
 
 # Database and ORM
 supabase==2.17.0
@@ -57,4 +65,5 @@ backoff==2.2.1
 pydantic==2.11.7
 pydantic-settings>=2.0.0
 
+# Serverless Platform
 runpod>=0.6.2
