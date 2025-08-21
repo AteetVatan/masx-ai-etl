@@ -154,10 +154,12 @@ class RunPodServerlessManager:
         payload = {
             "input": {
                 "date": date,
-                "cleanup": cleanup,
-                "worker_id": worker_id,
-                "flashpoints": [fp.dict() for fp in flashpoints],
-                "mode": "worker"  # Indicates this is a worker request
+                "trigger": "ETL_WORKER",
+                "cleanup": cleanup
+            },
+            "policy": {
+                "executionTimeout": 10800000,
+                "ttl": 14400000
             }
         }
         
@@ -166,7 +168,10 @@ class RunPodServerlessManager:
         # Call RunPod API to create new instance
         # Note: No timeout set - ETL processes can take hours to complete
         async with aiohttp.ClientSession() as session:
-            headers = {"Authorization": f"Bearer {self.runpod_api_key}"}
+            headers = {
+                "Authorization": f"Bearer {self.runpod_api_key}",
+                "Content-Type": "application/json"
+            }
             
             try:
                 # This creates a new RunPod Serverless instance
