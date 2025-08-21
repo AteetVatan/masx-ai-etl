@@ -81,18 +81,23 @@ class ETLPipeline:
                 f"Starting ALL ETL Pipeline for {len(flashpoints)} flashpoints"
             )
             # Process flashpoints concurrently using asyncio
-            # tasks = [self.run_etl_pipeline(flashpoint) for flashpoint in flashpoints]
-            # results = await asyncio.gather(*tasks, return_exceptions=True)
+           
             # Use RunPod Serverless Manager for parallel execution
-            worker_manager = RunPodServerlessManager(self.settings.runpod_workers)
-            self.logger.info(f"Using {self.settings.runpod_workers} RunPod Serverless workers")
             
-            # Process flashpoints using RunPod workers
-            results = await worker_manager.distribute_to_workers(
-                flashpoints, 
-                date=self.date,
-                cleanup=True
-            )
+            
+            if self.settings.debug:
+               self.logger.info("Running ETL Pipeline in Debug Mode")
+               tasks = [self.run_etl_pipeline(flashpoint) for flashpoint in flashpoints]
+               results = await asyncio.gather(*tasks, return_exceptions=True)
+            else:
+                self.logger.info("Running ETL Pipeline in Production Mode")
+                worker_manager = RunPodServerlessManager(self.settings.runpod_workers)
+                self.logger.info(f"Using {self.settings.runpod_workers} RunPod Serverless workers")            
+                results = await worker_manager.distribute_to_workers(
+                    flashpoints, 
+                    date=self.date,
+                    cleanup=True
+                )
 
             end_time = time.time()
             self.logger.info(
@@ -112,14 +117,13 @@ class ETLPipeline:
             self.logger.info("Starting MASX News ETL (Standalone Production Mode)")
             start_time = time.time()
             flashpoint_id = flashpoint.id
-            feeds = flashpoint.feeds
-            
-            #temporary
-            if self.settings.test_summarizer == "HDBSCAN":
-                feeds = flashpoint.feeds[:51]
-            else:
-                feeds = flashpoint.feeds[:49]
+            feeds = flashpoint.feeds            
 
+                
+            #temporary    
+            if len(flashpoint.feeds) > 51:
+                feeds = flashpoint.feeds[:51]
+                
             # load summarized feeds from file
             self.logger.info("Running NewsContentExtractor...")
             extractor = NewsContentExtractor(feeds)
