@@ -19,7 +19,7 @@
 import asyncio
 from app.etl import ETLPipeline
 from app.singleton import ChromaClientSingleton
-from typing import Optional
+from typing import Optional, List
 from app.config import get_service_logger
 
 logger = get_service_logger("ETLPipeline")
@@ -33,7 +33,7 @@ All aligned with real-world scale and performance in MASX AI
 """
 
 
-async def run_etl_pipeline(trigger: str = "coordinator", date: Optional[str] = None, cleanup: bool = True):
+async def run_etl_pipeline(trigger: str = "coordinator", date: Optional[str] = None, flashpoints_ids: List[str] = None, cleanup: bool = True):
     # centralize the cleanup right before invoking all of them
     # print("Deleting all tracked Chroma collections before pipeline runs...")
     logger.info(f"run_etl_pipeline called")
@@ -43,12 +43,12 @@ async def run_etl_pipeline(trigger: str = "coordinator", date: Optional[str] = N
     # date = "2025-08-17"
 
     etl_pipeline = ETLPipeline(date)
-    await etl_pipeline.run_all_etl_pipelines(trigger=trigger)
+    await etl_pipeline.run_all_etl_pipelines(trigger=trigger, flashpoints_ids=flashpoints_ids)
 
 
-def run_etl_pipeline_sync(trigger: str = "coordinator", date: Optional[str] = None, cleanup: bool = True):
+def run_etl_pipeline_sync(trigger: str = "coordinator", date: Optional[str] = None, flashpoints_ids: List[str] = None, cleanup: bool = True):
     """Synchronous wrapper for backward compatibility."""
-    return asyncio.run(run_etl_pipeline(trigger=trigger, date=date, cleanup=cleanup))
+    return asyncio.run(run_etl_pipeline(trigger=trigger, date=date, flashpoints_ids=flashpoints_ids, cleanup=cleanup))
 
 
 if __name__ == "__main__":

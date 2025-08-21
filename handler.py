@@ -71,6 +71,7 @@ async def handler(job: Dict[str, Any]):
     start = time.time()
     payload = job.get("input") or {}
     trigger = str(payload.get("trigger", "coordinator"))
+    flashpoints_ids = payload.get("flashpoints", None)
 
     try:
         # Warm requests used by CI/Actions to pre-pull image/models
@@ -101,7 +102,7 @@ async def handler(job: Dict[str, Any]):
         logger.info(f"Using {num_workers} workers for parallel execution")
         
         # Directly await the async ETL pipeline - no nested event loops!
-        await run_etl_pipeline(trigger=trigger, date=date, cleanup=cleanup)
+        await run_etl_pipeline(trigger=trigger, date=date, flashpoints_ids=flashpoints_ids, cleanup=cleanup)
         
         logger.info(f"async handler completed")
         return {
