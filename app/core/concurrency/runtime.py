@@ -16,7 +16,7 @@ from .device import use_gpu, get_device_config
 from .cpu_executors import CPUExecutors
 from .gpu_worker import GPUWorker, GPUConfig
 from .model_pool import get_model_pool
-
+from app.config import get_settings
 
 def _convert_to_python_list(labels) -> List[int]:
     """
@@ -53,6 +53,8 @@ R = TypeVar("R")
 class RuntimeConfig:
     """Runtime configuration parameters."""
 
+    settings = get_settings()
+
     # GPU settings
     gpu_batch_size: int = 32
     gpu_max_delay_ms: int = 50
@@ -66,8 +68,8 @@ class RuntimeConfig:
     cpu_max_processes: int = 4
 
     # Model Pool settings (for production mode)
-    model_pool_max_instances: int = 2
-    model_pool_enabled: bool = True
+    model_pool_max_instances: int = settings.model_pool_max_instances
+    model_pool_enabled: bool = settings.model_pool_enabled
 
     # Debug settings
     debug_mode: Optional[bool] = None  # Auto-detect from settings if None

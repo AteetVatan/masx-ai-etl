@@ -67,8 +67,7 @@ class Settings(BaseSettings):
     proxy_testing_url: str = Field(
         default="https://httpbin.org/ip", description="Proxy testing URL"
     )
-    max_workers: int = Field(default=20, description="Maximum number of workers")
-
+ 
     # ChromaClient Settings
     chroma_dev_persist_dir: str = Field(
         default="./.chroma_storage", description="Chroma development persist directory"
@@ -114,6 +113,11 @@ class Settings(BaseSettings):
     runpod_api_key: str = Field(default="", description="RunPod API key")
     runpod_endpoint_id: str = Field(default="rrbf5aifol52jo", description="RunPod endpoint ID")
     runpod_endpoint: str = Field(default="https://api.runpod.io/v2/rrbf5aifol52jo/run", description="RunPod endpoint")
+    
+    
+    model_pool_enabled: bool = Field(default=True, description="Enable model pool")
+    model_pool_max_instances: int = Field(default=2, description="Maximum number of model instances")
+    
     
     api_secret_key: str = Field(
         default="change_this_in_production", description="API secret key for security"
