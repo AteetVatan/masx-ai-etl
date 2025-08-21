@@ -39,6 +39,13 @@ COPY requirements.prod.txt /app/requirements.prod.txt
 # Block CPU wheels that would shadow the GPU bindings
 RUN printf "faiss-cpu==0\nfaiss==0\n" > /app/pip-constraints.txt
 
+# Add after the FAISS verification
+RUN micromamba run -n appenv python - <<'PY'
+import aiohttp
+print("aiohttp version:", aiohttp.__version__)
+print("aiohttp available for RunPod API calls")
+PY
+
 RUN micromamba run -n appenv python -m pip install --no-cache-dir --upgrade pip --root-user-action=ignore \
     && micromamba run -n appenv python -m pip install --no-cache-dir \
     -r /app/requirements.prod.txt \
