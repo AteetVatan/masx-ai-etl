@@ -59,16 +59,20 @@ class ETLPipeline:
 
     async def run_all_etl_pipelines(self):
         try:
+            
+            #initialize singletons
+            # make them execute parallely and do not wait for them to complete
+            
             self.db_flashpoints_cluster = FlashpointsCluster(self.date)
             self.db_flashpoints_cluster.db_cluster_init_sync(self.date)
             flashpoints = self.get_flashpoints(self.date)
             flashpoints = self._clean_flashpoints(flashpoints)
             if self.settings.debug:
                 self.logger.info("Running ETL Pipeline in Debug Mode")
-                flashpoints = flashpoints[:2]  # [flashpoints[0]] #
+                flashpoints = [flashpoints[0]] #flashpoints[:2]
             else:
                 self.logger.info("Running ETL Pipeline in Production Mode")
-                flashpoints = flashpoints
+                flashpoints = flashpoints[:3]
             # flashpoints = [flashpoints[1]]
             # async processing for each flashpoint
             start_time = time.time()
@@ -99,6 +103,12 @@ class ETLPipeline:
             start_time = time.time()
             flashpoint_id = flashpoint.id
             feeds = flashpoint.feeds
+            
+            #temporary
+            if self.settings.test_summarizer == "HDBSCAN":
+                feeds = flashpoint.feeds[:51]
+            else:
+                feeds = flashpoint.feeds[:49]
 
             # load summarized feeds from file
             self.logger.info("Running NewsContentExtractor...")
