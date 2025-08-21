@@ -22,6 +22,7 @@ from datetime import datetime
 from typing import Optional
 from math import sqrt
 import json
+from typing import List
 
 from app.etl.tasks import (
     NewsContentExtractor,
@@ -49,48 +50,68 @@ class ETLPipeline:
         # self.date = today_date  # "2025-07-28"
         self.db_flashpoints_cluster = None
 
-    def get_flashpoints(self, date: Optional[str] = None):
+    def get_flashpoints(self, date: Optional[str] = None, flashpoints_ids: List[str] = None):
         try:
             flashpoints_service = Flashpoints()
-            dataset = flashpoints_service.get_flashpoint_dataset(date)
+            dataset = flashpoints_service.get_flashpoint_dataset(date=date, flashpoints_ids=flashpoints_ids)
             return dataset
         except Exception as e:
             self.logger.error(f"Error: {e}")
             raise e
 
-    async def run_all_etl_pipelines(self):
+    async def run_all_etl_pipelines(self, trigger: str = "coordinator", flashpoints_ids: List[str] = None):
         try:
             
             #initialize singletons
             # make them execute parallely and do not wait for them to complete
+            if trigger == "coordinator" or self.settings.debug:
+                # db table init will happen oly with coordinator
+                self.db_flashpoints_cluster = FlashpointsCluster(self.date)
+                self.db_flashpoints_cluster.db_cluster_init_sync(self.date)
+                flashpoints = self.get_flashpoints(date=self.date)
+                flashpoints = self._clean_flashpoints(flashpoints)
+            elif trigger == "etl_worker" and flashpoints_ids is not None:
+                # ETL_WORKER
+                flashpoints = self.get_flashpoints(date=self.date, flashpoints_ids=flashpoints_ids)
+            else:
+                self.logger.error(f"Invalid trigger: {trigger}")
+                raise ValueError(f"Invalid trigger: {trigger}")
+
             
-            self.db_flashpoints_cluster = FlashpointsCluster(self.date)
-            self.db_flashpoints_cluster.db_cluster_init_sync(self.date)
-            flashpoints = self.get_flashpoints(self.date)
-            flashpoints = self._clean_flashpoints(flashpoints)
             if self.settings.debug:
                 self.logger.info("Running ETL Pipeline in Debug Mode")
-                flashpoints = [flashpoints[0]] #flashpoints[:2]
-            else:
-                self.logger.info("Running ETL Pipeline in Production Mode")
-                flashpoints = flashpoints[:3]
-            # flashpoints = [flashpoints[1]]
-            # async processing for each flashpoint
+                #flashpoints = [flashpoints[0]] #flashpoints[:2]
+            
             start_time = time.time()
             self.logger.info(
                 f"Starting ALL ETL Pipeline for {len(flashpoints)} flashpoints"
-            )
-            # Process flashpoints concurrently using asyncio
+            )            
            
-            # Use RunPod Serverless Manager for parallel execution
+            if trigger == "coordinator":
+                # Use RunPod Serverless Manager for parallel execution
+                self.logger.info("Running ETL Pipeline for Coordinator")
+                self.logger.info(f"For Coordinator -  ALL flashpoints ids")
+                worker_manager = RunPodServerlessManager(self.settings.runpod_workers)
+                self.logger.info(f"Using {self.settings.runpod_workers} RunPod Serverless workers")            
+                results = await worker_manager.distribute_to_workers(
+                    flashpoints, 
+                    date=self.date,
+                    cleanup=True
+                )
+            elif trigger == "etl_worker":
+                self.logger.info(f"For ETL Worker - flashpoints ids: {', '.join(flashpoints_ids)}")
+                tasks = [self.run_etl_pipeline(flashpoint) for flashpoint in flashpoints]
+                results = await asyncio.gather(*tasks, return_exceptions=True)
             
             
-            if self.settings.debug:
-               self.logger.info("Running ETL Pipeline in Debug Mode")
+            if trigger == "ETL_WORKER" or self.settings.debug:
+                # Process flashpoints concurrently using asyncio
+               self.logger.info("Running ETL Pipeline in with single worker")
                tasks = [self.run_etl_pipeline(flashpoint) for flashpoint in flashpoints]
                results = await asyncio.gather(*tasks, return_exceptions=True)
             else:
-                self.logger.info("Running ETL Pipeline in Production Mode")
+                # Use RunPod Serverless Manager for parallel execution
+                self.logger.info("Running ETL Pipeline in Production Mode Cordinator")
                 worker_manager = RunPodServerlessManager(self.settings.runpod_workers)
                 self.logger.info(f"Using {self.settings.runpod_workers} RunPod Serverless workers")            
                 results = await worker_manager.distribute_to_workers(

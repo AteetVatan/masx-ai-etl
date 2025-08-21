@@ -26,7 +26,8 @@ configurable max workers.
 
 import asyncio
 import aiohttp
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Tuple, Optional
+from math import sqrt
 from app.config import get_service_logger
 from app.etl_data.etl_models import FlashpointModel
 from app.config import get_settings
@@ -41,7 +42,9 @@ class RunPodServerlessManager:
     """
     
     def __init__(self, num_workers: int = 1):
-        self.num_workers = max(1, num_workers)
+        self.num_workers = max(1, num_workers)        
+        self.num_workers -= 1 # 1 is used for the coordinator
+        
         self.logger = get_service_logger("RunPodServerlessManager")
         self.settings = get_settings()
         self.runpod_api_key = self.settings.runpod_api_key
@@ -55,41 +58,74 @@ class RunPodServerlessManager:
             self.logger.warning("RUNPOD_ENDPOINT not set, falling back to single worker mode")
             self.num_workers = 1
         
-    def _distribute_flashpoints(self, flashpoints: List[FlashpointModel]) -> List[List[FlashpointModel]]:
+    from typing import List, Tuple
+
+    def _distribute_flashpoints(self, flashpoints: List["FlashpointModel"]) -> List[List["FlashpointModel"]]:
         """
-        Distribute flashpoints evenly across workers.
-        
-        Args:
-            flashpoints: List of flashpoints to distribute
-            
+        Distribute flashpoints across workers by *workload* (number of feeds), not just count.
+
+        Strategy:
+        1) Sort flashpoints by feeds_count desc.
+        2) Assign top-K (K = min(num_workers, N)) heavy flashpoints as singletons (one per worker).
+        3) Assign remaining flashpoints greedily to the worker with the lowest cumulative feeds_count.
+            (LPT - Longest Processing Time heuristic)
+
         Returns:
-            List of flashpoint lists, one per worker
+        List[List[FlashpointModel]] of length exactly self.num_workers.
         """
-        if self.num_workers == 1:
-            return [flashpoints]
-            
-        # Calculate chunk size for each worker
-        total_flashpoints = len(flashpoints)
-        chunk_size = max(1, total_flashpoints // self.num_workers)
+        num_workers = self.num_workers
+        if not flashpoints:
+            return [[] for _ in range(num_workers)]
         
-        # Distribute flashpoints
-        worker_chunks = []
-        for i in range(0, total_flashpoints, chunk_size):
-            chunk = flashpoints[i:i + chunk_size]
-            worker_chunks.append(chunk)
-            
-        # Ensure we have exactly num_workers chunks (pad with empty lists if needed)
-        while len(worker_chunks) < self.num_workers:
-            worker_chunks.append([])
-            
-        self.logger.info(f"Distributed {total_flashpoints} flashpoints across {self.num_workers} workers")
-        for i, chunk in enumerate(worker_chunks):
-            if chunk:
-                self.logger.info(f"Worker {i+1}: {len(chunk)} flashpoints")
-            else:
-                self.logger.info(f"Worker {i+1}: No flashpoints assigned")
-            
-        return worker_chunks
+        if num_workers == 1 or len(flashpoints) == 1:
+            return [flashpoints]
+
+        # Precompute feed counts (robust to None/missing)
+        def feed_count(fp: FlashpointModel) -> int:
+            fp.feeds
+            feeds = fp.feeds
+            try:
+                return len(feeds)
+            except Exception:
+                return 0
+
+        flashpoint_feeds_tuple_list: List[Tuple["FlashpointModel", int]] = [(fp, feed_count(fp)) for fp in flashpoints]
+
+        # Log inventory
+        for fp, c in flashpoint_feeds_tuple_list:            
+            self.logger.info(f"Flashpoint {fp.id}: {fp.title} | feeds={c}")
+
+        # Sort heavy → light; tie-break deterministically by id if present
+        flashpoint_feeds_tuple_list.sort(key=lambda t: (-t[1], str(getattr(t[0], "id", ""))))
+
+        # Initialize worker bins
+        chunks: List[List["FlashpointModel"]] = [[] for _ in range(num_workers)]
+        loads: List[int] = [0] * num_workers
+
+        # Phase 1: dedicate the top-K heavy flashpoints one-per-worker
+        K = min(num_workers, len(flashpoint_feeds_tuple_list))
+        for i in range(K):
+            fp, c = flashpoint_feeds_tuple_list[i]
+            chunks[i].append(fp)
+            loads[i] += c
+
+        # Phase 2: greedily place the rest onto the least-loaded worker
+        for fp, c in flashpoint_feeds_tuple_list[K:]:
+            idx = min(range(num_workers), key=lambda i: loads[i])
+            chunks[idx].append(fp)
+            loads[idx] += c
+
+        # Final logs
+        total_feeds = sum(c for _, c in flashpoint_feeds_tuple_list)
+        self.logger.info(
+            f"Distributed {len(flashpoints)} flashpoints "
+            f"(total_feeds={total_feeds}) across {num_workers} workers"
+        )
+        for i, (chunk, load) in enumerate(zip(chunks, loads), start=1):
+            self.logger.info(f"Worker {i}: {len(chunk)} flashpoints, sum_feeds={load}")
+
+        return chunks
+
     
     async def distribute_to_workers(
         self, 
@@ -155,7 +191,8 @@ class RunPodServerlessManager:
             "input": {
                 "date": date,
                 "trigger": "ETL_WORKER",
-                "cleanup": cleanup
+                "cleanup": cleanup,
+                "flashpoints": [fp.id for fp in flashpoints]
             },
             "policy": {
                 "executionTimeout": 10800000,

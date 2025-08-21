@@ -49,7 +49,7 @@ class Flashpoints:
         reraise=True,  # Raise the last exception if all retries fail
     )
     def get_flashpoint_dataset(
-        self, date: Optional[str] = None
+        self, date: Optional[str] = None, flashpoints_ids: List[str] = None
     ) -> List[FlashpointModel]:
         """
         Retrieve all flashpoints along with their associated feeds (synchronous).
@@ -57,7 +57,7 @@ class Flashpoints:
         """
         try:
             # Fetch all flashpoints
-            flashpoints = self.get_all_flashpoints(date)
+            flashpoints = self.get_flashpoints(date, flashpoints_ids)
 
             # Fetch feeds for each flashpoint synchronously
             for flashpoint in flashpoints:
@@ -75,7 +75,7 @@ class Flashpoints:
             )
             raise
 
-    def get_all_flashpoints(self, date: Optional[str] = None) -> List[FlashpointModel]:
+    def get_flashpoints(self, date: Optional[str] = None, flashpoints_ids: List[str] = None) -> List[FlashpointModel]:
         """
         Retrieve all flashpoints from the daily flashpoint table (synchronous).
         Optionally filter by date (YYYY-MM-DD format).
@@ -105,7 +105,11 @@ class Flashpoints:
                 table_name = self.db.get_daily_table_name("flash_point")
 
             # Query all flashpoints
-            query = f'SELECT * FROM "{table_name}"'
+            if flashpoints_ids:
+                query = f'SELECT * FROM "{table_name}" WHERE id IN ({", ".join(flashpoints_ids)})'
+            else:
+                query = f'SELECT * FROM "{table_name}"'
+            
             results = self.db.execute_sync_query(query, fetch=True)
 
             if not results:
