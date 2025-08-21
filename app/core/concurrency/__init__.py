@@ -12,6 +12,7 @@ from .gpu_worker import GPUWorker
 from .batcher import MicroBatcher
 from .runtime import RuntimeConfig
 from .model_pool import ModelPool, get_model_pool
+from .runpod_serverless_manager import RunPodServerlessManager
 
 __all__ = [
     "use_gpu",
@@ -23,4 +24,5 @@ __all__ = [
     "RuntimeConfig",
     "ModelPool",
     "get_model_pool",
+    "RunPodServerlessManager",
 ]

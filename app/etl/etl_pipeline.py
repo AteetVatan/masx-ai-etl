@@ -34,6 +34,7 @@ from app.config import get_settings
 from app.etl_data import Flashpoints, FlashpointsCluster
 from app.etl_data.etl_models import FlashpointModel
 from app.config import get_service_logger
+from app.core.concurrency import RunPodServerlessManager
 
 
 class ETLPipeline:
@@ -79,10 +80,19 @@ class ETLPipeline:
             self.logger.info(
                 f"Starting ALL ETL Pipeline for {len(flashpoints)} flashpoints"
             )
-
             # Process flashpoints concurrently using asyncio
-            tasks = [self.run_etl_pipeline(flashpoint) for flashpoint in flashpoints]
-            results = await asyncio.gather(*tasks, return_exceptions=True)
+            # tasks = [self.run_etl_pipeline(flashpoint) for flashpoint in flashpoints]
+            # results = await asyncio.gather(*tasks, return_exceptions=True)
+            # Use RunPod Serverless Manager for parallel execution
+            worker_manager = RunPodServerlessManager(self.settings.runpod_workers)
+            self.logger.info(f"Using {self.settings.runpod_workers} RunPod Serverless workers")
+            
+            # Process flashpoints using RunPod workers
+            results = await worker_manager.distribute_to_workers(
+                flashpoints, 
+                date=self.date,
+                cleanup=True
+            )
 
             end_time = time.time()
             self.logger.info(

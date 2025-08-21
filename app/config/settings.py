@@ -107,6 +107,14 @@ class Settings(BaseSettings):
     api_host: str = Field(default="0.0.0.0", description="API host address")
     api_port: int = Field(default=8000, description="API port number")
     api_workers: int = Field(default=4, description="Number of API workers")
+    
+    # RunPod Worker Configuration
+    runpod_workers: int = Field(default=1, description="Number of RunPod workers for parallel execution")
+    
+    runpod_api_key: str = Field(default="", description="RunPod API key")
+    runpod_endpoint_id: str = Field(default="rrbf5aifol52jo", description="RunPod endpoint ID")
+    runpod_endpoint: str = Field(default="https://api.runpod.io/v2/rrbf5aifol52jo/run", description="RunPod endpoint")
+    
     api_secret_key: str = Field(
         default="change_this_in_production", description="API secret key for security"
     )

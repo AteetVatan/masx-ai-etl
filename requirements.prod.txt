@@ -69,3 +69,6 @@
  
  # Serverless Platform
  runpod>=0.6.2
+
+ # HTTP Client for RunPod API
+ aiohttp>=3.9.0
