@@ -83,11 +83,17 @@ class ModelManager:
     def get_device(cls) -> torch.device:
         """Detect GPU (CUDA) if available, else fallback to CPU."""
         if cls._device is None:
-            # Use the centralized device detection
-            from app.core.concurrency.device import get_torch_device
+            try:
+                # Use the centralized device detection
+                from app.core.concurrency.device import get_torch_device
 
-            cls._device = get_torch_device()
-            cls._logger.info(f"Using device: {cls._device}")
+                cls._device = get_torch_device()
+                cls._logger.info(f"Using device: {cls._device}")
+            except Exception as e:
+                cls._logger.error(f"Failed to get device: {e}")
+                # Fallback to CPU if device detection fails
+                cls._device = torch.device("cpu")
+                cls._logger.warning(f"Falling back to CPU device due to error: {e}")
         return cls._device
 
     @classmethod
@@ -95,6 +101,16 @@ class ModelManager:
         """Return BART summarization model (lazy init with CPU/GPU)."""
         if cls._summarization_model is None or cls._summarization_tokenizer is None:
             cls.__load_summarization_model()
+        
+        # Validate that all components are properly loaded
+        if cls._summarization_model is None:
+            raise RuntimeError("Summarization model failed to load")
+        if cls._summarization_tokenizer is None:
+            raise RuntimeError("Summarization tokenizer failed to load")
+        if cls._device is None:
+            raise RuntimeError("Device configuration failed to load")
+        
+        cls._logger.debug(f"Returning summarization model components: model={type(cls._summarization_model)}, tokenizer={type(cls._summarization_tokenizer)}, device={cls._device}")
         return cls._summarization_model, cls._summarization_tokenizer, cls._device
 
     @classmethod

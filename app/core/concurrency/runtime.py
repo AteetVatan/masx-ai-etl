@@ -177,7 +177,13 @@ class InferenceRuntime:
 
         logger.info("Starting GPU worker...")
 
+        # Get device_id from device configuration, defaulting to 0 for GPU
+        device_id = 0  # Default GPU device
+        if hasattr(self.device_config, 'device_id') and self.device_config.device_id is not None:
+            device_id = self.device_config.device_id
+
         gpu_config = GPUConfig(
+            device_id=device_id,  # Pass the correct device_id
             max_batch_size=self.config.gpu_batch_size,
             max_delay_ms=self.config.gpu_max_delay_ms,
             max_queue_size=self.config.gpu_queue_size,
@@ -425,6 +431,10 @@ class InferenceRuntime:
 
             # Step 3: Generate summary
             try:
+                # Ensure we have valid model components
+                if model is None or tokenizer is None or device is None:
+                    raise RuntimeError("Model components not properly loaded")
+                
                 summary = NLPUtils.summarize_text(
                     model,
                     tokenizer,

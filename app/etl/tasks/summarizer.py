@@ -112,7 +112,9 @@ class Summarizer:
 
     def _get_summarization_model_loader(self):
         """Model loader function for the inference runtime."""
-        return ModelManager.get_summarization_model()
+        # Return only the model, not the tuple, since GPUWorker expects a single model
+        model, tokenizer, device = ModelManager.get_summarization_model()
+        return model
 
     async def _process_batch(self, feeds: list[FeedModel]) -> list[FeedModel]:
         """Process a batch of feeds using the inference runtime with GPU micro-batching."""

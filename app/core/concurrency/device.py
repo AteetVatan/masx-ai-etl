@@ -139,7 +139,16 @@ def get_torch_device() -> "torch.device":
         raise RuntimeError("PyTorch not available")
 
     config = get_device_config()
-    return torch.device(config.device_type, config.device_id)
+    
+    # Handle device creation properly - torch.device() doesn't accept None as second argument
+    if config.device_id is not None:
+        device = torch.device(config.device_type, config.device_id)
+        logger.info(f"Created PyTorch device: {device} (type: {config.device_type}, id: {config.device_id})")
+        return device
+    else:
+        device = torch.device(config.device_type)
+        logger.info(f"Created PyTorch device: {device} (type: {config.device_type}, no id)")
+        return device
 
 
 # Convenience functions for backward compatibility

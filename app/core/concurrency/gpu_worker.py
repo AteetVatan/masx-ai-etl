@@ -71,6 +71,10 @@ class GPUWorker:
         self.model_loader = model_loader
         self.config = config or GPUConfig()
 
+        # Validate device_id
+        if not isinstance(self.config.device_id, int) or self.config.device_id < 0:
+            raise ValueError(f"Invalid device_id: {self.config.device_id}. Must be a non-negative integer.")
+
         # Model state
         self._model = None
         self._model_lock = threading.Lock()
@@ -117,6 +121,10 @@ class GPUWorker:
             try:
                 # Load model using the provided loader
                 self._model = self.model_loader()
+
+                # Validate device_id before creating device string
+                if not isinstance(self.config.device_id, int) or self.config.device_id < 0:
+                    raise ValueError(f"Invalid device_id: {self.config.device_id}")
 
                 # Move to GPU
                 device = torch.device(f"cuda:{self.config.device_id}")
@@ -167,6 +175,10 @@ class GPUWorker:
         """Create dummy input for model warmup."""
         # This is a placeholder - should be customized based on actual model
         try:
+            # Validate device_id before creating device strings
+            if not isinstance(self.config.device_id, int) or self.config.device_id < 0:
+                raise ValueError(f"Invalid device_id: {self.config.device_id}")
+
             # Try to create input based on model's expected input shape
             if hasattr(self._model, "config"):
                 # For transformers models
@@ -306,8 +318,9 @@ class GPUWorker:
             from app.singleton import ModelManager
             from app.nlp import Translator, NLPUtils
 
-            # Get model components
-            model, tokenizer, device = ModelManager.get_summarization_model()
+            # Get model components - model_loader only returns the model, so get tokenizer and device separately
+            model = self._model  # Use the already loaded model
+            model_manager_model, tokenizer, device = ModelManager.get_summarization_model()
             max_tokens = ModelManager.get_summarization_model_max_tokens()
 
             # Process each payload
