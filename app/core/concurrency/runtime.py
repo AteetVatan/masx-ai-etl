@@ -57,7 +57,7 @@ class RuntimeConfig:
     gpu_batch_size: int = 32
     gpu_max_delay_ms: int = 50
     gpu_queue_size: int = 1000
-    gpu_timeout: float = 30.0
+    gpu_timeout: float = 7200.0  # 2 hours for ETL processes
     gpu_use_fp16: bool = True
     gpu_enable_warmup: bool = True
 

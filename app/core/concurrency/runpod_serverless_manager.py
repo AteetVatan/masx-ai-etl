@@ -164,6 +164,7 @@ class RunPodServerlessManager:
         self.logger.info(f"Worker {worker_id}: Sending {len(flashpoints)} flashpoints to RunPod")
         
         # Call RunPod API to create new instance
+        # Note: No timeout set - ETL processes can take hours to complete
         async with aiohttp.ClientSession() as session:
             headers = {"Authorization": f"Bearer {self.runpod_api_key}"}
             
@@ -172,8 +173,7 @@ class RunPodServerlessManager:
                 async with session.post(
                     self.runpod_endpoint,
                     json=payload,
-                    headers=headers,
-                    timeout=aiohttp.ClientTimeout(total=300)  # 5 minute timeout
+                    headers=headers
                 ) as response:
                     if response.status == 200:
                         result = await response.json()
@@ -183,9 +183,6 @@ class RunPodServerlessManager:
                         error_text = await response.text()
                         raise Exception(f"RunPod API error {response.status}: {error_text}")
                         
-            except asyncio.TimeoutError:
-                self.logger.error(f"Worker {worker_id}: Timeout creating instance")
-                raise Exception(f"Timeout creating worker {worker_id} instance")
             except Exception as e:
                 self.logger.error(f"Error creating worker {worker_id}: {e}")
                 raise e

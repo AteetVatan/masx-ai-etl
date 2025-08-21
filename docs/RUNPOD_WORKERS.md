@@ -181,6 +181,31 @@ Enable debug logging to see detailed worker activity:
 LOG_LEVEL=DEBUG
 ```
 
+## Timeout Configuration for Long-Running ETL Processes
+
+The system has been configured with extended timeouts to handle long-running ETL processes:
+
+### **Updated Timeout Values**
+- **Request Timeout**: 2 hours (7200 seconds) - For overall ETL pipeline execution
+- **GPU Timeout**: 2 hours (7200 seconds) - For GPU inference operations
+- **Render Timeout**: 1 hour (3600 seconds) - For complex web page rendering
+- **Web Scraping Timeout**: 1 hour (3600 seconds) - For content extraction
+- **Navigation Timeout**: 30 minutes (1800 seconds) - For page navigation
+
+### **Why Extended Timeouts?**
+- **ETL processes can take hours** to complete large datasets
+- **Web scraping complex pages** may require extended processing time
+- **GPU operations** on large batches can be time-consuming
+- **Network delays** and retries in distributed environments
+
+### **Configuration**
+Timeouts are automatically configured via environment variables:
+```bash
+REQUEST_TIMEOUT=7200          # 2 hours
+GPU_TIMEOUT=7200             # 2 hours  
+RENDER_TIMEOUT_S=3600        # 1 hour
+```
+
 ## How RunPod Serverless Integration Works
 
 ### 1. **Coordinator Instance**

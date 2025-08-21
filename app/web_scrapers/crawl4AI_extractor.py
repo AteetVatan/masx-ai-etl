@@ -40,7 +40,7 @@ class Crawl4AIExtractor:
         self.logger = get_service_logger("Crawl4AIExtractor")
 
     async def crawl4ai_scrape(
-        self, url: str, max_retries: int = 3, timeout_sec: int = 30
+        self, url: str, max_retries: int = 3, timeout_sec: int = 3600  # 1 hour for complex pages
     ):
         prune_filter = PruningContentFilter(
             threshold=0.4,

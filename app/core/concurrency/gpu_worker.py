@@ -36,7 +36,7 @@ class GPUConfig:
     max_batch_size: int = 32
     max_delay_ms: int = 50
     max_queue_size: int = 1000
-    timeout_seconds: float = 30.0
+    timeout_seconds: float = 7200.0  # 2 hours for ETL processes
     use_fp16: bool = True
     enable_warmup: bool = True
     pinned_memory: bool = True

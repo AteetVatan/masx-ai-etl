@@ -124,7 +124,7 @@ class Settings(BaseSettings):
     max_concurrent_requests: int = Field(
         default=10, description="Maximum concurrent requests"
     )
-    request_timeout: int = Field(default=30, description="Request timeout in seconds")
+    request_timeout: int = Field(default=7200, description="Request timeout in seconds (2 hours for ETL processes)")
     retry_attempts: int = Field(default=3, description="Number of retry attempts")
     retry_delay: int = Field(default=2, description="Retry delay in seconds")
     cache_ttl: int = Field(default=3600, description="Cache TTL in seconds")
@@ -140,7 +140,7 @@ class Settings(BaseSettings):
     )
     gpu_queue_size: int = Field(default=1000, description="GPU inference queue size")
     gpu_timeout: float = Field(
-        default=30.0, description="GPU inference timeout (seconds)"
+        default=7200.0, description="GPU inference timeout (seconds) (2 hours for ETL processes)"
     )
     gpu_use_fp16: bool = Field(default=True, description="Use FP16 for GPU inference")
     gpu_enable_warmup: bool = Field(default=True, description="Enable GPU model warmup")
@@ -154,7 +154,7 @@ class Settings(BaseSettings):
         default=5, description="Maximum concurrent render pages"
     )
     render_queue_max: int = Field(default=100, description="Maximum render queue size")
-    render_timeout_s: int = Field(default=30, description="Render timeout (seconds)")
+    render_timeout_s: int = Field(default=3600, description="Render timeout (seconds) (1 hour for complex web pages)")
     render_retries: int = Field(default=3, description="Render retry attempts")
 
     # Security Configuration

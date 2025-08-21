@@ -42,7 +42,7 @@ class BeautifulSoupExtractor:
                 "User-Agent": proxy if isinstance(proxy, str) else choice(list(proxy))
             }
             # url = "https://baijiahao.baidu.com/s?id=1834495451984756877"
-            response = requests.get(url, headers=headers, timeout=10)
+            response = requests.get(url, headers=headers, timeout=3600)  # 1 hour for complex pages
             response.encoding = response.apparent_encoding
             response.raise_for_status()
             return BeautifulSoup(response.content, "html.parser")

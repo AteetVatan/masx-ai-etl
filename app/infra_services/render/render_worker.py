@@ -37,8 +37,8 @@ class RenderConfig:
 
     # Performance settings
     max_concurrent_pages: int = 5
-    page_timeout_ms: int = 30000
-    navigation_timeout_ms: int = 15000
+    page_timeout_ms: int = 3600000  # 1 hour for complex pages
+    navigation_timeout_ms: int = 1800000  # 30 minutes for navigation
 
     # Resource limits
     max_memory_mb: int = 2048
