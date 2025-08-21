@@ -190,7 +190,7 @@ class RunPodServerlessManager:
         payload = {
             "input": {
                 "date": date,
-                "trigger": "ETL_WORKER",
+                "trigger": "etl_worker",
                 "cleanup": cleanup,
                 "flashpoints": [fp.id for fp in flashpoints]
             },
