@@ -62,18 +62,21 @@ class ETLPipeline:
 
     async def run_all_etl_pipelines(self, trigger: str = "coordinator", flashpoints_ids: List[str] = None):
         try:
-            
+            self.logger.info(f"**********trigger: {trigger}**********")
             #initialize singletons
             # make them execute parallely and do not wait for them to complete
             if trigger == WorkerEnums.COORDINATOR.value or self.settings.debug:
+                self.logger.info(f"Coordinator trigger")
                 # db table init will happen oly with coordinator
                 self.db_flashpoints_cluster = FlashpointsCluster(self.date)
                 self.db_flashpoints_cluster.db_cluster_init_sync(self.date)
                 flashpoints = self.get_flashpoints(date=self.date)
                 flashpoints = self._clean_flashpoints(flashpoints)
             elif trigger == WorkerEnums.ETL_WORKER.value and flashpoints_ids is not None:
+                self.logger.info(f"ETL_WORKER trigger")
                 # ETL_WORKER
                 flashpoints = self.get_flashpoints(date=self.date, flashpoints_ids=flashpoints_ids)
+                self.logger.info(f"ETL_WORKER trigger - flashpoints_ids: {", ".join(flashpoints_ids)}")
             else:
                 self.logger.error(f"Invalid trigger: {trigger}")
                 raise ValueError(f"Invalid trigger: {trigger}")

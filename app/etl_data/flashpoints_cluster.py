@@ -35,8 +35,8 @@ from app.core.exceptions import DatabaseException
 
 class FlashpointsCluster:
     """
-    Flashpoints class for retrieving flashpoints and their associated feeds.
-    Synchronous version to avoid async issues on RunPod.io.
+    FlashpointsCluster class for managing news clustering operations.
+    Handles cluster table creation, deletion, and cluster data insertion.
     """
 
     CLUSTER_TABLE_PREFIX = "news_clusters"
@@ -48,6 +48,7 @@ class FlashpointsCluster:
         self.date = date
 
     def close(self):
+        """Close database connections."""
         self.db.close()
 
     def db_cluster_init_sync(self, date: Optional[datetime] = None):
@@ -191,181 +192,6 @@ class FlashpointsCluster:
         except Exception as e:
             self.logger.error(f"Error inserting cluster summaries: {e}")
             raise DatabaseException(f"Error inserting cluster summaries: {e}")
-
-    def get_flashpoint_dataset_sync(
-        self, date: Optional[str] = None
-    ) -> List[FlashpointModel]:
-        """
-        Retrieve all flashpoints along with their associated feeds (synchronous).
-        """
-        try:
-            # Fetch all flashpoints synchronously
-            flashpoints = self.get_all_flashpoints_sync(date)
-
-            # Fetch feeds for each flashpoint synchronously
-            for flashpoint in flashpoints:
-                feeds = self.get_feeds_per_flashpoint_sync(flashpoint.id, date)
-                flashpoint.feeds = feeds
-
-            self.logger.info(
-                f"Flashpoint dataset built: {len(flashpoints)} flashpoints with feeds"
-            )
-            return flashpoints
-
-        except Exception as e:
-            self.logger.error(
-                f"Flashpoints dataset retrieval failed: {e}", exc_info=True
-            )
-            raise
-
-    def get_all_flashpoints_sync(
-        self, date: Optional[str] = None
-    ) -> List[FlashpointModel]:
-        """
-        Retrieve all flashpoints from the daily flashpoint table (synchronous).
-        """
-        self.logger.info("Flashpoints retrieval started")
-        try:
-            # Determine table name
-            if date:
-                try:
-                    target_date = datetime.strptime(date, "%Y-%m-%d")
-                    table_name = self.db.get_daily_table_name(
-                        "flash_point", target_date
-                    )
-                except ValueError:
-                    self.logger.error("Invalid date format. Use YYYY-MM-DD")
-                    return []
-            else:
-                table_name = self.db.get_daily_table_name("flash_point")
-
-            # Query all flashpoints
-            query = f'SELECT * FROM "{table_name}"'
-            results = self.db.execute_sync_query(query, fetch=True)
-
-            if not results:
-                self.logger.warning("No flashpoints found")
-                return []
-
-            # Convert to FlashpointModel instances
-            flashpoints = []
-            for fp in results:
-                try:
-                    flashpoint = FlashpointModel(
-                        id=fp.get("id", ""),
-                        title=fp.get("title", ""),
-                        description=fp.get("description", ""),
-                        entities=self.db.parse_json_field(fp.get("entities")),
-                        domains=self.db.parse_json_field(fp.get("domains")),
-                        run_id=fp.get("run_id"),
-                        created_at=fp.get("created_at", ""),
-                        updated_at=fp.get("updated_at", ""),
-                    )
-                    flashpoints.append(flashpoint)
-                except Exception as e:
-                    self.logger.warning(
-                        f"Failed to parse flashpoint {fp.get('id')}: {e}"
-                    )
-                    continue
-
-            self.logger.info(f"Flashpoints retrieved: {len(flashpoints)} records")
-            return flashpoints
-
-        except Exception as e:
-            self.logger.error(f"Flashpoints retrieval failed: {e}")
-            raise
-
-    def get_feeds_per_flashpoint_sync(
-        self,
-        flashpoint_id: str,
-        date: Optional[str] = None,
-    ) -> List[FeedModel]:
-        """
-        Retrieve all feeds associated with a specific flashpoint (synchronous).
-        """
-        self.logger.info(
-            f"Feeds per flashpoint requested - flashpoint_id: {flashpoint_id}"
-        )
-        try:
-            # Determine feed table name
-            if date:
-                try:
-                    target_date = datetime.strptime(date, "%Y-%m-%d")
-                    feed_table = self.db.get_daily_table_name(
-                        "feed_entries", target_date
-                    )
-                except ValueError:
-                    self.logger.error("Invalid date format. Use YYYY-MM-DD")
-                    return []
-            else:
-                feed_table = self.db.get_daily_table_name("feed_entries")
-
-            # Query feeds with pagination to handle large datasets
-            all_records = []
-            batch_size = 500
-            offset = 0
-
-            while True:
-                query = f"""
-                SELECT * FROM "{feed_table}" 
-                WHERE flashpoint_id = %s 
-                ORDER BY created_at 
-                LIMIT %s OFFSET %s
-                """
-                params = (flashpoint_id, batch_size, offset)
-
-                result = self.db.execute_sync_query(query, params, fetch=True)
-
-                if not result:
-                    break
-
-                all_records.extend(result)
-                offset += batch_size
-
-                self.logger.debug(
-                    f"Fetched {len(result)} feeds (total: {len(all_records)})"
-                )
-
-                if len(result) < batch_size:
-                    break
-
-            if not all_records:
-                self.logger.warning(
-                    f"No feeds found for flashpoint_id: {flashpoint_id}"
-                )
-                return []
-
-            # Convert to FeedModel instances
-            feeds = []
-            for feed in all_records:
-                try:
-                    feed_model = FeedModel(
-                        id=feed.get("id", ""),
-                        flashpoint_id=feed.get("flashpoint_id", ""),
-                        url=feed.get("url", ""),
-                        title=feed.get("title", ""),
-                        seendate=feed.get("seendate"),
-                        domain=feed.get("domain"),
-                        language=feed.get("language"),
-                        sourcecountry=feed.get("sourcecountry"),
-                        description=feed.get("description"),
-                        image=feed.get("image"),
-                        created_at=feed.get("created_at", ""),
-                        updated_at=feed.get("updated_at", ""),
-                    )
-                    feeds.append(feed_model)
-                except Exception as e:
-                    self.logger.warning(f"Failed to parse feed {feed.get('id')}: {e}")
-                    continue
-
-            self.logger.info(
-                f"Feeds retrieved for flashpoint_id={flashpoint_id}: {len(feeds)} records"
-            )
-            return feeds
-
-        except Exception as e:
-            self.logger.error(f"Feeds per flashpoint retrieval failed: {e}")
-            raise
 
     def __get_all_rls_policies_cmd(self, table_name: str) -> List[str]:
         """

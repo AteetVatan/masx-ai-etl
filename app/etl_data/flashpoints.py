@@ -79,10 +79,11 @@ class Flashpoints:
     def get_flashpoints(self, date: Optional[str] = None, flashpoints_ids: List[str] = None) -> List[FlashpointModel]:
         """
         Retrieve all flashpoints from the daily flashpoint table (synchronous).
-        Optionally filter by date (YYYY-MM-DD format).
+        Optionally filter by date (YYYY-MM-DD format) and specific flashpoint IDs.
 
         Args:
             date (str, optional): Date filter in YYYY-MM-DD format.
+            flashpoints_ids (List[str], optional): List of specific flashpoint IDs to retrieve.
 
         Returns:
             List[FlashpointModel]: All flashpoints for the given date or current date.
@@ -105,24 +106,17 @@ class Flashpoints:
             else:
                 table_name = self.db.get_daily_table_name("flash_point")
 
-            # Query all flashpoints
-            
-            #f21abd15-bffa-44f7-91df-57675fc7d6f9,fc9f9bdc-712e-4de7-ba14-d30a0dc81c41, 5e6803bc-501e-4130-92c1-5d4b2511c4c6, 1fc0a41d-3726-4259-b5f6-7143eeacbc04
-            #Query execution failed: trailing junk after numeric literal at or near "44f7"
-            #LINE 1: ..."flash_point_20250820" WHERE id IN (f21abd15-bffa-44f7-91df-...
-
+            # Query flashpoints based on parameters
             if flashpoints_ids:
-                # Convert to canonical UUID strings and wrap each in single quotes for IN (...)
+                # Convert to canonical UUID strings and use ANY operator for efficient querying
                 ids_param = [str(uuid.UUID(s.strip())) for s in flashpoints_ids]
                 query = f'SELECT * FROM "{table_name}" WHERE id = ANY(%s::uuid[])'
-                self.logger.info(f"************************Query executed: {query}")            
+                self.logger.info(f"Query executed: {query}")            
                 results = self.db.execute_sync_query(query, (ids_param,), fetch=True)                
-                #query = f'SELECT * FROM "{table_name}" WHERE id IN ({", ".join(normalized_flashpoints_ids)})'
             else:
                 query = f'SELECT * FROM "{table_name}"'                
                 results = self.db.execute_sync_query(query, fetch=True)
-                self.logger.info(f"************************Query executed: {query}")            
-
+                self.logger.info(f"Query executed: {query}")            
 
             if not results:
                 self.logger.warning("No flashpoints found")
@@ -176,7 +170,7 @@ class Flashpoints:
             Exception: If database query or date parsing fails.
         """
         self.logger.info(
-            f"Feeds per flashpoint requested - flashpoint_id: {flashpoint_id}"
+            f"Flashpoints: Feeds per flashpoint requested - flashpoint_id: {flashpoint_id}"
         )
         try:
             # Determine feed table name
@@ -191,6 +185,8 @@ class Flashpoints:
                     return []
             else:
                 feed_table = self.db.get_daily_table_name("feed_entries")
+                
+            self.logger.info(f"feed table name: {feed_table}")
 
             # Query feeds with pagination to handle large datasets
             all_records = []
@@ -209,6 +205,7 @@ class Flashpoints:
                 result = self.db.execute_sync_query(query, params, fetch=True)
 
                 if not result:
+                    self.logger.info(f"No feeds found for flashpoint_id: {flashpoint_id}")
                     break
 
                 all_records.extend(result)
@@ -219,6 +216,7 @@ class Flashpoints:
                 )
 
                 if len(result) < batch_size:
+                    self.logger.info(f"No more feeds found for flashpoint_id: {flashpoint_id}")
                     break
 
             if not all_records:
@@ -258,6 +256,3 @@ class Flashpoints:
         except Exception as e:
             self.logger.error(f"Feeds per flashpoint retrieval failed: {e}")
             raise
-        
-        def _normalize_uuids(self, ids: List[str]) -> List[uuid.UUID]:
-            return [x if isinstance(x, uuid.UUID) else uuid.UUID(str(x)) for x in ids]
