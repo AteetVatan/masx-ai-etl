@@ -36,6 +36,7 @@ from app.etl_data import Flashpoints, FlashpointsCluster
 from app.etl_data.etl_models import FlashpointModel
 from app.config import get_service_logger
 from app.core.concurrency import RunPodServerlessManager
+from app.enumeration import WorkerEnums
 
 
 class ETLPipeline:
@@ -64,13 +65,13 @@ class ETLPipeline:
             
             #initialize singletons
             # make them execute parallely and do not wait for them to complete
-            if trigger == "coordinator" or self.settings.debug:
+            if trigger == WorkerEnums.COORDINATOR.value or self.settings.debug:
                 # db table init will happen oly with coordinator
                 self.db_flashpoints_cluster = FlashpointsCluster(self.date)
                 self.db_flashpoints_cluster.db_cluster_init_sync(self.date)
                 flashpoints = self.get_flashpoints(date=self.date)
                 flashpoints = self._clean_flashpoints(flashpoints)
-            elif trigger == "etl_worker" and flashpoints_ids is not None:
+            elif trigger == WorkerEnums.ETL_WORKER.value and flashpoints_ids is not None:
                 # ETL_WORKER
                 flashpoints = self.get_flashpoints(date=self.date, flashpoints_ids=flashpoints_ids)
             else:
@@ -87,7 +88,7 @@ class ETLPipeline:
                 f"Starting ALL ETL Pipeline for {len(flashpoints)} flashpoints"
             )            
            
-            if trigger == "coordinator":
+            if trigger == WorkerEnums.COORDINATOR.value:
                 # Use RunPod Serverless Manager for parallel execution
                 self.logger.info("Running ETL Pipeline for Coordinator")
                 self.logger.info(f"For Coordinator -  ALL flashpoints ids")
@@ -98,7 +99,7 @@ class ETLPipeline:
                     date=self.date,
                     cleanup=True
                 )
-            elif trigger == "etl_worker":
+            elif trigger == WorkerEnums.ETL_WORKER.value:
                 self.logger.info(f"For ETL Worker - flashpoints ids: {', '.join(flashpoints_ids)}")
                 
                 
@@ -106,23 +107,6 @@ class ETLPipeline:
                 
                 tasks = [self.run_etl_pipeline(flashpoint) for flashpoint in flashpoints]
                 results = await asyncio.gather(*tasks, return_exceptions=True)
-            
-            
-            if trigger == "etl_worker" or self.settings.debug:
-                # Process flashpoints concurrently using asyncio
-               self.logger.info("Running ETL Pipeline in with single worker")
-               tasks = [self.run_etl_pipeline(flashpoint) for flashpoint in flashpoints]
-               results = await asyncio.gather(*tasks, return_exceptions=True)
-            else:
-                # Use RunPod Serverless Manager for parallel execution
-                self.logger.info("Running ETL Pipeline in Production Mode Cordinator")
-                worker_manager = RunPodServerlessManager(self.settings.runpod_workers)
-                self.logger.info(f"Using {self.settings.runpod_workers} RunPod Serverless workers")            
-                results = await worker_manager.distribute_to_workers(
-                    flashpoints, 
-                    date=self.date,
-                    cleanup=True
-                )
 
             end_time = time.time()
             self.logger.info(

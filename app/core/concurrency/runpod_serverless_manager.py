@@ -31,6 +31,7 @@ from math import sqrt
 from app.config import get_service_logger
 from app.etl_data.etl_models import FlashpointModel
 from app.config import get_settings
+from app.enumeration import WorkerEnums
 
 logger = get_service_logger("RunPodServerlessManager")
 
@@ -191,7 +192,7 @@ class RunPodServerlessManager:
         payload = {
             "input": {
                 "date": date,
-                "trigger": "etl_worker",
+                "trigger": WorkerEnums.ETL_WORKER.value,
                 "cleanup": cleanup,
                 "flashpoints": [fp.id for fp in flashpoints]
             },

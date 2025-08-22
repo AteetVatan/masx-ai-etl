@@ -24,6 +24,7 @@ from datetime import datetime
 from typing import Any, Dict, Optional
 import runpod
 from app.config import get_service_logger
+from app.enumeration import WorkerEnums
 
 logger = get_service_logger("Handler")
 
@@ -70,7 +71,7 @@ async def handler(job: Dict[str, Any]):
     """
     start = time.time()
     payload = job.get("input") or {}
-    trigger = str(payload.get("trigger", "coordinator"))
+    trigger = str(payload.get("trigger", WorkerEnums.COORDINATOR.value))
     flashpoints_ids = payload.get("flashpoints", None)
 
     try:
