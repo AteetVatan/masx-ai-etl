@@ -17,7 +17,8 @@
 # Contact: ab@masxai.com | MASXAI.com
 
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional, List, Iterable
+import uuid
 from tenacity import (
     retry,
     stop_after_attempt,
@@ -105,12 +106,23 @@ class Flashpoints:
                 table_name = self.db.get_daily_table_name("flash_point")
 
             # Query all flashpoints
-            if flashpoints_ids:
-                query = f'SELECT * FROM "{table_name}" WHERE id IN ({", ".join(flashpoints_ids)})'
-            else:
-                query = f'SELECT * FROM "{table_name}"'
             
-            results = self.db.execute_sync_query(query, fetch=True)
+            #f21abd15-bffa-44f7-91df-57675fc7d6f9,fc9f9bdc-712e-4de7-ba14-d30a0dc81c41, 5e6803bc-501e-4130-92c1-5d4b2511c4c6, 1fc0a41d-3726-4259-b5f6-7143eeacbc04
+            #Query execution failed: trailing junk after numeric literal at or near "44f7"
+            #LINE 1: ..."flash_point_20250820" WHERE id IN (f21abd15-bffa-44f7-91df-...
+
+            if flashpoints_ids:
+                # Convert to canonical UUID strings and wrap each in single quotes for IN (...)
+                ids_param = [str(uuid.UUID(s.strip())) for s in flashpoints_ids]
+                query = f'SELECT * FROM "{table_name}" WHERE id = ANY(%s::uuid[])'
+                self.logger.info(f"************************Query executed: {query}")            
+                results = self.db.execute_sync_query(query, (ids_param,), fetch=True)                
+                #query = f'SELECT * FROM "{table_name}" WHERE id IN ({", ".join(normalized_flashpoints_ids)})'
+            else:
+                query = f'SELECT * FROM "{table_name}"'                
+                results = self.db.execute_sync_query(query, fetch=True)
+                self.logger.info(f"************************Query executed: {query}")            
+
 
             if not results:
                 self.logger.warning("No flashpoints found")
@@ -246,3 +258,6 @@ class Flashpoints:
         except Exception as e:
             self.logger.error(f"Feeds per flashpoint retrieval failed: {e}")
             raise
+        
+        def _normalize_uuids(self, ids: List[str]) -> List[uuid.UUID]:
+            return [x if isinstance(x, uuid.UUID) else uuid.UUID(str(x)) for x in ids]
