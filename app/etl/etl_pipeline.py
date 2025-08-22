@@ -108,7 +108,7 @@ class ETLPipeline:
                 results = await asyncio.gather(*tasks, return_exceptions=True)
             
             
-            if trigger == "ETL_WORKER" or self.settings.debug:
+            if trigger == "etl_worker" or self.settings.debug:
                 # Process flashpoints concurrently using asyncio
                self.logger.info("Running ETL Pipeline in with single worker")
                tasks = [self.run_etl_pipeline(flashpoint) for flashpoint in flashpoints]
