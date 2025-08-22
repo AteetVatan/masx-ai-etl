@@ -100,6 +100,10 @@ class ETLPipeline:
                 )
             elif trigger == "etl_worker":
                 self.logger.info(f"For ETL Worker - flashpoints ids: {', '.join(flashpoints_ids)}")
+                
+                
+                return True
+                
                 tasks = [self.run_etl_pipeline(flashpoint) for flashpoint in flashpoints]
                 results = await asyncio.gather(*tasks, return_exceptions=True)
             

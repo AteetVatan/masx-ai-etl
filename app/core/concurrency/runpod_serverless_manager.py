@@ -156,6 +156,7 @@ class RunPodServerlessManager:
         worker_tasks = []
         for i, chunk in enumerate(worker_chunks):
             if chunk:
+                self.logger.info(f"**********Sending chunk {i + 1} to RunPod Serverless worker***********")
                 task = self._send_to_worker_instance(i + 1, chunk, date, cleanup)
                 worker_tasks.append(task)
         
