@@ -73,10 +73,10 @@ class ETLPipeline:
                 flashpoints = self.get_flashpoints(date=self.date)
                 flashpoints = self._clean_flashpoints(flashpoints)
             elif trigger == WorkerEnums.ETL_WORKER.value and flashpoints_ids is not None:
-                self.logger.info(f"ETL_WORKER trigger")
+                self.logger.info("ETL_WORKER trigger")
                 # ETL_WORKER
                 flashpoints = self.get_flashpoints(date=self.date, flashpoints_ids=flashpoints_ids)
-                self.logger.info(f"ETL_WORKER trigger - flashpoints_ids: {", ".join(flashpoints_ids)}")
+                self.logger.info(f"ETL_WORKER trigger - flashpoints length : {len(flashpoints)}")
             else:
                 self.logger.error(f"Invalid trigger: {trigger}")
                 raise ValueError(f"Invalid trigger: {trigger}")
