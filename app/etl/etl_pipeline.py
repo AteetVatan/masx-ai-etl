@@ -145,7 +145,14 @@ class ETLPipeline:
             summarizer = Summarizer(scraped_feeds)
             summarized_feeds = await summarizer.summarize_all_feeds()
             
-            #return True
+            self.logger.info(f"summarized_feeds length: {len(summarized_feeds)}")
+            
+            for feed in summarized_feeds:
+                self.logger.info(f"**************************************************************************")
+                self.logger.info(f"feed: {feed.title}")
+                self.logger.info(f"feed: {feed.summary}")
+                self.logger.info(f"**************************************************************************")
+            return True
 
             self.logger.info("Running VectorizeArticles...")
             vectorizer = VectorizeArticles(flashpoint_id)
