@@ -60,12 +60,12 @@ class ETLPipeline:
             self.logger.error(f"Error: {e}")
             raise e
 
-    async def run_all_etl_pipelines(self, trigger: str = "coordinator", flashpoints_ids: List[str] = None):
+    async def run_all_etl_pipelines(self, trigger: str = WorkerEnums.COORDINATOR.value, flashpoints_ids: List[str] = None):
         try:
             self.logger.info(f"**********trigger: {trigger}**********")
             #initialize singletons
             # make them execute parallely and do not wait for them to complete
-            if trigger == WorkerEnums.COORDINATOR.value or self.settings.debug:
+            if trigger == WorkerEnums.COORDINATOR.value:# or self.settings.debug:
                 self.logger.info(f"Coordinator trigger")
                 # db table init will happen oly with coordinator
                 self.db_flashpoints_cluster = FlashpointsCluster(self.date)
@@ -106,7 +106,7 @@ class ETLPipeline:
                 self.logger.info(f"For ETL Worker - flashpoints ids: {', '.join(flashpoints_ids)}")
                 
                 
-                return True
+                #return True
                 
                 tasks = [self.run_etl_pipeline(flashpoint) for flashpoint in flashpoints]
                 results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -131,15 +131,15 @@ class ETLPipeline:
             flashpoint_id = flashpoint.id
             feeds = flashpoint.feeds            
 
-                
-            #temporary    
-            if len(flashpoint.feeds) > 51:
-                feeds = flashpoint.feeds[:51]
+              
+
                 
             # load summarized feeds from file
             self.logger.info("Running NewsContentExtractor...")
             extractor = NewsContentExtractor(feeds)
             scraped_feeds = await extractor.extract_feeds()
+            
+            return True
 
             self.logger.info("Running Summarizer...")
             summarizer = Summarizer(scraped_feeds)

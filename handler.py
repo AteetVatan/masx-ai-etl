@@ -73,6 +73,9 @@ async def handler(job: Dict[str, Any]):
     payload = job.get("input") or {}
     trigger = str(payload.get("trigger", WorkerEnums.COORDINATOR.value))
     flashpoints_ids = payload.get("flashpoints", None)
+    
+    logger.info(f"**********trigger: {trigger}**********")
+    logger.info(f"**********flashpoints_ids: {flashpoints_ids}**********")
 
     try:
         # Warm requests used by CI/Actions to pre-pull image/models
