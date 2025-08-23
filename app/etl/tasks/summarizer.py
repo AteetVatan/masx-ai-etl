@@ -59,10 +59,13 @@ class Summarizer:
         Translate, compress if needed, and summarize each article using InferenceRuntime with GPU micro-batching.
         """
         try:
+            self.logger.info(f"Summarizer: Summarizing {len(self.feeds)} feeds")
             # Initialize inference runtime if not already done
             if not self.inference_runtime:
+                self.logger.info(f"Summarizer: Initializing inference runtime")
                 await self._initialize_inference_runtime()
 
+            self.logger.info(f"Inference runtime initialized")
             # Process feeds using the inference runtime
             summarized_feeds = []
 
