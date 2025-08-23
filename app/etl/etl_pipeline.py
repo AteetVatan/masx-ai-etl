@@ -139,11 +139,13 @@ class ETLPipeline:
             extractor = NewsContentExtractor(feeds)
             scraped_feeds = await extractor.extract_feeds()
             
-            return True
+            #return True
 
             self.logger.info("Running Summarizer...")
             summarizer = Summarizer(scraped_feeds)
             summarized_feeds = await summarizer.summarize_all_feeds()
+            
+            return True
 
             self.logger.info("Running VectorizeArticles...")
             vectorizer = VectorizeArticles(flashpoint_id)
