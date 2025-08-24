@@ -44,6 +44,7 @@ class NewsContentExtractor:
 
         # Initialize CPU executors for async processing
         self.cpu_executors = CPUExecutors()
+        self.web_scraper_batch_size = self.settings.web_scraper_batch_size
 
     async def extract_feeds(self) -> list[FeedModel]:
         """
@@ -69,7 +70,7 @@ class NewsContentExtractor:
         scraped_feeds = []
 
         # Process in batches for efficiency
-        batch_size = 10
+        batch_size = self.web_scraper_batch_size
         for i in range(0, len(self.feeds), batch_size):
             batch = self.feeds[i : i + batch_size]
             batch_results = await self._process_batch(batch, proxies)
