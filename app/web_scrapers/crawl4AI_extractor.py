@@ -23,7 +23,7 @@ This module contains the Crawl4AIExtractor class, which is a class that extracts
 import asyncio
 from asyncio import TimeoutError
 
-from crawl4ai import AsyncWebCrawler, CrawlerRunConfig, CacheMode
+from crawl4ai import AsyncWebCrawler, CrawlerRunConfig, CacheMode, BrowserConfig
 from crawl4ai.content_filter_strategy import PruningContentFilter
 from crawl4ai.markdown_generation_strategy import DefaultMarkdownGenerator
 
@@ -62,7 +62,7 @@ class Crawl4AIExtractor:
         )
         
         c4a_script = """# Give banners time to render
-        WAIT 1.5
+        WAIT 2
 
         # OneTrust accept
         IF (EXISTS `#onetrust-accept-btn-handler, .onetrust-accept-btn-handler`) THEN CLICK `#onetrust-accept-btn-handler, .onetrust-accept-btn-handler`
@@ -90,11 +90,52 @@ class Crawl4AIExtractor:
         # Let layout settle
         WAIT 0.5
         """
+        
+        # readiness probe for main content
+        wait_for = (
+            "js:(() => !!document.querySelector('main, article, [role=main], .article, .article-body'))"
+        )
+        
+        generic_ready = """js:() => {
+        // one-time setup
+        if (!window.__masx) {
+            window.__masx = {
+            lastMut: performance.now(),
+            stableMs: 600,
+            textMin: 500,
+            pMin: 4,
+            };
+            const obs = new MutationObserver(() => { window.__masx.lastMut = performance.now(); });
+            obs.observe(document, {subtree: true, childList: true, characterData: true, attributes: true});
+        }
+
+        if (document.readyState === 'loading' || !document.body) return false;
+
+        // 1) Fast-path: if a landmark exists, we’re good
+        const landmark = document.querySelector('main, article, [role=main], .article, .article-body, [itemprop="articleBody"]');
+        if (landmark) {
+            // require a tiny calm window so we don't read mid-route
+            return performance.now() - window.__masx.lastMut > window.__masx.stableMs;
+        }
+
+        // 2) Otherwise rely on **lightweight** density checks (avoid innerText each poll)
+        // Use a capped sample of textContent to reduce layout cost
+        const tc = (document.body.textContent || '').trim();
+        const textLen = tc.length;
+        const pCount  = document.getElementsByTagName('p').length;
+
+        const contentful = (textLen >= window.__masx.textMin) || (pCount >= window.__masx.pMin);
+
+        // 3) Require short stability window
+        const stable = performance.now() - window.__masx.lastMut > window.__masx.stableMs;
+        return contentful && stable;
+        }"""
+
 
         config = CrawlerRunConfig(
             markdown_generator=md_generator,
             
-            #wait_for="css:main, css:article, css:[role='main'], css:.article, css:.article-body",
+            wait_for=generic_ready,
             #wait_for='js:() => !!document.querySelector("main, article, [role=\'main\'], .article, .article-body")',
     
             delay_before_return_html=2.5,  # <-- the “works in debug” delay, but explicit
@@ -121,6 +162,8 @@ class Crawl4AIExtractor:
 
             # 5) Stable, reproducible runs
             cache_mode=CacheMode.BYPASS,   # or SMART if you want caching
+            
+            
         )
         return config
     
@@ -130,7 +173,7 @@ class Crawl4AIExtractor:
                
         try:
             config = self._get_crawl4ai_config()
-            
+            #browser_cfg = BrowserConfig(text_mode=True)
             async with AsyncWebCrawler() as crawler:
                 result = await crawler.arun(
                     url=url, config=config, timeout=timeout_sec
