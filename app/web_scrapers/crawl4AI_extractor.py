@@ -23,7 +23,7 @@ This module contains the Crawl4AIExtractor class, which is a class that extracts
 import asyncio
 from asyncio import TimeoutError
 
-from crawl4ai import AsyncWebCrawler, CrawlerRunConfig
+from crawl4ai import AsyncWebCrawler, CrawlerRunConfig, CacheMode
 from crawl4ai.content_filter_strategy import PruningContentFilter
 from crawl4ai.markdown_generation_strategy import DefaultMarkdownGenerator
 
@@ -38,19 +38,146 @@ class Crawl4AIExtractor:
 
     def __init__(self):
         self.logger = get_service_logger("Crawl4AIExtractor")
-
-    async def crawl4ai_scrape(
-        self, url: str, max_retries: int = 3, timeout_sec: int = 3600  # 1 hour for complex pages
-    ):
+        
+    
+    def _get_crawl4ai_config(self):
+        """
+        Get the Crawl4AI configuration.
+        """
+        # prune_filter = PruningContentFilter(
+        #     threshold_type="dynamic",
+        #     threshold=0.4,
+        #     min_word_threshold=60,   # a bit higher to drop boilerplate
+        # )
+        
         prune_filter = PruningContentFilter(
-            threshold=0.4,
-            threshold_type="dynamic",
-            min_word_threshold=20,
+            threshold=0.20,           # Lower value retains more text
+            threshold_type="fixed",  # Try switching from "dynamic" to "fixed"
+            min_word_threshold=25    # Increase threshold to focus on denser blocks
         )
+
         md_generator = DefaultMarkdownGenerator(
-            content_filter=prune_filter, options={"ignore_links": True}
+            content_filter=prune_filter,
+            options={"ignore_links": True, "ignore_images": True, "escape_html": True}
         )
-        config = CrawlerRunConfig(markdown_generator=md_generator)
+        
+        c4a_script = """# Give banners time to render
+        WAIT 1.5
+
+        # OneTrust accept
+        IF (EXISTS `#onetrust-accept-btn-handler, .onetrust-accept-btn-handler`) THEN CLICK `#onetrust-accept-btn-handler, .onetrust-accept-btn-handler`
+
+        # Quantcast accept
+        IF (EXISTS `.qc-cmp2-container, .qc-cmp2-ui, .qc-cmp2-summary`) THEN CLICK `.qc-cmp2-accept-all, .qc-cmp2-summary-buttons .qc-cmp2-accept-all`
+
+        # Generic cookie banners
+        IF (EXISTS `[id*="cookie"], [class*="cookie"], .consent-banner`) THEN CLICK `.accept, .accept-all, [data-testid*="accept"]`
+
+        # Fallback: click any visible button whose text contains "accept" (JS must use EVAL)
+        EVAL `(() => {
+        const btns = Array.from(document.querySelectorAll('button, [role="button"]'));
+        const el = btns.find(b => /accept/i.test(b.textContent || ''));
+        if (el) el.click();
+        })()`
+
+        # Remove overlays and unlock scroll (if site set overflow:hidden/backdrops)
+        EVAL `(() => {
+        const rm = s => document.querySelectorAll(s).forEach(el => el.remove());
+        rm('#onetrust-banner-sdk, .onetrust-pc-dark-filter, .onetrust-pc-lightbox, .qc-cmp2-container, .qc-cmp2-ui, .qc-cmp2-summary, .consent-banner, [id*="cookie"], [class*="cookie"], .backdrop, .modal, .overlay');
+        [document.documentElement, document.body].forEach(el => { el.style.overflow='visible'; el.style.position='static'; el.classList.remove('modal-open','scroll-locked'); });
+        })()`
+
+        # Let layout settle
+        WAIT 0.5
+        """
+
+        config = CrawlerRunConfig(
+            markdown_generator=md_generator,
+            
+            #wait_for="css:main, css:article, css:[role='main'], css:.article, css:.article-body",
+            #wait_for='js:() => !!document.querySelector("main, article, [role=\'main\'], .article, .article-body")',
+    
+            delay_before_return_html=2.5,  # <-- the “works in debug” delay, but explicit
+            page_timeout=60000,            # ms — give slow SPAs time to settle
+            scan_full_page=True,           # crawl beyond just the viewport
+
+            # 1) Remove whole tags up front (kills inline JSON, scripts, styles)
+            excluded_tags=["script", "style", "noscript"],
+
+            # 2) Drop obvious chrome/banners/footers/headers
+            #excluded_selector="header, footer, #cookie-banner, .cookie-banner, .consent-banner, .gdpr, .ads, .advert, .newsletter",
+
+            excluded_selector=(
+                "header, footer, nav, aside, "
+                "#cookie-banner, .cookie-banner, .consent-banner, .gdpr, "
+                ".cmp-container, .ads, .advert, .newsletter, .subscribe"
+            ),
+
+            # 3) Skip trivial text blocks (great for boilerplate)
+            word_count_threshold=50,
+
+            # 4) (Optional) interact to clear overlays
+            c4a_script=c4a_script,
+
+            # 5) Stable, reproducible runs
+            cache_mode=CacheMode.BYPASS,   # or SMART if you want caching
+        )
+        return config
+    
+    async def crawl4ai_scrape(
+        self, url: str, timeout_sec: int = 120  # maximum 2 minute
+    ):
+               
+        try:
+            config = self._get_crawl4ai_config()
+            
+            async with AsyncWebCrawler() as crawler:
+                result = await crawler.arun(
+                    url=url, config=config, timeout=timeout_sec
+                )
+            if not result:
+                raise RuntimeError("Crawler returned no result")
+
+            if not result.success:
+                raise RuntimeError(
+                    f"Crawl failed with error: {result.error_message or 'unknown error'}"
+                )
+
+            markdown_obj = result.markdown
+            fit_md = getattr(markdown_obj, "fit_markdown", None)
+            raw_md = getattr(markdown_obj, "raw_markdown", "")
+
+            self.logger.debug(
+                f"Crawl4AIExtractor: raw_md length = {len(raw_md)}, fit_md length = {len(fit_md) if fit_md else 'None'}"
+            )
+
+            selected_md = fit_md if fit_md and len(fit_md) >= 100 else raw_md
+            cleaned = WebScraperUtils.remove_links_images_ui_junk(selected_md)
+            return cleaned
+
+        except TimeoutError:
+            self.logger.warning(
+                f"Crawl4AIExtractor: timed out after {timeout_sec}s for URL: {url}"
+            )
+        except Exception as e:
+            self.logger.error(f"Crawl4AIExtractor: failed for URL {url}: {e}")
+
+        self.logger.error(f"Crawl4AIExtractor: crawl attempts failed for URL: {url}")
+        return None
+    
+    async def crawl4ai_scrape_with_retry(
+        self, url: str, max_retries: int = 1, timeout_sec: int = 3600  # maximum 1 minute
+    ):
+        # prune_filter = PruningContentFilter(
+        #     threshold=0.4,
+        #     threshold_type="dynamic",
+        #     min_word_threshold=20,
+        # )
+        # md_generator = DefaultMarkdownGenerator(
+        #     content_filter=prune_filter, options={"ignore_links": True}
+        # )
+        #config = CrawlerRunConfig(markdown_generator=md_generator)
+        config = self._get_crawl4ai_config()
 
         for attempt in range(1, max_retries + 1):
             try:

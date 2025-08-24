@@ -18,6 +18,7 @@
 
 """This module handles all article-related operations in the MASX AI News ETL pipeline."""
 
+
 from random import choice
 import asyncio
 from app.web_scrapers import BeautifulSoupExtractor, Crawl4AIExtractor
@@ -132,6 +133,7 @@ class NewsContentExtractor:
         Use BeautifulSoup first, fallback to Crawl4AI if needed.
         """
         try:
+ 
             self.logger.info(
                 f"Scraping ------ {feed.url} ----- with proxy------- {proxy}"
             )
@@ -183,3 +185,75 @@ class NewsContentExtractor:
                 f"[Error] Failed to scrape {feed.url}: {e}", exc_info=True
             )
             return None
+
+
+def __scrape_multilang_feeds_debug(url: str, proxy: str):
+        """
+        Use BeautifulSoup first, fallback to Crawl4AI if needed.
+        """
+        try:            
+            
+            #testing save the feed model json here
+            crawl4AIExtractor = Crawl4AIExtractor()
+
+            text = ""
+            # Step 1: Try BeautifulSoup extraction
+            try:
+                soup = BeautifulSoupExtractor.beautiful_soup_scrape(url, proxy)
+                if soup:
+                    text = BeautifulSoupExtractor.extract_text_from_soup(soup)
+                    if (
+                        text and len(text.strip()) >= 1000
+                    ):  # case sometime the JS is there to accept cookies, need a better solution.
+                        text = text.strip()
+                        text = WebScraperUtils.remove_links_images_ui_junk(
+                            text
+                        )
+
+                        return text
+                    else:
+                        print(
+                            f"[Fallback] BeautifulSoup produced insufficient content for: {url}"
+                        )
+                else:
+                    print(
+                        f"[Fallback] BeautifulSoup failed (no soup) for: {url}"
+                    )
+            except Exception as bs_err:
+                print(
+                    f"BeautifulSoup scraping failed for {url}: {bs_err}"
+                )
+
+            # Step 2: Fallback to Crawl4AI
+            print(f"[Fallback] Invoking Crawl4AI for: {url}")
+            try:
+                text = asyncio.run(crawl4AIExtractor.crawl4ai_scrape(url))
+                if not text or len(text.strip()) < 1500:  # sanity check
+                    raise ValueError("Crawl4AI returned empty or too short content.")
+                text = text.strip()
+                print(f"Successfully scraped via Crawl4AI: {url}")
+                return text
+            except Exception as c4_err:
+                print(f"Crawl4AI scraping failed for {url}: {c4_err}")
+                return None
+
+        except Exception as e:
+            print(
+                f"[Error] Failed to scrape {url}: {e}", exc_info=True
+            )
+            return None
+        
+# if __name__ == "__main__":     
+    
+#     proxy = '198.199.86.11:8080'
+#     url = 'https://news.google.com/rss/articles/CBMikgFBVV95cUxNV2xFR0ZENm1ZbEhKMUNjc0dYRkFadk5xUHBrM3ZQUlJjdjRsamNrQmFYcm1JZ1hTdkFybkRuRjVVTWxoTFA2d2Q3Vk1KZjUzcEJQdEQyd1ROUzBTRy03aVIwYnNpVFJjT0JHSmtULVlEX2tMRDhGQmdQcDRXLUQ2SjkydmgzTkRJY3VCN1lkbzdBUQ?oc=5'
+    
+#     result = __scrape_multilang_feeds(url, proxy)
+#     print(result)
+
+# import sys
+# import os
+
+# # Go 1 level up from this file (subfolder → project root)
+# ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+# sys.path.insert(0, ROOT_DIR)
