@@ -37,5 +37,5 @@ class FeedModel(BaseModel):
     raw_text_en: Optional[str] = ""
     summary: Optional[str] = ""
     image: Optional[str] = ""
-    created_at: datetime
-    updated_at: datetime
+    created_at: datetime = None 
+    updated_at: datetime = None
