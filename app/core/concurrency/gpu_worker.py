@@ -94,7 +94,7 @@ class GPUWorker:
         self._total_batch_time = 0.0
         self._start_time = time.time()
 
-        logger.info(f"GPUWorker initialized on device {self.config.device_id}")
+        logger.info(f"gpu_worker.py:GPUWorker initialized on device {self.config.device_id}")
 
     async def start(self):
         """Start the GPU worker and load model."""
@@ -104,10 +104,10 @@ class GPUWorker:
                 await self._warmup_model()
 
             self._is_initialized = True
-            logger.info("GPUWorker started successfully")
+            logger.info("gpu_worker.py:GPUWorker started successfully")
 
         except Exception as e:
-            logger.error(f"Failed to start GPUWorker: {e}")
+            logger.error(f"gpu_worker.py:Failed to start GPUWorker: {e}")
             raise
 
     async def _load_model(self):
@@ -116,7 +116,7 @@ class GPUWorker:
             if self._model is not None:
                 return
 
-            logger.info("Loading model on GPU...")
+            logger.info("gpu_worker.py:Loading model on GPU...")
 
             try:
                 # Load model using the provided loader
@@ -138,14 +138,14 @@ class GPUWorker:
                 if self.config.use_fp16 and device.type == "cuda":
                     try:
                         self._model = self._model.half()
-                        logger.info("Model converted to FP16")
+                        logger.info("gpu_worker.py:Model converted to FP16")
                     except Exception as e:
-                        logger.warning(f"FP16 conversion failed: {e}")
+                        logger.warning(f"gpu_worker.py:FP16 conversion failed: {e}")
 
-                logger.info(f"Model loaded successfully on {device}")
+                logger.info(f"gpu_worker.py:Model loaded successfully on {device}")
 
             except Exception as e:
-                logger.error(f"Model loading failed: {e}")
+                logger.error(f"gpu_worker.py:Model loading failed: {e}")
                 raise
 
     async def _warmup_model(self):
@@ -153,7 +153,7 @@ class GPUWorker:
         if not self._model:
             return
 
-        logger.info("Warming up model...")
+        logger.info("gpu_worker.py:Warming up model...")
 
         try:
             # Create dummy input based on model type
@@ -166,10 +166,10 @@ class GPUWorker:
                 elif callable(self._model):
                     _ = self._model(dummy_input)
 
-            logger.info("Model warmup completed")
+            logger.info("gpu_worker.py:Model warmup completed")
 
         except Exception as e:
-            logger.warning(f"Model warmup failed: {e}")
+            logger.warning(f"gpu_worker.py:Model warmup failed: {e}")
 
     def _create_dummy_input(self):
         """Create dummy input for model warmup."""
@@ -712,7 +712,7 @@ class GPUWorker:
 
     async def stop(self):
         """Stop the GPU worker gracefully."""
-        logger.info("Stopping GPUWorker...")
+        logger.info("gpu_worker.py:Stopping GPUWorker...")
 
         try:
             await self._batcher.shutdown(wait=True)
@@ -727,10 +727,10 @@ class GPUWorker:
                     torch.cuda.empty_cache()
 
             self._is_initialized = False
-            logger.info("GPUWorker stopped successfully")
+            logger.info("gpu_worker.py:GPUWorker stopped successfully")
 
         except Exception as e:
-            logger.error(f"Error stopping GPUWorker: {e}")
+            logger.error(f"gpu_worker.py:Error stopping GPUWorker: {e}")
             raise
 
     def get_metrics(self) -> Dict[str, Any]:

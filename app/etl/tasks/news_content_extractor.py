@@ -51,19 +51,19 @@ class NewsContentExtractor:
         Extract raw text for each article using proxy-enabled scraping with async concurrency.
         """
         if not self.feeds:
-            self.logger.error("No feeds found in context.")
+            self.logger.error("news_content_extractor.py:NewsContentExtractor:No feeds found in context.")
             raise ValueError("No feeds found in context.")
 
-        self.logger.info(f"---- ProxyManager initiated ----")
+        self.logger.info(f"news_content_extractor.py:NewsContentExtractor:---- ProxyManager initiated ----")
         proxies = await ProxyManager.proxies_async()
-        self.logger.info(f"---- {len(proxies)} proxies found ----")
+        self.logger.info(f"news_content_extractor.py:NewsContentExtractor:---- {len(proxies)} proxies found ----")
 
         if not proxies:
-            self.logger.error("No valid proxies found in context.")
+            self.logger.error("news_content_extractor.py:NewsContentExtractor:No valid proxies found in context.")
             raise ValueError("No valid proxies found in context.")
 
         self.logger.info(
-            f"-----Scraping {len(self.feeds)} feeds....Using {len(proxies)} proxies-----"
+            f"news_content_extractor.py:NewsContentExtractor:-----Scraping {len(self.feeds)} feeds....Using {len(proxies)} proxies-----"
         )
 
         # Process feeds using async CPU executors
@@ -99,7 +99,7 @@ class NewsContentExtractor:
             processed_feeds = []
             for i, result in enumerate(results):
                 if isinstance(result, Exception):
-                    self.logger.error(f"Feed {i} processing failed: {result}")
+                    self.logger.error(f"news_content_extractor.py:NewsContentExtractor:Feed {i} processing failed: {result}")
                     continue
 
                 if result and result.raw_text and len(result.raw_text) >= 1500:
@@ -108,7 +108,7 @@ class NewsContentExtractor:
             return processed_feeds
 
         except Exception as e:
-            self.logger.error(f"Batch processing failed: {e}")
+            self.logger.error(f"news_content_extractor.py:NewsContentExtractor:Batch processing failed: {e}")
             # Fallback to sequential processing
             return await self._process_batch_sequential(feeds, proxies)
 
@@ -126,7 +126,7 @@ class NewsContentExtractor:
                 if result and result.raw_text and len(result.raw_text) >= 1500:
                     results.append(result)
             except Exception as e:
-                self.logger.error(f"Feed processing failed: {e}")
+                self.logger.error(f"news_content_extractor.py:NewsContentExtractor:Feed processing failed: {e}")
         return results
 
     def __scrape_multilang_feeds(self, feed: FeedModel, proxy: str) -> FeedModel:
@@ -136,7 +136,7 @@ class NewsContentExtractor:
         try:
  
             self.logger.info(
-                f"Scraping ------ {feed.url} ----- with proxy------- {proxy}"
+                f"news_content_extractor.py:NewsContentExtractor:Scraping ------ {feed.url} ----- with proxy------- {proxy}"
             )
 
             # Step 1: Try BeautifulSoup extraction
@@ -152,38 +152,38 @@ class NewsContentExtractor:
                             feed.raw_text
                         )
                         self.logger.info(
-                            f"Successfully scraped via BeautifulSoup: {feed.url}"
+                            f"news_content_extractor.py:NewsContentExtractor:Successfully scraped via BeautifulSoup: {feed.url}"
                         )
                         return feed
                     else:
                         self.logger.info(
-                            f"[Fallback] BeautifulSoup produced insufficient content for: {feed.url}"
+                            f"news_content_extractor.py:NewsContentExtractor:[Fallback] BeautifulSoup produced insufficient content for: {feed.url}"
                         )
                 else:
                     self.logger.info(
-                        f"[Fallback] BeautifulSoup failed (no soup) for: {feed.url}"
+                        f"news_content_extractor.py:NewsContentExtractor:[Fallback] BeautifulSoup failed (no soup) for: {feed.url}"
                     )
             except Exception as bs_err:
                 self.logger.warning(
-                    f"BeautifulSoup scraping failed for {feed.url}: {bs_err}"
+                    f"news_content_extractor.py:NewsContentExtractor:BeautifulSoup scraping failed for {feed.url}: {bs_err}"
                 )
 
             # Step 2: Fallback to Crawl4AI
-            self.logger.info(f"[Fallback] Invoking Crawl4AI for: {feed.url}")
+            self.logger.info(f"news_content_extractor.py:NewsContentExtractor:[Fallback] Invoking Crawl4AI for: {feed.url}")
             try:
                 text = asyncio.run(self.crawl4AIExtractor.crawl4ai_scrape(feed.url))
                 if not text or len(text.strip()) < 1500:  # sanity check
                     raise ValueError("Crawl4AI returned empty or too short content.")
                 feed.raw_text = text.strip()
-                self.logger.info(f"Successfully scraped via Crawl4AI: {feed.url}")
+                self.logger.info(f"news_content_extractor.py:NewsContentExtractor:Successfully scraped via Crawl4AI: {feed.url}")
                 return feed
             except Exception as c4_err:
-                self.logger.error(f"Crawl4AI scraping failed for {feed.url}: {c4_err}")
+                self.logger.error(f"news_content_extractor.py:NewsContentExtractor:Crawl4AI scraping failed for {feed.url}: {c4_err}")
                 return None
 
         except Exception as e:
             self.logger.error(
-                f"[Error] Failed to scrape {feed.url}: {e}", exc_info=True
+                f"news_content_extractor.py:NewsContentExtractor:[Error] Failed to scrape {feed.url}: {e}", exc_info=True
             )
             return None
 

@@ -57,7 +57,7 @@ class RenderClient:
         self._worker: Optional[RenderWorker] = None
         self._is_connected = False
 
-        logger.info("RenderClient initialized")
+        logger.info("render_client.py:RenderClient initialized")
 
     async def connect(self):
         """Connect to the render worker."""
@@ -68,10 +68,10 @@ class RenderClient:
             self._worker = RenderWorker(config=self.config)
             await self._worker.start()
             self._is_connected = True
-            logger.info("RenderClient connected to render worker")
+            logger.info("render_client.py:RenderClient connected to render worker")
 
         except Exception as e:
-            logger.error(f"Failed to connect to render worker: {e}")
+            logger.error(f"render_client.py:Failed to connect to render worker: {e}")
             raise
 
     async def disconnect(self):
@@ -85,10 +85,10 @@ class RenderClient:
                 self._worker = None
 
             self._is_connected = False
-            logger.info("RenderClient disconnected from render worker")
+            logger.info("render_client.py:RenderClient disconnected from render worker")
 
         except Exception as e:
-            logger.error(f"Error disconnecting from render worker: {e}")
+            logger.error(f"render_client.py:Error disconnecting from render worker: {e}")
             raise
 
     async def render_page(
@@ -120,7 +120,7 @@ class RenderClient:
             )
 
         except Exception as e:
-            logger.error(f"Page rendering failed for {url}: {e}")
+            logger.error(f"render_client.py:Page rendering failed for {url}: {e}")
 
             return RenderResponse(
                 url=url,
@@ -166,7 +166,7 @@ class RenderClient:
             return responses
 
         except Exception as e:
-            logger.error(f"Batch page rendering failed: {e}")
+            logger.error(f"render_client.py:Batch page rendering failed: {e}")
 
             # Return error responses for all URLs
             responses = []
@@ -209,14 +209,14 @@ class RenderClient:
             # Add other methods as needed
 
         except Exception as e:
-            logger.warning(f"Primary rendering method failed for {url}: {e}")
+            logger.warning(f"render_client.py:Primary rendering method failed for {url}: {e}")
 
         # Try fallback method
         try:
             if fallback_method == "crawl4ai":
                 # This would integrate with Crawl4AI
                 # For now, return error response
-                logger.info(f"Fallback to Crawl4AI for {url}")
+                logger.info(f"render_client.py:Fallback to Crawl4AI for {url}")
                 return RenderResponse(
                     url=url,
                     status="error",
@@ -225,7 +225,7 @@ class RenderClient:
                 )
 
         except Exception as e:
-            logger.warning(f"Fallback rendering method failed for {url}: {e}")
+            logger.warning(f"render_client.py:Fallback rendering method failed for {url}: {e}")
 
         # All methods failed
         return RenderResponse(

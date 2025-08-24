@@ -39,7 +39,7 @@ def _convert_to_python_list(labels) -> List[int]:
         else:
             return list(labels)
     except Exception as e:
-        logger.warning(f"Failed to convert labels to list: {e}, using fallback")
+        logger.warning(f"runtime.py:Failed to convert labels to list: {e}, using fallback")
         return list(labels)
 
 
@@ -145,7 +145,7 @@ class InferenceRuntime:
         )
 
         logger.info(
-            f"InferenceRuntime initialized: Mode={mode}, GPU={self.use_gpu_flag}, "
+            f"runtime.py:InferenceRuntime initialized: Mode={mode}, GPU={self.use_gpu_flag}, "
             f"device={self.device_config.device_type}{pool_info}"
         )
 
@@ -156,20 +156,20 @@ class InferenceRuntime:
         This method initializes the appropriate execution path based on device configuration.
         """
         if self._is_started:
-            logger.warning("InferenceRuntime already started")
+            logger.warning("runtime.py:InferenceRuntime already started")
             return
 
         try:
             if self.use_gpu_flag and self.model_loader:
                 await self._start_gpu_worker()
             else:
-                logger.info("Using CPU execution path")
+                logger.info("runtime.py:Using CPU execution path")
 
             self._is_started = True
-            logger.info("InferenceRuntime started successfully")
+            logger.info("runtime.py:InferenceRuntime started successfully")
 
         except Exception as e:
-            logger.error(f"Failed to start InferenceRuntime: {e}")
+            logger.error(f"runtime.py:Failed to start InferenceRuntime: {e}")
             raise
 
     async def _start_gpu_worker(self):
@@ -177,7 +177,7 @@ class InferenceRuntime:
         if not self.model_loader:
             raise RuntimeError("Model loader required for GPU execution")
 
-        logger.info("Starting GPU worker...")
+        logger.info("runtime.py:Starting GPU worker...")
 
         # Get device_id from device configuration, defaulting to 0 for GPU
         device_id = 0  # Default GPU device
@@ -197,7 +197,7 @@ class InferenceRuntime:
         self._gpu_worker = GPUWorker(model_loader=self.model_loader, config=gpu_config)
 
         await self._gpu_worker.start()
-        logger.info("GPU worker started successfully")
+        logger.info("runtime.py:GPU worker started successfully")
 
     async def infer(self, payload: T) -> R:
         """
@@ -225,7 +225,7 @@ class InferenceRuntime:
                 return await self._cpu_infer(payload)
 
         except Exception as e:
-            logger.error(f"Inference failed: {e}")
+            logger.error(f"runtime.py:Inference failed: {e}")
             raise
 
     async def infer_many(self, payloads: List[T]) -> List[R]:
@@ -258,7 +258,7 @@ class InferenceRuntime:
                 except TypeError as e:
                     if "cannot pickle" in str(e):
                         logger.warning(
-                            f"Pickling error in CPU batch inference, falling back to sequential: {e}"
+                            f"runtime.py:Pickling error in CPU batch inference, falling back to sequential: {e}"
                         )
                         # Fallback to sequential processing to avoid pickling issues
                         return await self._cpu_infer_many_sequential(payloads)
@@ -266,7 +266,7 @@ class InferenceRuntime:
                         raise
 
         except Exception as e:
-            logger.error(f"Batch inference failed: {e}")
+            logger.error(f"runtime.py:Batch inference failed: {e}")
             raise
 
     async def _cpu_infer(self, payload: T) -> R:
@@ -285,7 +285,7 @@ class InferenceRuntime:
                 # Check if this is a clustering payload (has embeddings field)
                 if "embeddings" in payload:
                     # This is a clustering payload - use thread pool for CPU clustering
-                    logger.debug("Processing clustering payload via CPU")
+                    logger.debug("runtime.py:Processing clustering payload via CPU")
                     return await self._cpu_executors.run_in_thread(
                         self._cluster_embeddings_cpu, payload
                     )
@@ -320,14 +320,14 @@ class InferenceRuntime:
                             )
                 else:
                     # Generic payload handling
-                    logger.debug(f"CPU inference for payload: {type(payload)}")
+                    logger.debug(f"runtime.py:CPU inference for payload: {type(payload)}")
                     return payload
             else:
                 # Non-dict payload handling
-                logger.debug(f"CPU inference for non-dict payload: {type(payload)}")
+                logger.debug(f"runtime.py:CPU inference for non-dict payload: {type(payload)}")
                 return payload
         except Exception as e:
-            logger.error(f"CPU inference failed: {e}")
+            logger.error(f"runtime.py:CPU inference failed: {e}")
             raise
 
     def _prepare_serializable_payload(self, payload: dict) -> dict:
@@ -367,7 +367,7 @@ class InferenceRuntime:
             }
 
         except Exception as e:
-            logger.error(f"Failed to prepare serializable payload: {e}")
+            logger.error(f"runtime.py:Failed to prepare serializable payload: {e}")
             # Return minimal payload if serialization fails
             return {
                 "feed": None,
@@ -407,7 +407,7 @@ class InferenceRuntime:
                 translator = Translator()
                 result["translated_text"] = translator.ensure_english(text)
             except Exception as e:
-                logger.error(f"Translation failed for {url}: {e}")
+                logger.error(f"runtime.py:Translation failed for {url}: {e}")
                 result["translated_text"] = text  # Use original text as fallback
 
             # Step 2: Check if text fits the model, else compress using TF-IDF
@@ -420,7 +420,7 @@ class InferenceRuntime:
                     result["translated_text"],
                     max_tokens,
                 ):
-                    logger.info(f"Compressing text using TF-IDF for {url}")
+                    logger.info(f"runtime.py:Compressing text using TF-IDF for {url}")
                     compressed_text = NLPUtils.compress_text_tfidf(
                         tokenizer, result["translated_text"], max_tokens, prompt_prefix
                     )
@@ -428,7 +428,7 @@ class InferenceRuntime:
                 else:
                     result["compressed_text"] = result["translated_text"]
             except Exception as e:
-                logger.error(f"Text compression failed for {url}: {e}")
+                logger.error(f"runtime.py:Text compression failed for {url}: {e}")
                 result["compressed_text"] = result["translated_text"]
 
             # Step 3: Generate summary
@@ -445,15 +445,15 @@ class InferenceRuntime:
                     max_tokens,
                 )
                 result["summary"] = summary
-                logger.info(f"Summary generated for {url}")
+                logger.info(f"runtime.py:Summary generated for {url}")
             except Exception as e:
-                logger.error(f"Summary generation failed for {url}: {e}")
+                logger.error(f"runtime.py:Summary generation failed for {url}: {e}")
                 raise
 
             return result
 
         except Exception as e:
-            logger.error(f"CPU summarization failed: {e}")
+            logger.error(f"runtime.py:CPU summarization failed: {e}")
             raise
 
     def _summarize_text_cpu_sync(self, payload: dict) -> dict:
@@ -488,7 +488,7 @@ class InferenceRuntime:
                 translator = Translator()
                 result["translated_text"] = translator.ensure_english(text)
             except Exception as e:
-                logger.error(f"Translation failed for {url}: {e}")
+                logger.error(f"runtime.py:Translation failed for {url}: {e}")
                 result["translated_text"] = text
 
             # Step 2: Check if text fits the model, else compress using TF-IDF
@@ -501,7 +501,7 @@ class InferenceRuntime:
                     result["translated_text"],
                     max_tokens,
                 ):
-                    logger.info(f"Compressing text using TF-IDF for {url}")
+                    logger.info(f"runtime.py:Compressing text using TF-IDF for {url}")
                     compressed_text = NLPUtils.compress_text_tfidf(
                         tokenizer, result["translated_text"], max_tokens, prompt_prefix
                     )
@@ -509,7 +509,7 @@ class InferenceRuntime:
                 else:
                     result["compressed_text"] = result["translated_text"]
             except Exception as e:
-                logger.error(f"Text compression failed for {url}: {e}")
+                logger.error(f"runtime.py:Text compression failed for {url}: {e}")
                 result["compressed_text"] = result["translated_text"]
 
             # Step 3: Generate summary (direct execution, no threading)
@@ -522,15 +522,15 @@ class InferenceRuntime:
                     max_tokens,
                 )
                 result["summary"] = summary
-                logger.info(f"Summary generated for {url} (debug mode)")
+                logger.info(f"runtime.py:Summary generated for {url} (debug mode)")
             except Exception as e:
-                logger.error(f"Summary generation failed for {url}: {e}")
+                logger.error(f"runtime.py:Summary generation failed for {url}: {e}")
                 raise
 
             return result
 
         except Exception as e:
-            logger.error(f"CPU summarization (sync) failed: {e}")
+            logger.error(f"runtime.py:CPU summarization (sync) failed: {e}")
             raise
 
     async def _summarize_text_cpu_pooled(self, payload: dict) -> dict:
@@ -542,7 +542,7 @@ class InferenceRuntime:
         """
         if not self._model_pool:
             # Fallback to sync if model pool not available
-            logger.warning("Model pool not available, falling back to sync mode")
+            logger.warning("runtime.py:Model pool not available, falling back to sync mode")
             return self._summarize_text_cpu_sync(payload)
 
         # Get model instance from pool
@@ -574,7 +574,7 @@ class InferenceRuntime:
                 translator = Translator()
                 result["translated_text"] = translator.ensure_english(text)
             except Exception as e:
-                logger.error(f"Translation failed for {url}: {e}")
+                logger.error(f"runtime.py:Translation failed for {url}: {e}")
                 result["translated_text"] = text
 
             # Step 2: Check if text fits the model, else compress using TF-IDF
@@ -592,7 +592,7 @@ class InferenceRuntime:
                     result["translated_text"],
                     max_tokens,
                 ):
-                    logger.info(f"Compressing text using TF-IDF for {url}")
+                    logger.info(f"runtime.py:Compressing text using TF-IDF for {url}")
                     compressed_text = NLPUtils.compress_text_tfidf(
                         tokenizer, result["translated_text"], max_tokens, prompt_prefix
                     )
@@ -600,7 +600,7 @@ class InferenceRuntime:
                 else:
                     result["compressed_text"] = result["translated_text"]
             except Exception as e:
-                logger.error(f"Text compression failed for {url}: {e}")
+                logger.error(f"runtime.py:Text compression failed for {url}: {e}")
                 result["compressed_text"] = result["translated_text"]
 
             # Step 3: Generate summary using pooled model
@@ -613,15 +613,15 @@ class InferenceRuntime:
                     max_tokens,
                 )
                 result["summary"] = summary
-                logger.info(f"Summary generated for {url} (pooled mode)")
+                logger.info(f"runtime.py:Summary generated for {url} (pooled mode)")
             except Exception as e:
-                logger.error(f"Summary generation failed for {url}: {e}")
+                logger.error(f"runtime.py:Summary generation failed for {url}: {e}")
                 raise
 
             return result
 
         except Exception as e:
-            logger.error(f"CPU summarization (pooled) failed: {e}")
+            logger.error(f"runtime.py:CPU summarization (pooled) failed: {e}")
             raise
 
         finally:
@@ -658,13 +658,13 @@ class InferenceRuntime:
             )
 
             logger.debug(
-                f"Generated embedding for text {index} with shape: {len(embedding_list)}"
+                f"runtime.py:Generated embedding for text {index} with shape: {len(embedding_list)}"
             )
 
             return embedding_list
 
         except Exception as e:
-            logger.error(f"CPU embedding generation failed: {e}")
+            logger.error(f"runtime.py:CPU embedding generation failed: {e}")
             raise
 
     def _cluster_embeddings_cpu(self, payload: dict) -> list:
@@ -694,7 +694,7 @@ class InferenceRuntime:
             random_state = payload.get("random_state", 42)
 
             if len(embeddings) == 0:
-                logger.warning("Empty embeddings array provided for clustering")
+                logger.warning("runtime.py:Empty embeddings array provided for clustering")
                 return []
 
             # 1) Normalize to unit sphere for cosine geometry
@@ -715,14 +715,14 @@ class InferenceRuntime:
                         random_state=random_state,
                     )
                     embeddings = reducer.fit_transform(embeddings)
-                    logger.debug(f"UMAP reduction applied: {embeddings.shape}")
+                    logger.debug(f"runtime.py:UMAP reduction applied: {embeddings.shape}")
                 except ImportError:
                     logger.warning(
-                        "UMAP not available, skipping dimensionality reduction"
+                        "runtime.py:UMAP not available, skipping dimensionality reduction"
                     )
                 except Exception as e:
                     logger.warning(
-                        f"UMAP reduction failed: {e}, using original embeddings"
+                        f"runtime.py:UMAP reduction failed: {e}, using original embeddings"
                     )
 
             # 3) Perform clustering
@@ -752,14 +752,14 @@ class InferenceRuntime:
 
             labels = model.fit_predict(embeddings).astype(np.int32)
             logger.info(
-                f"CPU clustering completed: {len(labels)} labels, {len(set(labels) - {-1})} clusters"
+                f"runtime.py:CPU clustering completed: {len(labels)} labels, {len(set(labels) - {-1})} clusters"
             )
 
             # Convert numpy array to Python list for serialization
             return _convert_to_python_list(labels)
 
         except Exception as e:
-            logger.error(f"CPU clustering failed: {e}")
+            logger.error(f"runtime.py:CPU clustering failed: {e}")
             raise
 
     async def _cpu_infer_many(self, payloads: List[T]) -> List[R]:
@@ -768,7 +768,7 @@ class InferenceRuntime:
 
         This method processes payloads in parallel using thread pool to avoid pickling issues.
         """
-        logger.debug(f"CPU batch inference for {len(payloads)} payloads")
+        logger.debug(f"runtime.py:CPU batch inference for {len(payloads)} payloads")
 
         # Process in parallel using thread pool (not process pool to avoid pickling issues)
         tasks = [self._cpu_infer(payload) for payload in payloads]
@@ -780,7 +780,7 @@ class InferenceRuntime:
 
         This method processes payloads sequentially to avoid any concurrency issues.
         """
-        logger.debug(f"Sequential CPU batch inference for {len(payloads)} payloads")
+        logger.debug(f"runtime.py:Sequential CPU batch inference for {len(payloads)} payloads")
 
         results = []
         for payload in payloads:
@@ -788,7 +788,7 @@ class InferenceRuntime:
                 result = await self._cpu_infer(payload)
                 results.append(result)
             except Exception as e:
-                logger.error(f"Sequential inference failed for payload: {e}")
+                logger.error(f"runtime.py:Sequential inference failed for payload: {e}")
                 results.append(e)  # Return exception as result
 
         return results
@@ -802,7 +802,7 @@ class InferenceRuntime:
         if not self._is_started:
             return
 
-        logger.info("Stopping InferenceRuntime...")
+        logger.info("runtime.py:Stopping InferenceRuntime...")
 
         try:
             # Stop GPU worker if running
@@ -819,10 +819,10 @@ class InferenceRuntime:
                 self._model_pool = None
 
             self._is_started = False
-            logger.info("InferenceRuntime stopped successfully")
+            logger.info("runtime.py:InferenceRuntime stopped successfully")
 
         except Exception as e:
-            logger.error(f"Error stopping InferenceRuntime: {e}")
+            logger.error(f"runtime.py:Error stopping InferenceRuntime: {e}")
             raise
 
     def get_metrics(self) -> Dict[str, Any]:

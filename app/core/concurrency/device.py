@@ -48,7 +48,7 @@ def _detect_cuda() -> bool:
     try:
         return torch.cuda.is_available()
     except Exception as e:
-        logger.warning(f"CUDA detection failed: {e}")
+        logger.warning(f"device.py:CUDA detection failed: {e}")
         return False
 
 
@@ -117,7 +117,7 @@ def get_device_config() -> DeviceConfig:
     )
 
     logger.info(
-        f"Device config: {config.device_type}"
+        f"device.py:Device config: {config.device_type}"
         f"{f':{config.device_id}' if config.device_id is not None else ''}"
         f" (GPU: {config.use_gpu}, CUDA: {config.cuda_available})"
     )
@@ -143,11 +143,11 @@ def get_torch_device() -> "torch.device":
     # Handle device creation properly - torch.device() doesn't accept None as second argument
     if config.device_id is not None:
         device = torch.device(config.device_type, config.device_id)
-        logger.info(f"Created PyTorch device: {device} (type: {config.device_type}, id: {config.device_id})")
+        logger.info(f"device.py:Created PyTorch device: {device} (type: {config.device_type}, id: {config.device_id})")
         return device
     else:
         device = torch.device(config.device_type)
-        logger.info(f"Created PyTorch device: {device} (type: {config.device_type}, no id)")
+        logger.info(f"device.py:Created PyTorch device: {device} (type: {config.device_type}, no id)")
         return device
 
 

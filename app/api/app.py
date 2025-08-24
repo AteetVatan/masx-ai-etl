@@ -95,10 +95,10 @@ async def lifespan(app: FastAPI):
     logger = get_api_logger("AppLifespan")
 
     # Startup
-    logger.info("Starting MASX AI System API")
+        logger.info("app.py:Starting MASX AI System API")
     try:
         # Initialize services here if needed
-        logger.info("API startup completed successfully")
+        logger.info("app.py:API startup completed successfully")
     except Exception as e:
         logger.error(f"API startup failed: {e}")
         raise

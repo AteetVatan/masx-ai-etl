@@ -82,7 +82,7 @@ class MicroBatcher:
         self._total_processing_time = 0.0
 
         logger.info(
-            f"MicroBatcher initialized: batch_size={max_batch_size}, "
+            f"batcher.py:MicroBatcher initialized: batch_size={max_batch_size}, "
             f"delay_ms={max_delay_ms}, queue_size={max_queue_size}"
         )
 
@@ -148,10 +148,10 @@ class MicroBatcher:
                     await self._process_batch()
 
             except asyncio.CancelledError:
-                logger.debug("Batch loop cancelled")
+                logger.debug("batcher.py:Batch loop cancelled")
                 break
             except Exception as e:
-                logger.error(f"Error in batch loop: {e}")
+                logger.error(f"batcher.py:Error in batch loop: {e}")
                 # Continue processing other batches
 
     async def _wait_for_batch(self):
@@ -199,7 +199,7 @@ class MicroBatcher:
             # Validate results
             if len(results) != batch_size:
                 logger.error(
-                    f"Batch processor returned {len(results)} results for {batch_size} requests"
+                    f"batcher.py:Batch processor returned {len(results)} results for {batch_size} requests"
                 )
                 # Set error for all requests
                 for req in self._current_batch:
@@ -222,12 +222,12 @@ class MicroBatcher:
             self._total_processing_time += processing_time
 
             logger.debug(
-                f"Processed batch of {batch_size} items in {processing_time:.3f}s "
+                f"batcher.py:Processed batch of {batch_size} items in {processing_time:.3f}s "
                 f"(avg: {self._total_processing_time/self._total_batches:.3f}s)"
             )
 
         except Exception as e:
-            logger.error(f"Error processing batch: {e}")
+            logger.error(f"batcher.py:Error processing batch: {e}")
             # Set error for all requests in batch
             for req in self._current_batch:
                 if not req.future.done():
@@ -243,7 +243,7 @@ class MicroBatcher:
         Args:
             wait: Whether to wait for pending batches to complete
         """
-        logger.info("Shutting down MicroBatcher...")
+        logger.info("batcher.py:Shutting down MicroBatcher...")
 
         self._shutdown_event.set()
 
@@ -268,7 +268,7 @@ class MicroBatcher:
                     request.future.set_exception(RuntimeError("MicroBatcher shutdown"))
             self._current_batch.clear()
 
-        logger.info("MicroBatcher shutdown complete")
+        logger.info("batcher.py:MicroBatcher shutdown complete")
 
     def get_metrics(self) -> Dict[str, Any]:
         """Get current metrics."""

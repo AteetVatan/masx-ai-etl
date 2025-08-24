@@ -53,7 +53,7 @@ class CPUExecutors:
         self.max_processes = int(os.getenv("MAX_PROCS", "4"))
 
         logger.info(
-            f"CPUExecutors initialized: max_threads={self.max_threads}, max_processes={self.max_processes}"
+            f"cpu_executors.py:CPUExecutors initialized: max_threads={self.max_threads}, max_processes={self.max_processes}"
         )
 
     @property
@@ -63,7 +63,7 @@ class CPUExecutors:
             self._thread_pool = ThreadPoolExecutor(
                 max_workers=self.max_threads, thread_name_prefix="MASX-Thread"
             )
-            logger.debug("Created new thread pool")
+            logger.debug("cpu_executors.py:Created new thread pool")
         return self._thread_pool
 
     @property
@@ -74,7 +74,7 @@ class CPUExecutors:
                 max_workers=self.max_processes,
                 mp_context=None,  # Use default multiprocessing context
             )
-            logger.debug("Created new process pool")
+            logger.debug("cpu_executors.py:Created new process pool")
         return self._process_pool
 
     async def run_in_thread(self, func: Callable[..., R], *args, **kwargs) -> R:
@@ -101,7 +101,7 @@ class CPUExecutors:
             )
             return result
         except Exception as e:
-            logger.error(f"Error in thread pool execution: {e}")
+            logger.error(f"cpu_executors.py:Error in thread pool execution: {e}")
             raise
 
     async def run_in_process(self, func: Callable[..., R], *args, **kwargs) -> R:
@@ -128,7 +128,7 @@ class CPUExecutors:
             )
             return result
         except Exception as e:
-            logger.error(f"Error in process pool execution: {e}")
+            logger.error(f"cpu_executors.py:Error in process pool execution: {e}")
             raise
 
     async def map_threads(self, func: Callable[[T], R], items: List[T]) -> List[R]:
@@ -166,7 +166,7 @@ class CPUExecutors:
         Args:
             wait: Whether to wait for pending tasks to complete
         """
-        logger.info("Shutting down CPU executors...")
+        logger.info("cpu_executors.py:Shutting down CPU executors...")
 
         if self._thread_pool:
             self._thread_pool.shutdown(wait=wait)
@@ -177,7 +177,7 @@ class CPUExecutors:
             self._process_pool = None
 
         self._shutdown_event.set()
-        logger.info("CPU executors shutdown complete")
+        logger.info("cpu_executors.py:CPU executors shutdown complete")
 
     def is_shutdown(self) -> bool:
         """Check if executors are shutdown."""

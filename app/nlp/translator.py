@@ -67,23 +67,23 @@ class Translator:
                     and target_lang in ISO_TO_NLLB_MERGED
                 ):
                     self.logger.info(
-                        f"[Translation] Using NLLB: {source_lang} → {target_lang}"
+                        f"translator.py:[Translation] Using NLLB: {source_lang} → {target_lang}"
                     )
                     src_nllb = ISO_TO_NLLB_MERGED[source_lang]
                     tgt_nllb = ISO_TO_NLLB_MERGED[target_lang]
                     return self.nllb_translate(text, src_nllb, tgt_nllb)
                 else:
                     self.logger.warning(
-                        f"[TranslationWarning] NLLB not available for {source_lang} → {target_lang}. Trying Google Translate."
+                        f"translator.py:[TranslationWarning] NLLB not available for {source_lang} → {target_lang}. Trying Google Translate."
                     )
             except Exception as nllb_error:
                 self.logger.warning(
-                    f"[TranslationWarning] NLLB failed: {nllb_error}. Falling back to Google Translate."
+                    f"translator.py:[TranslationWarning] NLLB failed: {nllb_error}. Falling back to Google Translate."
                 )
 
             # Google Fallback
             self.logger.info(
-                f"[Translation] Using Google Translate: {source_lang} → {target_lang}"
+                f"translator.py:[Translation] Using Google Translate: {source_lang} → {target_lang}"
             )
             return (
                 self.google_translate_to_english(text)
@@ -93,9 +93,9 @@ class Translator:
 
         except Exception as e:
             self.logger.error(
-                f"[TranslationError] Could not translate text from '{source_lang}' to '{target_lang}'"
+                f"translator.py:[TranslationError] Could not translate text from '{source_lang}' to '{target_lang}'"
             )
-            self.logger.error(f"Translation failed: {e}", exc_info=True)
+            self.logger.error(f"translator.py:Translation failed: {e}", exc_info=True)
             raise TranslationException(f"Batch translation failed: {str(e)}")
 
     def translate(self, text: str, source_lang: str, target_lang: str) -> str:
@@ -107,20 +107,20 @@ class Translator:
             # Google First
             try:
                 self.logger.info(
-                    f"[Translation] Using Google Translate: {source_lang} → {target_lang}"
+                    f"translator.py:[Translation] Using Google Translate: {source_lang} → {target_lang}"
                 )
                 result = self.google_translate_to_english(text)
                 return result
             except Exception as google_error:
                 self.logger.warning(
-                    f"[TranslationWarning] Google failed: {google_error}. Falling back to NLLB."
+                    f"translator.py:[TranslationWarning] Google failed: {google_error}. Falling back to NLLB."
                 )
 
             # NLLB Fallback
             hf_model_used = False
             if source_lang in ISO_TO_NLLB_MERGED and target_lang in ISO_TO_NLLB_MERGED:
                 self.logger.info(
-                    f"[Translation] Using NLLB: {source_lang} → {target_lang}"
+                    f"translator.py:[Translation] Using NLLB: {source_lang} → {target_lang}"
                 )
                 src_nllb = ISO_TO_NLLB_MERGED[source_lang]
                 tgt_nllb = ISO_TO_NLLB_MERGED[target_lang]
@@ -129,15 +129,15 @@ class Translator:
 
             # If neither works, return original text
             self.logger.warning(
-                f"[TranslationWarning] No valid translation method available for {source_lang} → {target_lang}. Returning original text."
+                f"translator.py:[TranslationWarning] No valid translation method available for {source_lang} → {target_lang}. Returning original text."
             )
             return text
 
         except Exception as e:
             self.logger.error(
-                f"[TranslationError] Could not translate text from '{source_lang}' to '{target_lang}'"
+                f"translator.py:[TranslationError] Could not translate text from '{source_lang}' to '{target_lang}'"
             )
-            self.logger.error(f"Translation failed: {e}", exc_info=True)
+            self.logger.error(f"translator.py:Translation failed: {e}", exc_info=True)
             raise TranslationException(f"Batch translation failed: {str(e)}")
 
     def nllb_translate(self, text: str, source_lang: str, target_lang: str) -> str:
@@ -146,7 +146,7 @@ class Translator:
         """
         try:
             # split the text into chunks, as the google translator has a limit of 2000 characters?
-            self.logger.info(f"[Translation] Using NLLB: {source_lang} → {target_lang}")
+            self.logger.info(f"translator.py:[Translation] Using NLLB: {source_lang} → {target_lang}")
             chunks = self.__split_text_smart(text, 400)
             translated_chunks = [
                 self.nllb_translator.translate(chunk, source_lang, target_lang)
@@ -154,7 +154,7 @@ class Translator:
             ]
             return "\n\n".join(translated_chunks)
         except Exception as e:
-            self.logger.error(f"[CRITICAL] Full translation failed: {e}")
+            self.logger.error(f"translator.py:[CRITICAL] Full translation failed: {e}")
             return text
 
     def google_translate_to_english(self, text: str) -> str:
@@ -163,14 +163,14 @@ class Translator:
         """
         try:
             # split the text into chunks, as the google translator has a limit of 2000 characters?
-            self.logger.info(f"[Translation] Using Google Translate")
+            self.logger.info(f"translator.py:[Translation] Using Google Translate")
             chunks = self.__split_text_smart(text, self.max_chars)
             translated_chunks = [
                 self.__safe_translate(self.__clean_text(chunk)) for chunk in chunks
             ]
             return "\n\n".join(translated_chunks)
         except Exception as e:
-            self.logger.error(f"[CRITICAL] Full translation failed: {e}")
+            self.logger.error(f"translator.py:[CRITICAL] Full translation failed: {e}")
             return text
 
     def __split_text_smart(self, text: str, max_chars: int = 2000) -> list:
@@ -178,7 +178,7 @@ class Translator:
         Split the text into chunks, as the google translator has a limit of 2000 characters?
         """
         self.logger.info(
-            f"[Translation] Splitting text into chunks: {max_chars} characters per chunk"
+            f"translator.py:[Translation] Splitting text into chunks: {max_chars} characters per chunk"
         )
         sentence_endings = re.split(r"(?<=[\.\!\?।؟。！？])\s+", text)
         chunks = []

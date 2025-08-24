@@ -94,7 +94,7 @@ class RenderWorker:
         self._total_render_time = 0.0
 
         logger.info(
-            f"RenderWorker initialized: browser={self.config.browser_type}, max_pages={self.config.max_concurrent_pages}"
+            f"render_worker.py:RenderWorker initialized: browser={self.config.browser_type}, max_pages={self.config.max_concurrent_pages}"
         )
 
     async def start(self):
@@ -103,7 +103,7 @@ class RenderWorker:
             return
 
         try:
-            logger.info("Starting render worker...")
+            logger.info("render_worker.py:Starting render worker...")
 
             # Initialize Playwright
             self._playwright = await async_playwright().start()
@@ -132,10 +132,10 @@ class RenderWorker:
             )
 
             self._is_started = True
-            logger.info("Render worker started successfully")
+            logger.info("render_worker.py:Render worker started successfully")
 
         except Exception as e:
-            logger.error(f"Failed to start render worker: {e}")
+            logger.error(f"render_worker.py:Failed to start render worker: {e}")
             await self._cleanup()
             raise
 
@@ -175,7 +175,7 @@ class RenderWorker:
             page.set_default_navigation_timeout(self.config.navigation_timeout_ms)
 
             # Navigate to URL
-            logger.debug(f"Navigating to {url}")
+            logger.debug(f"render_worker.py:Navigating to {url}")
             response = await page.goto(url, wait_until="networkidle")
 
             if not response or response.status >= 400:
@@ -192,7 +192,7 @@ class RenderWorker:
                 try:
                     await page.wait_for_selector(wait_for, timeout=5000)
                 except Exception as e:
-                    logger.warning(f"Failed to wait for selector '{wait_for}': {e}")
+                    logger.warning(f"render_worker.py:Failed to wait for selector '{wait_for}': {e}")
 
             # Extract content
             content = await self._extract_page_content(page)
@@ -211,7 +211,7 @@ class RenderWorker:
                 "timestamp": time.time(),
             }
 
-            logger.debug(f"Page rendered successfully: {url} in {render_time:.2f}s")
+            logger.debug(f"render_worker.py:Page rendered successfully: {url} in {render_time:.2f}s")
             return result
 
         except Exception as e:
@@ -221,7 +221,7 @@ class RenderWorker:
             self._failed_renders += 1
             self._total_render_time += render_time
 
-            logger.error(f"Page rendering failed for {url}: {e}")
+            logger.error(f"render_worker.py:Page rendering failed for {url}: {e}")
 
             result = {
                 "url": url,
@@ -241,7 +241,7 @@ class RenderWorker:
                     self._active_pages.remove(page)
                     await page.close()
                 except Exception as e:
-                    logger.warning(f"Error closing page: {e}")
+                    logger.warning(f"render_worker.py:Error closing page: {e}")
 
     async def _handle_consent_dialogs(self, page: Page, url: str):
         """Handle consent dialogs and cookie banners."""
@@ -286,11 +286,11 @@ class RenderWorker:
                         break
 
                 except Exception as e:
-                    logger.debug(f"Consent rule {rule.selector} failed: {e}")
+                    logger.debug(f"render_worker.py:Consent rule {rule.selector} failed: {e}")
                     continue
 
         except Exception as e:
-            logger.warning(f"Consent handling failed for {url}: {e}")
+            logger.warning(f"render_worker.py:Consent handling failed for {url}: {e}")
 
     async def _extract_page_content(self, page: Page) -> Dict[str, Any]:
         """Extract content from the rendered page."""
@@ -320,7 +320,7 @@ class RenderWorker:
             return {"title": title, "text": content, "html": html, "url": page.url}
 
         except Exception as e:
-            logger.error(f"Content extraction failed: {e}")
+            logger.error(f"render_worker.py:Content extraction failed: {e}")
             return {
                 "title": "",
                 "text": "",
@@ -374,7 +374,7 @@ class RenderWorker:
         if not self._is_started:
             return
 
-        logger.info("Stopping render worker...")
+        logger.info("render_worker.py:Stopping render worker...")
 
         try:
             # Close all active pages
@@ -382,7 +382,7 @@ class RenderWorker:
                 try:
                     await page.close()
                 except Exception as e:
-                    logger.warning(f"Error closing page: {e}")
+                    logger.warning(f"render_worker.py:Error closing page: {e}")
 
             self._active_pages.clear()
 
@@ -401,10 +401,10 @@ class RenderWorker:
                 self._playwright = None
 
             self._is_started = False
-            logger.info("Render worker stopped successfully")
+            logger.info("render_worker.py:Render worker stopped successfully")
 
         except Exception as e:
-            logger.error(f"Error stopping render worker: {e}")
+            logger.error(f"render_worker.py:Error stopping render worker: {e}")
             raise
 
     async def _cleanup(self):
@@ -417,7 +417,7 @@ class RenderWorker:
             if self._playwright:
                 await self._playwright.stop()
         except Exception as e:
-            logger.error(f"Emergency cleanup failed: {e}")
+            logger.error(f"render_worker.py:Emergency cleanup failed: {e}")
 
     def get_metrics(self) -> Dict[str, Any]:
         """Get render worker metrics."""

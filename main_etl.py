@@ -37,11 +37,13 @@ All aligned with real-world scale and performance in MASX AI
 async def run_etl_pipeline(trigger: str = WorkerEnums.COORDINATOR.value, date: Optional[str] = None, flashpoints_ids: List[str] = None, cleanup: bool = True):
     # centralize the cleanup right before invoking all of them
     # print("Deleting all tracked Chroma collections before pipeline runs...")
-    logger.info(f"run_etl_pipeline called")
+    logger.info(f"main_etl.py:run_etl_pipeline called")
     if cleanup:
         ChromaClientSingleton.cleanup_chroma()
 
-    # date = "2025-08-17"
+    # trigger = WorkerEnums.ETL_WORKER.value
+    # date = "2025-07-01"    
+    # flashpoints_ids = ["70ef3f5a-3dbd-4b9a-8eb5-1b971a37fbc0"]
 
     etl_pipeline = ETLPipeline(date)
     await etl_pipeline.run_all_etl_pipelines(trigger=trigger, flashpoints_ids=flashpoints_ids)

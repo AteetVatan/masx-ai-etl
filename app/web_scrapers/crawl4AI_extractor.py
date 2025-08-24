@@ -148,7 +148,7 @@ class Crawl4AIExtractor:
             raw_md = getattr(markdown_obj, "raw_markdown", "")
 
             self.logger.debug(
-                f"Crawl4AIExtractor: raw_md length = {len(raw_md)}, fit_md length = {len(fit_md) if fit_md else 'None'}"
+                f"crawl4AI_extractor.py:Crawl4AIExtractor:raw_md length = {len(raw_md)}, fit_md length = {len(fit_md) if fit_md else 'None'}"
             )
 
             selected_md = fit_md if fit_md and len(fit_md) >= 100 else raw_md
@@ -157,12 +157,12 @@ class Crawl4AIExtractor:
 
         except TimeoutError:
             self.logger.warning(
-                f"Crawl4AIExtractor: timed out after {timeout_sec}s for URL: {url}"
+                f"crawl4AI_extractor.py:Crawl4AIExtractor:timed out after {timeout_sec}s for URL: {url}"
             )
         except Exception as e:
-            self.logger.error(f"Crawl4AIExtractor: failed for URL {url}: {e}")
+            self.logger.error(f"crawl4AI_extractor.py:Crawl4AIExtractor:failed for URL {url}: {e}")
 
-        self.logger.error(f"Crawl4AIExtractor: crawl attempts failed for URL: {url}")
+        self.logger.error(f"crawl4AI_extractor.py:Crawl4AIExtractor:crawl attempts failed for URL: {url}")
         return None
     
     async def crawl4ai_scrape_with_retry(
@@ -198,7 +198,7 @@ class Crawl4AIExtractor:
                 raw_md = getattr(markdown_obj, "raw_markdown", "")
 
                 self.logger.debug(
-                    f"Attempt {attempt}: raw_md length = {len(raw_md)}, fit_md length = {len(fit_md) if fit_md else 'None'}"
+                    f"crawl4AI_extractor.py:Crawl4AIExtractor:Attempt {attempt}: raw_md length = {len(raw_md)}, fit_md length = {len(fit_md) if fit_md else 'None'}"
                 )
 
                 selected_md = fit_md if fit_md and len(fit_md) >= 100 else raw_md
@@ -207,14 +207,14 @@ class Crawl4AIExtractor:
 
             except TimeoutError:
                 self.logger.warning(
-                    f"Attempt {attempt} timed out after {timeout_sec}s for URL: {url}"
+                    f"crawl4AI_extractor.py:Crawl4AIExtractor:Attempt {attempt} timed out after {timeout_sec}s for URL: {url}"
                 )
             except Exception as e:
-                self.logger.error(f"Attempt {attempt} failed for URL {url}: {e}")
+                self.logger.error(f"crawl4AI_extractor.py:Crawl4AIExtractor:Attempt {attempt} failed for URL {url}: {e}")
 
             # after last attempt
             if attempt < max_retries:
                 await asyncio.sleep(2**attempt)  # exponential back-off
 
-        self.logger.error(f"All {max_retries} crawl attempts failed for URL: {url}")
+        self.logger.error(f"crawl4AI_extractor.py:Crawl4AIExtractor:All {max_retries} crawl attempts failed for URL: {url}")
         return None

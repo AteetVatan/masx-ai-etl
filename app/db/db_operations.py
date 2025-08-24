@@ -65,7 +65,7 @@ class DBOperations:
 
         # DO NOT initialize any async connections during __init__
         # This prevents the TypeError: __init__() should return None, not '_asyncio.Task'
-        self.logger.info("DBOperations initialized (async connections deferred)")
+        self.logger.info("db_operations.py:DBOperations:DBOperations initialized (async connections deferred)")
 
     # async def get_new_connection(self):
     #     return await asyncpg.connect(self._connection_params["database_url"])
@@ -87,11 +87,11 @@ class DBOperations:
             # DO NOT initialize connection pools during __init__ to prevent async issues
             # Pools will be initialized lazily when first needed
             self.logger.info(
-                "Database connection parameters initialized (pools deferred)"
+                "db_operations.py:DBOperations:Database connection parameters initialized (pools deferred)"
             )
 
         except Exception as e:
-            self.logger.error(f"Failed to initialize database connection: {e}")
+            self.logger.error(f"db_operations.py:DBOperations:Failed to initialize database connection: {e}")
             raise DatabaseException(f"Database initialization failed: {str(e)}")
 
     def _initialize_sync_pool(self):
@@ -112,11 +112,11 @@ class DBOperations:
                 cursor_factory=RealDictCursor,
             )
 
-            self.logger.info("Synchronous connection pool initialized")
+            self.logger.info("db_operations.py:DBOperations:Synchronous connection pool initialized")
 
         except Exception as e:
             self.logger.warning(
-                f"Failed to initialize synchronous connection pool: {e}"
+                f"db_operations.py:DBOperations:Failed to initialize synchronous connection pool: {e}"
             )
             # Don't fail initialization if pool creation fails
             self.sync_pool = None
@@ -176,13 +176,13 @@ class DBOperations:
             if self.sync_pool:
                 self.sync_pool.closeall()
                 self.sync_pool = None
-                self.logger.info("Synchronous connection pool closed")
+                self.logger.info("db_operations.py:DBOperations:Synchronous connection pool closed")
         except Exception as e:
-            self.logger.warning(f"Error closing synchronous connection pool: {e}")
+            self.logger.warning(f"db_operations.py:DBOperations:Error closing synchronous connection pool: {e}")
 
         # Note: Async connections are not automatically closed to avoid async issues
         # They will be cleaned up when the process ends
-        self.logger.info("Database operations closed (async connections preserved)")
+        self.logger.info("db_operations.py:DBOperations:Database operations closed (async connections preserved)")
 
     # async def __aenter__(self):
     #     """Async context manager entry."""
@@ -198,7 +198,7 @@ class DBOperations:
         if not self.client:
             # Note: Client initialization is deferred to avoid async issues
             self.logger.warning(
-                "Supabase client not initialized - async operations disabled"
+                "db_operations.py:DBOperations:Supabase client not initialized - async operations disabled"
             )
         return self.client
 
@@ -207,7 +207,7 @@ class DBOperations:
         if not self.pool:
             # Note: Pool initialization is deferred to avoid async issues
             self.logger.warning(
-                "Async pool not initialized - async operations disabled"
+                "db_operations.py:DBOperations:Async pool not initialized - async operations disabled"
             )
         return self.pool
 
@@ -242,12 +242,12 @@ class DBOperations:
                         cursor.close()
 
                         self.logger.debug(
-                            "Synchronous database connection obtained from pool"
+                            "db_operations.py:DBOperations:Synchronous database connection obtained from pool"
                         )
                         return conn
                 except Exception as e:
                     self.logger.warning(
-                        f"Pool connection failed, falling back to direct connection: {e}"
+                        f"db_operations.py:DBOperations:Pool connection failed, falling back to direct connection: {e}"
                     )
                     # Return connection to pool if it's broken
                     if conn:
@@ -270,13 +270,13 @@ class DBOperations:
             cursor.close()
 
             self.logger.debug(
-                "Synchronous database connection established and validated"
+                "db_operations.py:DBOperations:Synchronous database connection established and validated"
             )
             return conn
 
         except Exception as e:
             self.logger.error(
-                f"Failed to establish synchronous database connection: {e}"
+                f"db_operations.py:DBOperations:Failed to establish synchronous database connection: {e}"
             )
             raise DatabaseException(f"Synchronous connection failed: {str(e)}")
 
@@ -290,9 +290,9 @@ class DBOperations:
         if self.sync_pool and conn:
             try:
                 self.sync_pool.putconn(conn)
-                self.logger.debug("Connection returned to pool")
+                self.logger.debug("db_operations.py:DBOperations:Connection returned to pool")
             except Exception as e:
-                self.logger.warning(f"Failed to return connection to pool: {e}")
+                self.logger.warning(f"db_operations.py:DBOperations:Failed to return connection to pool: {e}")
                 # Close connection if pool return fails
                 try:
                     conn.close()
@@ -315,10 +315,10 @@ class DBOperations:
         try:
             conn = self.get_sync_connection()
             conn.close()
-            self.logger.info("Synchronous database connection test successful")
+            self.logger.info("db_operations.py:DBOperations:Synchronous database connection test successful")
             return True
         except Exception as e:
-            self.logger.error(f"Synchronous database connection test failed: {e}")
+            self.logger.error(f"db_operations.py:DBOperations:Synchronous database connection test failed: {e}")
             return False
 
     def execute_sync_query(self, query: str, params: tuple = None, fetch: bool = False):
@@ -356,7 +356,7 @@ class DBOperations:
                     conn.rollback()
                 except:
                     pass
-            self.logger.error(f"Query execution failed: {e}")
+            self.logger.error(f"db_operations.py:DBOperations:Query execution failed: {e}")
             raise DatabaseException(f"Query execution failed: {str(e)}")
         finally:
             if conn:
@@ -402,7 +402,7 @@ class DBOperations:
                     conn.rollback()
                 except:
                     pass
-            self.logger.error(f"Batch execution failed: {e}")
+            self.logger.error(f"db_operations.py:DBOperations:Batch execution failed: {e}")
             raise DatabaseException(f"Batch execution failed: {str(e)}")
         finally:
             if conn:

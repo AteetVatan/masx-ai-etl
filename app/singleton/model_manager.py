@@ -88,12 +88,12 @@ class ModelManager:
                 from app.core.concurrency.device import get_torch_device
 
                 cls._device = get_torch_device()
-                cls._logger.info(f"Using device: {cls._device}")
+                cls._logger.info(f"model_manager.py:Using device: {cls._device}")
             except Exception as e:
-                cls._logger.error(f"Failed to get device: {e}")
+                cls._logger.error(f"model_manager.py:Failed to get device: {e}")
                 # Fallback to CPU if device detection fails
                 cls._device = torch.device("cpu")
-                cls._logger.warning(f"Falling back to CPU device due to error: {e}")
+                cls._logger.warning(f"model_manager.py:Falling back to CPU device due to error: {e}")
         return cls._device
 
     @classmethod
@@ -110,7 +110,7 @@ class ModelManager:
         if cls._device is None:
             raise RuntimeError("Device configuration failed to load")
         
-        cls._logger.debug(f"Returning summarization model components: model={type(cls._summarization_model)}, tokenizer={type(cls._summarization_tokenizer)}, device={cls._device}")
+        cls._logger.debug(f"model_manager.py:Returning summarization model components: model={type(cls._summarization_model)}, tokenizer={type(cls._summarization_tokenizer)}, device={cls._device}")
         return cls._summarization_model, cls._summarization_tokenizer, cls._device
 
     @classmethod
@@ -231,12 +231,12 @@ class ModelManager:
             cls._device = device
 
             cls._logger.info(
-                f"Loaded summarization model '{cls._summarization_model_name}' "
+                f"model_manager.py:Loaded summarization model '{cls._summarization_model_name}' "
                 f"on {device} (dtype={model.dtype}, max_src_len={cls._max_src_len})"
             )
 
         except Exception as e:
-            cls._logger.error(f"Failed to load summarization model: {e}", exc_info=True)
+            cls._logger.error(f"model_manager.py:Failed to load summarization model: {e}", exc_info=True)
             raise RuntimeError(f"Failed to load summarization model: {e}")
 
     @classmethod
@@ -258,10 +258,10 @@ class ModelManager:
                 ),
             ).to(cls._device)
 
-            cls._logger.info(f"Loaded summarization model on {cls._device}")
+            cls._logger.info(f"model_manager.py:Loaded summarization model on {cls._device}")
 
         except Exception as e:
-            cls._logger.error(f"Failed to load summarization model: {e}")
+            cls._logger.error(f"model_manager.py:Failed to load summarization model: {e}")
             raise RuntimeError(f"Failed to load summarization model: {e}")
 
     @classmethod
@@ -270,16 +270,16 @@ class ModelManager:
         try:
             device = "cuda" if torch.cuda.is_available() else "cpu"
             cls._logger.info(
-                f"Loading embedding model '{cls._embedding_model_name}' on {device}"
+                f"model_manager.py:Loading embedding model '{cls._embedding_model_name}' on {device}"
             )
             cls._embedding_model = SentenceTransformer(
                 cls._embedding_model_name,
                 cache_folder=cls.get_model_cache_dir(),
                 device=device,
             )
-            cls._logger.info(f"Embedding model loaded on {device}")
+            cls._logger.info(f"model_manager.py:Embedding model loaded on {device}")
         except Exception as e:
-            cls._logger.error(f"Failed to load embedding model: {e}")
+            cls._logger.error(f"model_manager.py:Failed to load embedding model: {e}")
             raise RuntimeError(f"Failed to load embedding model: {e}")
 
     @classmethod
@@ -287,5 +287,5 @@ class ModelManager:
         try:
             cls._translator = GoogleTranslator(source="auto", target=lang)
         except Exception as e:
-            cls._logger.error(f"Failed to load GoogleTranslator: {e}")
+            cls._logger.error(f"model_manager.py:Failed to load GoogleTranslator: {e}")
             raise RuntimeError(f"Failed to load GoogleTranslator: {e}")

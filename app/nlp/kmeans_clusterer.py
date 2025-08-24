@@ -46,5 +46,5 @@ class KMeansClusterer(BaseClusterer):
                 return list(labels)
 
         except Exception as e:
-            self.logger.error(f"Error: {e}")
+            self.logger.error(f"kmeans_clusterer.py:Error: {e}")
             raise e

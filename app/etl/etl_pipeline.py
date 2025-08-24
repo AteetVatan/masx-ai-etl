@@ -57,53 +57,53 @@ class ETLPipeline:
             dataset = flashpoints_service.get_flashpoint_dataset(date=date, flashpoints_ids=flashpoints_ids)
             return dataset
         except Exception as e:
-            self.logger.error(f"Error: {e}")
+            self.logger.error(f"etl_pipeline.py:ETLPipeline:Error: {e}")
             raise e
 
     async def run_all_etl_pipelines(self, trigger: str = WorkerEnums.COORDINATOR.value, flashpoints_ids: List[str] = None):
         try:
-            self.logger.info(f"**********trigger: {trigger}**********")
+            self.logger.info(f"etl_pipeline.py:ETLPipeline:**********trigger: {trigger}**********")
             #initialize singletons
             # make them execute parallely and do not wait for them to complete
             if trigger == WorkerEnums.COORDINATOR.value:# or self.settings.debug:
-                self.logger.info(f"Coordinator trigger")
+                self.logger.info(f"etl_pipeline.py:ETLPipeline:Coordinator trigger")
                 # db table init will happen oly with coordinator
                 self.db_flashpoints_cluster = FlashpointsCluster(self.date)
                 self.db_flashpoints_cluster.db_cluster_init_sync(self.date)
                 flashpoints = self.get_flashpoints(date=self.date)
                 flashpoints = self._clean_flashpoints(flashpoints)
             elif trigger == WorkerEnums.ETL_WORKER.value and flashpoints_ids is not None:
-                self.logger.info("ETL_WORKER trigger")
+                self.logger.info("etl_pipeline.py:ETLPipeline:ETL_WORKER trigger")
                 # ETL_WORKER
                 flashpoints = self.get_flashpoints(date=self.date, flashpoints_ids=flashpoints_ids)
-                self.logger.info(f"ETL_WORKER trigger - flashpoints length : {len(flashpoints)}")
+                self.logger.info(f"etl_pipeline.py:ETLPipeline:ETL_WORKER trigger - flashpoints length : {len(flashpoints)}")
             else:
-                self.logger.error(f"Invalid trigger: {trigger}")
+                self.logger.error(f"etl_pipeline.py:ETLPipeline:Invalid trigger: {trigger}")
                 raise ValueError(f"Invalid trigger: {trigger}")
 
             
             if self.settings.debug:
-                self.logger.info("Running ETL Pipeline in Debug Mode")
+                self.logger.info("etl_pipeline.py:ETLPipeline:Running ETL Pipeline in Debug Mode")
                 #flashpoints = [flashpoints[0]] #flashpoints[:2]
             
             start_time = time.time()
             self.logger.info(
-                f"Starting ALL ETL Pipeline for {len(flashpoints)} flashpoints"
+                f"etl_pipeline.py:ETLPipeline:Starting ALL ETL Pipeline for {len(flashpoints)} flashpoints"
             )            
            
             if trigger == WorkerEnums.COORDINATOR.value:
                 # Use RunPod Serverless Manager for parallel execution
-                self.logger.info("Running ETL Pipeline for Coordinator")
-                self.logger.info(f"For Coordinator -  ALL flashpoints ids")
+                self.logger.info("etl_pipeline.py:ETLPipeline:Running ETL Pipeline for Coordinator")
+                self.logger.info(f"etl_pipeline.py:ETLPipeline:For Coordinator -  ALL flashpoints ids")
                 worker_manager = RunPodServerlessManager(self.settings.runpod_workers)
-                self.logger.info(f"Using {self.settings.runpod_workers} RunPod Serverless workers")            
+                self.logger.info(f"etl_pipeline.py:ETLPipeline:Using {self.settings.runpod_workers} RunPod Serverless workers")            
                 results = await worker_manager.distribute_to_workers(
                     flashpoints, 
                     date=self.date,
                     cleanup=True
                 )
             elif trigger == WorkerEnums.ETL_WORKER.value:
-                self.logger.info(f"For ETL Worker - flashpoints ids: {', '.join(flashpoints_ids)}")
+                self.logger.info(f"etl_pipeline.py:ETLPipeline:For ETL Worker - flashpoints ids: {', '.join(flashpoints_ids)}")
                 
                 
                 #return True
@@ -113,20 +113,20 @@ class ETLPipeline:
 
             end_time = time.time()
             self.logger.info(
-                f"****Time taken: {end_time - start_time} seconds for ALL ETL Pipeline*****"
+                f"etl_pipeline.py:ETLPipeline:****Time taken: {end_time - start_time} seconds for ALL ETL Pipeline*****"
             )
             return results
         except Exception as e:
-            self.logger.error(f"Error: {e}")
+            self.logger.error(f"etl_pipeline.py:ETLPipeline:Error: {e}")
             raise e
 
     async def run_etl_pipeline(self, flashpoint: FlashpointModel):
         try:
             if self.settings.debug:
-                self.logger.info("Starting MASX News ETL (Standalone Debug Mode)")
+                self.logger.info("etl_pipeline.py:ETLPipeline:Starting MASX News ETL (Standalone Debug Mode)")
                 await self.run_etl_pipeline_debug(flashpoint)
                 return
-            self.logger.info("Starting MASX News ETL (Standalone Production Mode)")
+            self.logger.info("etl_pipeline.py:ETLPipeline:Starting MASX News ETL (Standalone Production Mode)")
             start_time = time.time()
             flashpoint_id = flashpoint.id
             feeds = flashpoint.feeds            
@@ -135,30 +135,30 @@ class ETLPipeline:
 
                 
             # load summarized feeds from file
-            self.logger.info("Running NewsContentExtractor...")
+            self.logger.info("etl_pipeline.py:ETLPipeline:Running NewsContentExtractor...")
             extractor = NewsContentExtractor(feeds)
             scraped_feeds = await extractor.extract_feeds()
             
-            self.logger.info(f"feeds length: {len(feeds)}")
-            self.logger.info(f"scraped_feeds length: {len(scraped_feeds)} out of {len(feeds)}")
+            self.logger.info(f"etl_pipeline.py:ETLPipeline:feeds length: {len(feeds)}")
+            self.logger.info(f"etl_pipeline.py:ETLPipeline:scraped_feeds length: {len(scraped_feeds)} out of {len(feeds)}")
           
             
             return True
 
-            self.logger.info("Running Summarizer...")
+            self.logger.info("etl_pipeline.py:ETLPipeline:Running Summarizer...")
             summarizer = Summarizer(scraped_feeds)
             summarized_feeds = await summarizer.summarize_all_feeds()
             
-            self.logger.info(f"summarized_feeds length: {len(summarized_feeds)}")
+            self.logger.info(f"etl_pipeline.py:ETLPipeline:summarized_feeds length: {len(summarized_feeds)}")
             
             for feed in summarized_feeds:
-                self.logger.info(f"**************************************************************************")
-                self.logger.info(f"feed: {feed.title}")
-                self.logger.info(f"feed: {feed.summary}")
-                self.logger.info(f"**************************************************************************")
+                self.logger.info(f"etl_pipeline.py:ETLPipeline:**************************************************************************")
+                self.logger.info(f"etl_pipeline.py:ETLPipeline:feed: {feed.title}")
+                self.logger.info(f"etl_pipeline.py:ETLPipeline:feed: {feed.summary}")
+                self.logger.info(f"etl_pipeline.py:ETLPipeline:**************************************************************************")
             return True
 
-            self.logger.info("Running VectorizeArticles...")
+            self.logger.info("etl_pipeline.py:ETLPipeline:Running VectorizeArticles...")
             vectorizer = VectorizeArticles(flashpoint_id)
             # collection_name = vectorizer.get_flashpoint_id()
             await vectorizer.run(summarized_feeds)
@@ -214,7 +214,7 @@ class ETLPipeline:
             end_time = time.time()
             self.logger.info(f"Time taken: {end_time - start_time} seconds")
         except Exception as e:
-            self.logger.error(f"Error: {e}")
+            self.logger.error(f"etl_pipeline.py:ETLPipeline:Error: {e}")
             raise e
         finally:
             self.db_flashpoints_cluster.close()
@@ -298,7 +298,7 @@ class ETLPipeline:
                 f"Time taken: {end_time - start_time} seconds for flashpoint {flashpoint_id}"
             )
         except Exception as e:
-            self.logger.error(f"Error: {e}")
+            self.logger.error(f"etl_pipeline.py:ETLPipeline:Error: {e}")
             raise e
         finally:
             self.db_flashpoints_cluster.close()

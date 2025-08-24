@@ -82,10 +82,10 @@ class NLLBTranslatorSingleton:
             )
 
             await self.inference_runtime.start()
-            self.logger.info("Inference runtime initialized for NLLB translation")
+            self.logger.info("nllb_translator_singleton.py:NLLBTranslator:Inference runtime initialized for NLLB translation")
 
         except Exception as e:
-            self.logger.error(f"Failed to initialize inference runtime: {e}")
+            self.logger.error(f"nllb_translator_singleton.py:NLLBTranslator:Failed to initialize inference runtime: {e}")
             raise
 
     def _get_translation_model_loader(self):
@@ -148,14 +148,14 @@ class NLLBTranslatorSingleton:
             result = await self.inference_runtime.infer(payload)
 
             if isinstance(result, Exception):
-                self.logger.error(f"Translation failed: {result}")
+                self.logger.error(f"nllb_translator_singleton.py:NLLBTranslator:Translation failed: {result}")
                 # Fallback to synchronous translation
                 return self._translate_sync(text, src_lang, tgt_lang)
 
             return result
 
         except Exception as e:
-            self.logger.error(f"Translation failed: {e}")
+            self.logger.error(f"nllb_translator_singleton.py:NLLBTranslator:Translation failed: {e}")
             # Fallback to synchronous translation
             return self._translate_sync(text, src_lang, tgt_lang)
 
@@ -168,7 +168,7 @@ class NLLBTranslatorSingleton:
             result = pipeline(text)
             return result[0]["translation_text"]
         except Exception as e:
-            self.logger.error(f"Synchronous translation failed: {e}")
+            self.logger.error(f"nllb_translator_singleton.py:NLLBTranslator:Synchronous translation failed: {e}")
             return text  # Return original text if translation fails
 
     async def translate_batch(
@@ -203,7 +203,7 @@ class NLLBTranslatorSingleton:
             translated_texts = []
             for i, result in enumerate(results):
                 if isinstance(result, Exception):
-                    self.logger.error(f"Translation failed for text {i}: {result}")
+                    self.logger.error(f"nllb_translator_singleton.py:NLLBTranslator:Translation failed for text {i}: {result}")
                     # Fallback to synchronous translation for this item
                     translated_text = self._translate_sync(texts[i], src_lang, tgt_lang)
                     translated_texts.append(translated_text)
@@ -213,7 +213,7 @@ class NLLBTranslatorSingleton:
             return translated_texts
 
         except Exception as e:
-            self.logger.error(f"Batch translation failed: {e}")
+            self.logger.error(f"nllb_translator_singleton.py:NLLBTranslator:Batch translation failed: {e}")
             # Fallback to synchronous batch translation
             return [self._translate_sync(text, src_lang, tgt_lang) for text in texts]
 
@@ -237,4 +237,4 @@ class NLLBTranslatorSingleton:
         """Stop the inference runtime."""
         if self.inference_runtime:
             await self.inference_runtime.stop()
-            self.logger.info("NLLB translator inference runtime stopped")
+            self.logger.info("nllb_translator_singleton.py:NLLBTranslator:NLLB translator inference runtime stopped")

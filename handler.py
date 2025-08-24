@@ -74,13 +74,13 @@ async def handler(job: Dict[str, Any]):
     trigger = str(payload.get("trigger", WorkerEnums.COORDINATOR.value))
     flashpoints_ids = payload.get("flashpoints", None)
     
-    logger.info(f"**********trigger: {trigger}**********")
-    logger.info(f"**********flashpoints_ids: {flashpoints_ids}**********")
+    logger.info(f"handler.py:handler:**********trigger: {trigger}**********")
+    logger.info(f"handler.py:handler:**********flashpoints_ids: {flashpoints_ids}**********")
 
     try:
         # Warm requests used by CI/Actions to pre-pull image/models
         if payload.get("mode") == "warm" or payload.get("trigger") == "warm":
-            logger.info(f"warm request received")
+            logger.info(f"handler.py:handler:warm request received")
             return {
                 "ok": True,
                 "status": "warmed",
@@ -95,7 +95,7 @@ async def handler(job: Dict[str, Any]):
         from main_etl import run_etl_pipeline
 
         logger.info(
-            f"running async handler for ETL pipeline for date: {date} and cleanup: {cleanup}"
+            f"handler.py:handler:running async handler for ETL pipeline for date: {date} and cleanup: {cleanup}"
         )
         
         # Get worker configuration
@@ -103,12 +103,12 @@ async def handler(job: Dict[str, Any]):
         settings = get_settings()
         num_workers = settings.runpod_workers
         
-        logger.info(f"Using {num_workers} workers for parallel execution")
+        logger.info(f"handler.py:handler:Using {num_workers} workers for parallel execution")
         
         # Directly await the async ETL pipeline - no nested event loops!
         await run_etl_pipeline(trigger=trigger, date=date, flashpoints_ids=flashpoints_ids, cleanup=cleanup)
         
-        logger.info(f"async handler completed")
+        logger.info(f"handler.py:handler:async handler completed")
         return {
             "ok": True,
             "date": date,
@@ -119,7 +119,7 @@ async def handler(job: Dict[str, Any]):
         }
 
     except Exception as e:
-        logger.error(f"Error in async handler: {e}")
+        logger.error(f"handler.py:handler:Error in async handler: {e}")
         return {
             "ok": False,
             "error": str(e),

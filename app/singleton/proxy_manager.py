@@ -67,13 +67,13 @@ class ProxyManager:
 
         if not cls.__proxies:
             # get all proxies
-            cls.__logger.info("Getting proxies from proxy site...")
+            cls.__logger.info("proxy_manager.py:Getting proxies from proxy site...")
             all_proxies = cls.__get_proxies()
             # test proxies
-            cls.__logger.info("Testing proxies...")
+            cls.__logger.info("proxy_manager.py:Testing proxies...")
             proxies = list(set(await cls.__test_proxy(all_proxies)))
             cls.__proxies = proxies
-            cls.__logger.info(f"Found {len(cls.__proxies)} proxies")
+            cls.__logger.info(f"proxy_manager.py:Found {len(cls.__proxies)} proxies")
             cls.__proxy_timestamp = datetime.now()
 
         return cls.__proxies
@@ -136,7 +136,7 @@ class ProxyManager:
             return valid_proxies
 
         except Exception as e:
-            cls.__logger.error(f"Proxy testing failed: {e}")
+            cls.__logger.error(f"proxy_manager.py:Proxy testing failed: {e}")
             # Fallback to synchronous testing
             return cls._test_proxy_sync(proxies)
 
@@ -157,7 +157,7 @@ class ProxyManager:
             valid_proxies = []
             for i, result in enumerate(results):
                 if isinstance(result, Exception):
-                    cls.__logger.debug(f"Proxy {proxies[i]} testing failed: {result}")
+                    cls.__logger.debug(f"proxy_manager.py:Proxy {proxies[i]} testing failed: {result}")
                     continue
 
                 if result:
@@ -166,7 +166,7 @@ class ProxyManager:
             return valid_proxies
 
         except Exception as e:
-            cls.__logger.error(f"Batch proxy testing failed: {e}")
+            cls.__logger.error(f"proxy_manager.py:Batch proxy testing failed: {e}")
             return []
 
     @classmethod
@@ -178,7 +178,7 @@ class ProxyManager:
                 if cls.__test_single_proxy(proxy):
                     valid_proxies.append(proxy)
             except Exception as e:
-                cls.__logger.debug(f"Proxy {proxy} testing failed: {e}")
+                cls.__logger.debug(f"proxy_manager.py:Proxy {proxy} testing failed: {e}")
         return valid_proxies
 
     @classmethod
