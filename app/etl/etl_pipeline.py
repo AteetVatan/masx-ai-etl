@@ -139,7 +139,11 @@ class ETLPipeline:
             extractor = NewsContentExtractor(feeds)
             scraped_feeds = await extractor.extract_feeds()
             
-            #return True
+            self.logger.info(f"feeds length: {len(feeds)}")
+            self.logger.info(f"scraped_feeds length: {len(scraped_feeds)} out of {len(feeds)}")
+          
+            
+            return True
 
             self.logger.info("Running Summarizer...")
             summarizer = Summarizer(scraped_feeds)
