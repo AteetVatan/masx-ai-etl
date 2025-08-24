@@ -142,8 +142,8 @@ class ETLPipeline:
             self.logger.info(f"etl_pipeline.py:ETLPipeline:feeds length: {len(feeds)}")
             self.logger.info(f"etl_pipeline.py:ETLPipeline:scraped_feeds length: {len(scraped_feeds)} out of {len(feeds)}")
           
-            
             return True
+            
 
             self.logger.info("etl_pipeline.py:ETLPipeline:Running Summarizer...")
             summarizer = Summarizer(scraped_feeds)
