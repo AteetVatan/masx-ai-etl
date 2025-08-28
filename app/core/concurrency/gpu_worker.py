@@ -185,15 +185,15 @@ class GPUWorker:
                 if hasattr(self._model.config, "max_position_embeddings"):
                     seq_len = min(self._model.config.max_position_embeddings, 512)
                     return torch.randint(0, 1000, (1, seq_len)).to(
-                        f"cuda:{self.config.device_id}"
+                        torch.device(f"cuda:{self.config.device_id}")
                     )
 
             # Generic fallback
-            return torch.randn(1, 128).to(f"cuda:{self.config.device_id}")
+            return torch.randn(1, 128).to(torch.device(f"cuda:{self.config.device_id}"))
 
         except Exception:
             # Final fallback
-            return torch.randn(1, 128).to(f"cuda:{self.config.device_id}")
+            return torch.randn(1, 128).to(torch.device(f"cuda:{self.config.device_id}"))
 
     async def infer(self, payload: T) -> R:
         """
@@ -244,13 +244,13 @@ class GPUWorker:
 
         try:
             # Prepare batch input
-            batch_input = self._prepare_batch_input(payloads)
+            batch_input = await self._prepare_batch_input(payloads)
 
             # Check if this is a summarization batch
             if isinstance(batch_input, dict) and "model" in batch_input:
                 # This is a summarization batch - the model is in the batch_input
-                model = batch_input["model"]
                 # For summarization, we pass the entire batch_input to process_batch_output
+                # SummarizerUtils._summarizer will handle all the processing
                 batch_output = batch_input
             else:
                 # Generic model inference
@@ -283,7 +283,7 @@ class GPUWorker:
             logger.error(f"GPU batch processing failed: {e}")
             raise
 
-    def _prepare_batch_input(self, payloads: List[T]):
+    async def _prepare_batch_input(self, payloads: List[T]):
         """
         Prepare batch input for the model, handling different types.
         """
@@ -294,7 +294,7 @@ class GPUWorker:
                 if all("index" in p for p in payloads):
                     return self._prepare_embedding_batch(payloads)
                 else:
-                    return self._prepare_summarization_batch(payloads)
+                    return await self._prepare_summarization_batch(payloads)
 
             # Check if these are clustering payloads (have embeddings field)
             elif all(isinstance(p, dict) and "embeddings" in p for p in payloads):
@@ -310,100 +310,36 @@ class GPUWorker:
             logger.error(f"Failed to prepare batch input: {e}")
             raise
 
-    def _prepare_summarization_batch(self, payloads: List[dict]) -> dict:
+    async def _prepare_summarization_batch(self, payloads: List[dict]) -> dict:
         """
         Prepare batch input for summarization model.
+        Now simplified since SummarizerUtils._summarizer handles all preprocessing.
         """
         try:
             from app.singleton import ModelManager
-            from app.nlp import Translator, NLPUtils
 
             # Get model components - model_loader only returns the model, so get tokenizer and device separately
             model = self._model  # Use the already loaded model
             model_manager_model, tokenizer, device = ModelManager.get_summarization_model()
             max_tokens = ModelManager.get_summarization_model_max_tokens()
 
-            # Process each payload
-            processed_texts = []
+            # Store original payloads for processing
             original_payloads = []
-
             for payload in payloads:
-                feed = payload.get("feed")
-                text = payload.get("text", "")
-                url = payload.get("url", "")
-                prompt_prefix = payload.get("prompt_prefix", "summarize: ")
+                original_payloads.append({
+                    "feed": payload.get("feed"),
+                    "text": payload.get("text", ""),
+                    "url": payload.get("url", ""),
+                    "prompt_prefix": payload.get("prompt_prefix", "summarize: ")
+                })
 
-                # Step 1: Translate non-English articles to English
-                try:
-                    translator = Translator()
-                    translated_text = translator.ensure_english(text)
-                except Exception as e:
-                    logger.error(f"Translation failed for {url}: {e}")
-                    translated_text = text  # Use original text as fallback
-
-                # Step 2: Check if text fits the model, else compress using TF-IDF
-                try:
-                    if not NLPUtils.text_suitable_for_model(
-                        tokenizer,
-                        translated_text,
-                        max_tokens,
-                    ):
-                        logger.info(f"Compressing text using TF-IDF for {url}")
-                        compressed_text = NLPUtils.compress_text_tfidf(
-                            tokenizer, translated_text, max_tokens, prompt_prefix
-                        )
-                    else:
-                        compressed_text = translated_text
-                except Exception as e:
-                    logger.error(f"Text compression failed for {url}: {e}")
-                    compressed_text = translated_text
-
-                # Prepare text for summarization
-                processed_text = prompt_prefix + compressed_text
-                processed_texts.append(processed_text)
-
-                # Store original payload for result processing
-                original_payloads.append(
-                    {
-                        "feed": feed,
-                        "text": text,
-                        "url": url,
-                        "translated_text": translated_text,
-                        "compressed_text": compressed_text,
-                        "processed_text": processed_text,
-                    }
-                )
-
-            # Tokenize all texts for batch processing
-            try:
-                # Tokenize with padding and truncation
-                tokenized = tokenizer(
-                    processed_texts,
-                    return_tensors="pt",
-                    padding=True,
-                    truncation=True,
-                    max_length=max_tokens,
-                    return_attention_mask=True,
-                )
-
-                # Move to GPU
-                input_ids = tokenized["input_ids"].to(f"cuda:{self.config.device_id}")
-                attention_mask = tokenized["attention_mask"].to(
-                    f"cuda:{self.config.device_id}"
-                )
-
-                return {
-                    "input_ids": input_ids,
-                    "attention_mask": attention_mask,
-                    "original_payloads": original_payloads,
-                    "model": model,
-                    "tokenizer": tokenizer,
-                    "max_tokens": max_tokens,
-                }
-
-            except Exception as e:
-                logger.error(f"Tokenization failed: {e}")
-                raise
+            # Return the simplified batch structure - SummarizerUtils._summarizer will handle all preprocessing
+            return {
+                "original_payloads": original_payloads,
+                "model": model,
+                "tokenizer": tokenizer,
+                "max_tokens": max_tokens,
+            }
 
         except Exception as e:
             logger.error(f"Failed to prepare summarization batch: {e}")
@@ -430,7 +366,7 @@ class GPUWorker:
 
             # Move to GPU if available
             if torch.cuda.is_available():
-                embeddings = embeddings.to(f"cuda:{self.config.device_id}")
+                embeddings = embeddings.to(torch.device(f"cuda:{self.config.device_id}"))
 
             # Convert to list format for result processing
             embedding_lists = []
@@ -601,50 +537,69 @@ class GPUWorker:
         self, batch_output: dict, batch_size: int
     ) -> List[dict]:
         """
-        Process summarization model output.
+        Process summarization model output using the same method as runtime.py.
         """
+        
         try:
+            from app.etl.tasks import SummarizerUtils
+            
             # Extract components from batch output
-            input_ids = batch_output["input_ids"]
-            attention_mask = batch_output["attention_mask"]
             original_payloads = batch_output["original_payloads"]
             model = batch_output["model"]
             tokenizer = batch_output["tokenizer"]
             max_tokens = batch_output["max_tokens"]
 
-            # Generate summaries
-            with torch.no_grad():
-                summary_ids = model.generate(
-                    input_ids=input_ids,
-                    attention_mask=attention_mask,
-                    max_length=max_tokens,
-                    min_length=30,
-                    num_beams=4,
-                    length_penalty=2.0,
-                    early_stopping=True,
-                    no_repeat_ngram_size=3,
-                )
+            # Get GPU device for the model - must be torch.device object for proper GPU usage
+            device = torch.device(f"cuda:{self.config.device_id}")
 
-            # Decode summaries
-            summaries = []
-            for i, summary_id in enumerate(summary_ids):
-                summary = tokenizer.decode(summary_id, skip_special_tokens=True)
-                summaries.append(summary)
-
-            # Create results
+            # Process each payload using the same summarizer method as runtime.py
             results = []
-            for i, (original_payload, summary) in enumerate(
-                zip(original_payloads, summaries)
-            ):
-                result = {
-                    "feed": original_payload["feed"],
-                    "text": original_payload["text"],
-                    "url": original_payload["url"],
-                    "translated_text": original_payload["translated_text"],
-                    "compressed_text": original_payload["compressed_text"],
-                    "summary": summary,
-                }
-                results.append(result)
+            for payload in original_payloads:
+                try:
+                    # Create the payload format expected by SummarizerUtils._summarizer
+                    summarizer_payload = {
+                        "feed": payload["feed"],
+                        "text": payload["text"],
+                        "url": payload["url"],
+                        "prompt_prefix": "summarize: "
+                    }
+                    
+                    # Use the same summarization method as runtime.py
+                    result = SummarizerUtils._summarizer(
+                        summarizer_payload, 
+                        model, 
+                        tokenizer, 
+                        device, 
+                        max_tokens
+                    )
+                    
+                    # Extract the summary from the result
+                    summary = result.get("summary", "")
+                    
+                    # Create the final result in the expected format
+                    final_result = {
+                        "feed": payload["feed"],
+                        "text": payload["text"],
+                        "url": payload["url"],
+                        "translated_text": result.get("translated_text", ""),
+                        "compressed_text": result.get("compressed_text", ""),
+                        "summary": summary,
+                    }
+                    
+                    results.append(final_result)
+                    
+                except Exception as e:
+                    logger.error(f"Failed to process individual payload in GPU batch: {e}")
+                    # Fallback: return original payload with error
+                    fallback_result = {
+                        "feed": payload["feed"],
+                        "text": payload["text"],
+                        "url": payload["url"],
+                        "translated_text": payload.get("translated_text", ""),
+                        "compressed_text": payload.get("compressed_text", ""),
+                        "summary": f"Error during summarization: {str(e)}",
+                    }
+                    results.append(fallback_result)
 
             return results
 

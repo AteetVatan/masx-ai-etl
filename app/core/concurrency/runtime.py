@@ -17,6 +17,14 @@ from .cpu_executors import CPUExecutors
 from .gpu_worker import GPUWorker, GPUConfig
 from .model_pool import get_model_pool
 from app.config import get_settings
+from app.singleton import ModelManager
+
+#from app.nlp import Translator, NLPUtils
+
+def get_summarizer_utils():
+    """Lazy import to avoid circular dependency."""
+    from app.etl.tasks import SummarizerUtils
+    return SummarizerUtils
 
 def _convert_to_python_list(labels) -> List[int]:
     """
@@ -381,80 +389,13 @@ class InferenceRuntime:
         CPU-based text summarization.
 
         This method runs on a separate thread to avoid blocking the event loop.
-        """
-        try:
-            from app.singleton import ModelManager
-            from app.nlp import Translator, NLPUtils
+        """        
+        model, tokenizer, device = ModelManager.get_summarization_model()
+        max_tokens = ModelManager.get_summarization_model_max_tokens()
+        summarizer_utils = get_summarizer_utils()
+        result = summarizer_utils._summarizer(payload, model, tokenizer, device, max_tokens)
+        return result
 
-            # Extract only serializable data from payload
-            feed_data = payload.get("feed")
-            text = payload.get("text", "")
-            url = payload.get("url", "")
-            prompt_prefix = payload.get("prompt_prefix", "summarize: ")
-
-            # Create a serializable result structure
-            result = {
-                "feed_data": feed_data,
-                "text": text,
-                "url": url,
-                "translated_text": None,
-                "compressed_text": None,
-                "summary": None,
-            }
-
-            # Step 1: Translate non-English articles to English
-            try:
-                translator = Translator()
-                result["translated_text"] = translator.ensure_english(text)
-            except Exception as e:
-                logger.error(f"runtime.py:Translation failed for {url}: {e}")
-                result["translated_text"] = text  # Use original text as fallback
-
-            # Step 2: Check if text fits the model, else compress using TF-IDF
-            try:
-                model, tokenizer, device = ModelManager.get_summarization_model()
-                max_tokens = ModelManager.get_summarization_model_max_tokens()
-
-                if not NLPUtils.text_suitable_for_model(
-                    tokenizer,
-                    result["translated_text"],
-                    max_tokens,
-                ):
-                    logger.info(f"runtime.py:Compressing text using TF-IDF for {url}")
-                    compressed_text = NLPUtils.compress_text_tfidf(
-                        tokenizer, result["translated_text"], max_tokens, prompt_prefix
-                    )
-                    result["compressed_text"] = compressed_text
-                else:
-                    result["compressed_text"] = result["translated_text"]
-            except Exception as e:
-                logger.error(f"runtime.py:Text compression failed for {url}: {e}")
-                result["compressed_text"] = result["translated_text"]
-
-            # Step 3: Generate summary
-            try:
-                # Ensure we have valid model components
-                if model is None or tokenizer is None or device is None:
-                    raise RuntimeError("Model components not properly loaded")
-                
-                summary = NLPUtils.summarize_text(
-                    model,
-                    tokenizer,
-                    device,
-                    prompt_prefix + result["compressed_text"],
-                    max_tokens,
-                )
-                result["summary"] = summary
-                logger.info(f"runtime.py:Summary generated for {url}")
-            except Exception as e:
-                logger.error(f"runtime.py:Summary generation failed for {url}: {e}")
-                raise
-
-            return result
-
-        except Exception as e:
-            logger.error(f"runtime.py:CPU summarization failed: {e}")
-            raise
 
     def _summarize_text_cpu_sync(self, payload: dict) -> dict:
         """
@@ -464,169 +405,45 @@ class InferenceRuntime:
         Perfect for debugging as it's simple and reliable.
         """
         try:
-            from app.singleton import ModelManager
-            from app.nlp import Translator, NLPUtils
-
-            # Extract data from payload
-            feed_data = payload.get("feed")
-            text = payload.get("text", "")
-            url = payload.get("url", "")
-            prompt_prefix = payload.get("prompt_prefix", "summarize: ")
-
-            # Create result structure
-            result = {
-                "feed_data": feed_data,
-                "text": text,
-                "url": url,
-                "translated_text": None,
-                "compressed_text": None,
-                "summary": None,
-            }
-
-            # Step 1: Translate non-English articles to English
-            try:
-                translator = Translator()
-                result["translated_text"] = translator.ensure_english(text)
-            except Exception as e:
-                logger.error(f"runtime.py:Translation failed for {url}: {e}")
-                result["translated_text"] = text
-
-            # Step 2: Check if text fits the model, else compress using TF-IDF
-            try:
-                model, tokenizer, device = ModelManager.get_summarization_model()
-                max_tokens = ModelManager.get_summarization_model_max_tokens()
-
-                if not NLPUtils.text_suitable_for_model(
-                    tokenizer,
-                    result["translated_text"],
-                    max_tokens,
-                ):
-                    logger.info(f"runtime.py:Compressing text using TF-IDF for {url}")
-                    compressed_text = NLPUtils.compress_text_tfidf(
-                        tokenizer, result["translated_text"], max_tokens, prompt_prefix
-                    )
-                    result["compressed_text"] = compressed_text
-                else:
-                    result["compressed_text"] = result["translated_text"]
-            except Exception as e:
-                logger.error(f"runtime.py:Text compression failed for {url}: {e}")
-                result["compressed_text"] = result["translated_text"]
-
-            # Step 3: Generate summary (direct execution, no threading)
-            try:
-                summary = NLPUtils.summarize_text(
-                    model,
-                    tokenizer,
-                    device,
-                    prompt_prefix + result["compressed_text"],
-                    max_tokens,
-                )
-                result["summary"] = summary
-                logger.info(f"runtime.py:Summary generated for {url} (debug mode)")
-            except Exception as e:
-                logger.error(f"runtime.py:Summary generation failed for {url}: {e}")
-                raise
-
-            return result
-
+            model, tokenizer, device = ModelManager.get_summarization_model()
+            max_tokens = ModelManager.get_summarization_model_max_tokens()
+            summarizer_utils = get_summarizer_utils()       
+            result = summarizer_utils._summarizer(payload, model, tokenizer, device, max_tokens)
+            return result 
         except Exception as e:
             logger.error(f"runtime.py:CPU summarization (sync) failed: {e}")
             raise
 
+    
     async def _summarize_text_cpu_pooled(self, payload: dict) -> dict:
         """
-        CPU-based text summarization for production mode using model pool.
-
-        This method uses the model pool to provide controlled concurrency
-        without memory explosion.
+        CPU-based text summarization (pooled) — UPDATED to implement:
+        Preprocess → Adaptive Compress → Map-Reduce (overlap) → Merge & Polish → Quality Gates
         """
+        #logger = getattr(self, "logger", None) or __import__("logging").getLogger(__name__)    
         if not self._model_pool:
-            # Fallback to sync if model pool not available
             logger.warning("runtime.py:Model pool not available, falling back to sync mode")
             return self._summarize_text_cpu_sync(payload)
 
-        # Get model instance from pool
-        model_instance = await self._model_pool.get_model(
-            "summarization", lambda: self._get_summarization_model_components()
-        )
 
+        model_instance = await self._model_pool.get_model("summarization", lambda: self._get_summarization_model_components())
+        
         try:
-            # Extract data from payload
-            feed_data = payload.get("feed")
-            text = payload.get("text", "")
-            url = payload.get("url", "")
-            prompt_prefix = payload.get("prompt_prefix", "summarize: ")
-
-            # Create result structure
-            result = {
-                "feed_data": feed_data,
-                "text": text,
-                "url": url,
-                "translated_text": None,
-                "compressed_text": None,
-                "summary": None,
-            }
-
-            # Step 1: Translate non-English articles to English
-            try:
-                from app.nlp import Translator
-
-                translator = Translator()
-                result["translated_text"] = translator.ensure_english(text)
-            except Exception as e:
-                logger.error(f"runtime.py:Translation failed for {url}: {e}")
-                result["translated_text"] = text
-
-            # Step 2: Check if text fits the model, else compress using TF-IDF
-            try:
-                from app.singleton import ModelManager
-                from app.nlp import NLPUtils
-
-                model = model_instance.model
-                tokenizer = model_instance.tokenizer
-                device = model_instance.device
-                max_tokens = ModelManager.get_summarization_model_max_tokens()
-
-                if not NLPUtils.text_suitable_for_model(
-                    tokenizer,
-                    result["translated_text"],
-                    max_tokens,
-                ):
-                    logger.info(f"runtime.py:Compressing text using TF-IDF for {url}")
-                    compressed_text = NLPUtils.compress_text_tfidf(
-                        tokenizer, result["translated_text"], max_tokens, prompt_prefix
-                    )
-                    result["compressed_text"] = compressed_text
-                else:
-                    result["compressed_text"] = result["translated_text"]
-            except Exception as e:
-                logger.error(f"runtime.py:Text compression failed for {url}: {e}")
-                result["compressed_text"] = result["translated_text"]
-
-            # Step 3: Generate summary using pooled model
-            try:
-                summary = NLPUtils.summarize_text(
-                    model,
-                    tokenizer,
-                    device,
-                    prompt_prefix + result["compressed_text"],
-                    max_tokens,
-                )
-                result["summary"] = summary
-                logger.info(f"runtime.py:Summary generated for {url} (pooled mode)")
-            except Exception as e:
-                logger.error(f"runtime.py:Summary generation failed for {url}: {e}")
-                raise
-
+            # -------- Load model/tokenizer --------
+            model = model_instance.model
+            tokenizer = model_instance.tokenizer
+            device = model_instance.device
+            max_tokens = ModelManager.get_summarization_model_max_tokens() # encoder limit (e.g., 1024)   
+            summarizer_utils = get_summarizer_utils()
+            result = summarizer_utils._summarizer(payload, model, tokenizer, device, max_tokens)
             return result
-
         except Exception as e:
             logger.error(f"runtime.py:CPU summarization (pooled) failed: {e}")
             raise
-
         finally:
-            # Always return model to pool
             await self._model_pool.return_model(model_instance)
+  
+    
 
     def _get_summarization_model_components(self):
         """Helper to get summarization model components for the model pool."""
