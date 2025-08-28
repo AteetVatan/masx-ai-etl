@@ -35,6 +35,7 @@ class FeedModel(BaseModel):
     description: Optional[str] = ""
     raw_text: Optional[str] = ""
     raw_text_en: Optional[str] = ""
+    compressed_text: Optional[str] = ""
     summary: Optional[str] = ""
     image: Optional[str] = ""
     created_at: datetime = None 
