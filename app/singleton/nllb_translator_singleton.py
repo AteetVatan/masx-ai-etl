@@ -20,13 +20,12 @@
 This module contains the NLLBTranslatorSingleton class, which is a singleton class that loads and manages the NLLB-200 multilingual translation model.
 """
 
-import torch
+import logging
 from threading import Lock
 from typing import Dict, Optional
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, pipeline
+from transformers import pipeline, AutoTokenizer, AutoModelForSeq2SeqLM
 
-from app.config import get_service_logger, get_settings
-from app.core.concurrency import InferenceRuntime, RuntimeConfig
+from app.config import get_settings, get_service_logger
 
 
 class NLLBTranslatorSingleton:
@@ -53,48 +52,18 @@ class NLLBTranslatorSingleton:
         self.settings = get_settings()
         self.logger = get_service_logger("NLLBTranslatorSingleton")
 
-        # Initialize inference runtime for translation
-        self.inference_runtime: Optional[InferenceRuntime] = None
-
         # Cache translation pipelines to avoid re-init
         self.pipelines: Dict[str, pipeline] = {}
 
         self._initialized = True
 
-    async def _initialize_inference_runtime(self):
-        """Initialize the inference runtime for translation."""
-        try:
-            # Create runtime config optimized for translation
-            config = RuntimeConfig(
-                gpu_batch_size=self.settings.gpu_batch_size,
-                gpu_max_delay_ms=self.settings.gpu_max_delay_ms,
-                gpu_queue_size=self.settings.gpu_queue_size,
-                gpu_timeout=self.settings.gpu_timeout,
-                gpu_use_fp16=self.settings.gpu_use_fp16,
-                gpu_enable_warmup=self.settings.gpu_enable_warmup,
-                cpu_max_threads=self.settings.cpu_max_threads,
-                cpu_max_processes=self.settings.cpu_max_processes,
-            )
-
-            # Create and start inference runtime
-            self.inference_runtime = InferenceRuntime(
-                model_loader=self._get_translation_model_loader, config=config
-            )
-
-            await self.inference_runtime.start()
-            self.logger.info("nllb_translator_singleton.py:NLLBTranslator:Inference runtime initialized for NLLB translation")
-
-        except Exception as e:
-            self.logger.error(f"nllb_translator_singleton.py:NLLBTranslator:Failed to initialize inference runtime: {e}")
-            raise
-
     def _get_translation_model_loader(self):
-        """Model loader function for the inference runtime."""
+        """Model loader function for creating translation pipelines."""
         # Load tokenizer and model
         tokenizer = AutoTokenizer.from_pretrained(self.model_name)
         model = AutoModelForSeq2SeqLM.from_pretrained(self.model_name)
 
-        # Return both tokenizer and model for the inference runtime
+        # Return both tokenizer and model for pipeline creation
         return {"tokenizer": tokenizer, "model": model}
 
     def _get_pipeline(self, src_lang: str, tgt_lang: str):
@@ -126,7 +95,7 @@ class NLLBTranslatorSingleton:
 
     async def translate(self, text: str, src_lang: str, tgt_lang: str) -> str:
         """
-        Translate text from source to target language using InferenceRuntime.
+        Translate text from source to target language using direct pipeline.
 
         Args:
             text: Text to translate
@@ -137,31 +106,19 @@ class NLLBTranslatorSingleton:
             Translated text
         """
         try:
-            # Initialize inference runtime if not already done
-            if not self.inference_runtime:
-                await self._initialize_inference_runtime()
-
-            # Prepare payload for translation
-            payload = {"text": text, "src_lang": src_lang, "tgt_lang": tgt_lang}
-
-            # Use inference runtime for translation
-            result = await self.inference_runtime.infer(payload)
-
-            if isinstance(result, Exception):
-                self.logger.error(f"nllb_translator_singleton.py:NLLBTranslator:Translation failed: {result}")
-                # Fallback to synchronous translation
-                return self._translate_sync(text, src_lang, tgt_lang)
-
-            return result
+            # Use direct pipeline translation instead of InferenceRuntime
+            # to avoid infinite loop with GPU worker
+            pipeline = self._get_pipeline(src_lang, tgt_lang)
+            result = pipeline(text)
+            return result[0]["translation_text"]
 
         except Exception as e:
             self.logger.error(f"nllb_translator_singleton.py:NLLBTranslator:Translation failed: {e}")
-            # Fallback to synchronous translation
-            return self._translate_sync(text, src_lang, tgt_lang)
+            return text  # Return original text if translation fails
 
     def _translate_sync(self, text: str, src_lang: str, tgt_lang: str) -> str:
         """
-        Synchronous fallback translation method.
+        Synchronous translation method (now the primary method).
         """
         try:
             pipeline = self._get_pipeline(src_lang, tgt_lang)
@@ -175,7 +132,7 @@ class NLLBTranslatorSingleton:
         self, texts: list[str], src_lang: str, tgt_lang: str
     ) -> list[str]:
         """
-        Translate a batch of texts using InferenceRuntime with micro-batching.
+        Translate a batch of texts using direct pipeline processing.
 
         Args:
             texts: List of texts to translate
@@ -186,55 +143,41 @@ class NLLBTranslatorSingleton:
             List of translated texts
         """
         try:
-            # Initialize inference runtime if not already done
-            if not self.inference_runtime:
-                await self._initialize_inference_runtime()
-
-            # Prepare payloads for batch processing
-            payloads = [
-                {"text": text, "src_lang": src_lang, "tgt_lang": tgt_lang, "index": i}
-                for i, text in enumerate(texts)
-            ]
-
-            # Use inference runtime for batch translation
-            results = await self.inference_runtime.infer_many(payloads)
-
-            # Process results
+            # Get pipeline once for batch processing
+            pipeline = self._get_pipeline(src_lang, tgt_lang)
+            
+            # Process texts in batches to avoid memory issues
+            batch_size = 8  # Process 8 texts at a time
             translated_texts = []
-            for i, result in enumerate(results):
-                if isinstance(result, Exception):
-                    self.logger.error(f"nllb_translator_singleton.py:NLLBTranslator:Translation failed for text {i}: {result}")
-                    # Fallback to synchronous translation for this item
-                    translated_text = self._translate_sync(texts[i], src_lang, tgt_lang)
-                    translated_texts.append(translated_text)
-                else:
-                    translated_texts.append(result)
+            
+            for i in range(0, len(texts), batch_size):
+                batch = texts[i:i + batch_size]
+                try:
+                    # Process batch
+                    results = pipeline(batch)
+                    # Extract translation text from results
+                    batch_translations = [result["translation_text"] for result in results]
+                    translated_texts.extend(batch_translations)
+                except Exception as e:
+                    self.logger.error(f"nllb_translator_singleton.py:NLLBTranslator:Batch translation failed for batch {i//batch_size}: {e}")
+                    # Fallback to individual translation for failed batch
+                    for text in batch:
+                        try:
+                            result = pipeline(text)
+                            translated_texts.append(result[0]["translation_text"])
+                        except Exception as e2:
+                            self.logger.error(f"nllb_translator_singleton.py:NLLBTranslator:Individual translation failed: {e2}")
+                            translated_texts.append(text)  # Use original text as fallback
 
             return translated_texts
 
         except Exception as e:
             self.logger.error(f"nllb_translator_singleton.py:NLLBTranslator:Batch translation failed: {e}")
-            # Fallback to synchronous batch translation
+            # Fallback to individual translation
             return [self._translate_sync(text, src_lang, tgt_lang) for text in texts]
-
-    def translate_sync(self, text: str, src_lang: str, tgt_lang: str) -> str:
-        """
-        Synchronous wrapper for backward compatibility.
-
-        Args:
-            text: Text to translate
-            src_lang: Source language code
-            tgt_lang: Target language code
-
-        Returns:
-            Translated text
-        """
-        import asyncio
-
-        return asyncio.run(self.translate(text, src_lang, tgt_lang))
 
     async def stop(self):
         """Stop the inference runtime."""
-        if self.inference_runtime:
-            await self.inference_runtime.stop()
-            self.logger.info("nllb_translator_singleton.py:NLLBTranslator:NLLB translator inference runtime stopped")
+        # The inference_runtime object was removed, so this method is no longer needed.
+        # Keeping it for now as it might be called externally, but it will do nothing.
+        self.logger.warning("nllb_translator_singleton.py:NLLBTranslator:Inference runtime object removed, stop method is no longer functional.")
