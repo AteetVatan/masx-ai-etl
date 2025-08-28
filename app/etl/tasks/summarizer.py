@@ -160,7 +160,7 @@ class Summarizer:
                     if "translated_text" in result:
                         feed.raw_text_en = result["translated_text"]
                     if "compressed_text" in result:
-                        feed.raw_text_en = result["compressed_text"]
+                        feed.compressed_text = result["compressed_text"]
                     if "summary" in result:
                         feed.summary = result["summary"]
 
@@ -254,43 +254,19 @@ class Summarizer:
         Summarize a single feed asynchronously.
         """
         try:
-            # Step 1: Translate non-English articles to English
-            try:
-                feed.raw_text_en = self.translator.ensure_english(feed.raw_text)
-            except Exception as e:
-                self.logger.error(f"summarizer.py:Summarizer:Error translating feed: {e}")
-                raise ServiceException(f"Error translating feed: {e}")
-
-            # Step 2: Check if text fits the model, else compress using TF-IDF
-            try:
-                # tokenizer = self.summarization_tokenizer
-                tokenizer = self.summarization_tokenizer.__class__.from_pretrained(
-                    self.summarization_tokenizer.name_or_path
-                )
-                max_tokens = ModelManager.get_summarization_model_max_tokens()
-                if not NLPUtils.text_suitable_for_model(
-                    tokenizer,
-                    feed.raw_text_en,
-                    max_tokens,
-                ):
-                    self.logger.info(f"summarizer.py:Summarizer:Compressing text using TF-IDF")
-                    text = NLPUtils.compress_text_tfidf(
-                        tokenizer, feed.raw_text_en, max_tokens
-                    )
-                    feed.raw_text_en = text
-            except Exception as e:
-                self.logger.error(f"summarizer.py:Summarizer:Error compressing text: {e}")
-                raise ServiceException(f"Error compressing text: {e}")
-
-            # Step 3: Generate summary
-            try:
-                summary = self._generate_summary(feed.raw_text_en)
-                feed.summary = summary
-                self.logger.info(f"summarizer.py:Summarizer:Summary generated for feed: {feed.url}")
-            except Exception as e:
-                self.logger.error(f"summarizer.py:Summarizer:Error generating summary: {e}")
-                raise ServiceException(f"Error generating summary: {e}")
-
+            from app.etl.tasks import SummarizerUtils
+            payload = {
+                "feed": feed,
+                "text": feed.raw_text,
+                "url": feed.url,
+                "prompt_prefix": self.prompt_prefix,
+            }
+            model, tokenizer, device = ModelManager.get_summarization_model()
+            max_tokens = ModelManager.get_summarization_model_max_tokens()            
+            result = SummarizerUtils._summarizer(payload, model, tokenizer, device, max_tokens)            
+            feed.compressed_text = result["compressed_text"]
+            feed.translated_text = result["translated_text"]
+            feed.summary = result["summary"]           
             return feed
 
         except Exception as e:
@@ -305,7 +281,7 @@ class Summarizer:
 
             # Step 1: Translate non-English articles to English
             try:
-                feed.raw_text_en = self.translator.ensure_english(feed.raw_text)
+                feed.raw_text_en = asyncio.run(self.translator.ensure_english(feed.raw_text))
             except Exception as e:
                 self.logger.error(f"summarizer.py:Summarizer:Error translating feed: {e}")
                 raise ServiceException(f"Error translating feed: {e}")
