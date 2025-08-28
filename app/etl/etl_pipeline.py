@@ -131,8 +131,9 @@ class ETLPipeline:
             flashpoint_id = flashpoint.id
             feeds = flashpoint.feeds            
 
-              
+            # return True
 
+            #feeds = feeds[:5]
                 
             # load summarized feeds from file
             self.logger.info("etl_pipeline.py:ETLPipeline:Running NewsContentExtractor...")
@@ -141,14 +142,15 @@ class ETLPipeline:
             
             self.logger.info(f"etl_pipeline.py:ETLPipeline:feeds length: {len(feeds)}")
             self.logger.info(f"etl_pipeline.py:ETLPipeline:scraped_feeds length: {len(scraped_feeds)} out of {len(feeds)}")
-          
-            return True
+           
             
-
+            #scraped_feeds = scraped_feeds[:1]
+            
             self.logger.info("etl_pipeline.py:ETLPipeline:Running Summarizer...")
             summarizer = Summarizer(scraped_feeds)
             summarized_feeds = await summarizer.summarize_all_feeds()
             
+                        
             self.logger.info(f"etl_pipeline.py:ETLPipeline:summarized_feeds length: {len(summarized_feeds)}")
             
             for feed in summarized_feeds:
