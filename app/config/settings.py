@@ -60,6 +60,11 @@ class Settings(BaseSettings):
 
     log_level: str = Field(default="INFO", description="Logging level")
 
+
+    #CPU & GPU settings
+    masx_force_cpu: bool = Field(default=True, description="Force CPU usage")
+    masx_force_gpu: bool = Field(default=False, description="Force GPU usage")
+
     # PROXY SETTINGS
     proxy_webpage: str = Field(
         default="https://free-proxy-list.net/", description="Proxy webpage"

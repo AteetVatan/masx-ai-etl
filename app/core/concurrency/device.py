@@ -9,6 +9,7 @@ import os
 import logging
 from typing import Dict, Any, Optional
 from dataclasses import dataclass
+from app.config import get_settings
 
 try:
     import torch
@@ -54,9 +55,10 @@ def _detect_cuda() -> bool:
 
 def _get_environment_flags() -> Dict[str, bool]:
     """Get device-related environment flags."""
+    settings = get_settings()
     return {
-        "force_cpu": os.getenv("MASX_FORCE_CPU", "").lower() == "1",
-        "force_gpu": os.getenv("MASX_FORCE_GPU", "").lower() == "1",
+        "force_cpu": settings.masx_force_cpu,
+        "force_gpu": settings.masx_force_gpu,
     }
 
 
