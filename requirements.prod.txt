@@ -17,6 +17,13 @@
  hdbscan==0.8.40
  numpy==1.26.4
  scipy>=1.11.0  # Required for scikit-learn and scientific computing
+
+# spaCy + English NER model (pin same major/minor)
+spacy==3.7.4
+en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.7.1/en_core_web_sm-3.7.1.tar.gz
+xx-ent-wiki-sm @ https://github.com/explosion/spacy-models/releases/download/xx_ent_wiki_sm-3.7.0/xx_ent_wiki_sm-3.7.0.tar.gz
+
+
  
  # Dimensionality Reduction (Required for clustering)
  umap-learn>=0.5.5
