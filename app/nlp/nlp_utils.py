@@ -258,26 +258,45 @@ class NLPUtils:
     @staticmethod
     def safe_sent_tokenize(text, lang="english"):
         """
-        Safe sentence tokenization using nltk.
+        Safe sentence tokenization using nltk with proper error handling.
         """
         try:
+            # First try with specified language
             sentences = sent_tokenize(text, language=lang)
+            return sentences
         except LookupError:
-            print(f"No tokenizer model for {lang}. Falling back to English.")
-            sentences = sent_tokenize(text, language="english")
+            logger.warning(f"NLTK tokenizer model for '{lang}' not found. Attempting to download...")
+            try:
+                # Try to download the required model
+                import nltk
+                nltk.download('punkt', quiet=True)
+                sentences = sent_tokenize(text, language=lang)
+                logger.info(f"Successfully downloaded and used NLTK model for '{lang}'")
+                return sentences
+            except Exception as download_error:
+                logger.warning(f"Failed to download NLTK model for '{lang}': {download_error}")
+                # Fallback to English
+                try:
+                    sentences = sent_tokenize(text, language="english")
+                    logger.info("Using English tokenizer as fallback")
+                    return sentences
+                except Exception as english_error:
+                    logger.error(f"English tokenizer also failed: {english_error}")
+                    # Final fallback to naive splitting
+                    return NLPUtils._naive_sentence_split(text)
+        
         except Exception as e:
-            print(f"Tokenization failed: {e}")
-            sentences = None
+            logger.error(f"Tokenization failed with unexpected error: {e}")
+            return NLPUtils._naive_sentence_split(text)
 
+    @staticmethod
+    def _naive_sentence_split(text: str) -> List[str]:
+        """Naive sentence splitting as final fallback."""
+        sentences = text.split(".")
+        sentences = [s.strip() for s in sentences if len(s.strip()) > 20]
         if not sentences:
-            # nltk tokenize failed, so we return the text as is
-            # Fallback to naive splitting
-            sentences = text.split(".")
-            # heuristic to filter out very short or irrelevant sentences  < 20 chars
-            sentences = [s.strip() for s in sentences if len(s.strip()) > 20]
-            if not sentences:
-                print("TF-IDF compression failed due to empty/faulty text.")
-                return None  # Final fallback
+            logger.warning("All tokenization methods failed, returning single sentence")
+            return [text] if text.strip() else []
         return sentences
 
     @staticmethod

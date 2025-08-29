@@ -56,6 +56,9 @@ RUN micromamba run -n appenv python -m pip install --no-cache-dir \
 RUN micromamba run -n appenv python -m pip install --no-cache-dir "playwright>=1.46.0" --root-user-action=ignore \
     && micromamba run -n appenv python -m playwright install --with-deps chromium
 
+# ---- Install spaCy models ----
+RUN micromamba run -n appenv python -c "import nltk; nltk.download('punkt'); nltk.download('averaged_perceptron_tagger')"
+
 # ---- App code ----
 COPY . /app
 

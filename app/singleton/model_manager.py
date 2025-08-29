@@ -30,6 +30,8 @@ from deep_translator import GoogleTranslator
 from lingua import LanguageDetectorBuilder
 from sentence_transformers import SentenceTransformer
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, GenerationConfig
+import nltk
+from nltk.tokenize import sent_tokenize
 
 from app.config import get_service_logger
 
@@ -97,9 +99,33 @@ class ModelManager:
         return cls._device
 
     @classmethod
+    def _ensure_nltk_models(cls):
+        """Ensure NLTK models are available for production."""
+        try:
+            # Test if models are available
+            test_text = "This is a test sentence. Another one."
+            sent_tokenize(test_text, language="english")
+            cls._logger.info("NLTK models are available")
+            
+        except LookupError:
+            cls._logger.warning("NLTK models not found, downloading...")
+            try:
+                nltk.download('punkt', quiet=True)
+                nltk.download('averaged_perceptron_tagger', quiet=True)
+                cls._logger.info("NLTK models downloaded successfully")
+            except Exception as e:
+                cls._logger.error(f"Failed to download NLTK models: {e}")
+                raise RuntimeError("NLTK models required for production operation")
+        
+        except Exception as e:
+            cls._logger.error(f"Unexpected error checking NLTK models: {e}")
+            raise
+    
+    @classmethod
     def get_summarization_model(cls):
         """Return BART summarization model (lazy init with CPU/GPU)."""
         if cls._summarization_model is None or cls._summarization_tokenizer is None:
+            cls._ensure_nltk_models()
             cls.__load_summarization_model()
         
         # Validate that all components are properly loaded
