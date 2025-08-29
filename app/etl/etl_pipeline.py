@@ -133,7 +133,7 @@ class ETLPipeline:
 
             # return True
 
-            #feeds = feeds[:5]
+            feeds = feeds[:5]
                 
             # load summarized feeds from file
             self.logger.info("etl_pipeline.py:ETLPipeline:Running NewsContentExtractor...")
