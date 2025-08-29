@@ -601,9 +601,7 @@ class GPUWorker:
                     result = SummarizerUtils._summarizer(
                         summarizer_payload, model, tokenizer, device, max_tokens
                     )
-                    logger.info(
-                        f"gpu_worker.py:GPUWorker:_process_summarization_output result: {result}"
-                    )
+                    
                     # Extract the summary from the result
                     summary = result.get("summary", "")
 
