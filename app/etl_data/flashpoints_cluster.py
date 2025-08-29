@@ -59,7 +59,9 @@ class FlashpointsCluster:
             self.delete_news_cluster_table_sync(date)
             self.create_news_cluster_table_sync(date)
         except Exception as e:
-            self.logger.error(f"flashpoints_cluster.py:FlashpointsCluster:Error initializing flashpoints cluster: {e}")
+            self.logger.error(
+                f"flashpoints_cluster.py:FlashpointsCluster:Error initializing flashpoints cluster: {e}"
+            )
             raise DatabaseException(f"Error initializing flashpoints cluster: {e}")
 
     def create_news_cluster_table_sync(self, date: Optional[datetime] = None) -> str:
@@ -93,11 +95,15 @@ class FlashpointsCluster:
             for policy in rls_policies:
                 self.db.execute_sync_query(policy)
 
-            self.logger.info(f"flashpoints_cluster.py:FlashpointsCluster:Table created successfully: {table_name}")
+            self.logger.info(
+                f"flashpoints_cluster.py:FlashpointsCluster:Table created successfully: {table_name}"
+            )
             return table_name
 
         except Exception as e:
-            self.logger.error(f"flashpoints_cluster.py:FlashpointsCluster:Error creating table: {e}")
+            self.logger.error(
+                f"flashpoints_cluster.py:FlashpointsCluster:Error creating table: {e}"
+            )
             raise DatabaseException(f"Error creating table: {e}")
 
     def delete_news_cluster_table_sync(self, date: Optional[datetime] = None) -> str:
@@ -111,11 +117,15 @@ class FlashpointsCluster:
             query = f'DROP TABLE IF EXISTS public."{table_name}";'
             self.db.execute_sync_query(query)
 
-            self.logger.info(f"flashpoints_cluster.py:FlashpointsCluster:Table deleted successfully: {table_name}")
+            self.logger.info(
+                f"flashpoints_cluster.py:FlashpointsCluster:Table deleted successfully: {table_name}"
+            )
             return table_name
 
         except Exception as e:
-            self.logger.error(f"flashpoints_cluster.py:FlashpointsCluster:Error deleting table: {e}")
+            self.logger.error(
+                f"flashpoints_cluster.py:FlashpointsCluster:Error deleting table: {e}"
+            )
             raise DatabaseException(f"Error deleting table: {e}")
 
     @retry(
@@ -185,12 +195,16 @@ class FlashpointsCluster:
                     f"flashpoints_cluster.py:FlashpointsCluster:Successfully inserted {len(clusters)} cluster summaries into {table_name}"
                 )
             else:
-                self.logger.warning("flashpoints_cluster.py:FlashpointsCluster:No clusters to insert")
+                self.logger.warning(
+                    "flashpoints_cluster.py:FlashpointsCluster:No clusters to insert"
+                )
 
             return True
 
         except Exception as e:
-            self.logger.error(f"flashpoints_cluster.py:FlashpointsCluster:Error inserting cluster summaries: {e}")
+            self.logger.error(
+                f"flashpoints_cluster.py:FlashpointsCluster:Error inserting cluster summaries: {e}"
+            )
             raise DatabaseException(f"Error inserting cluster summaries: {e}")
 
     def __get_all_rls_policies_cmd(self, table_name: str) -> List[str]:

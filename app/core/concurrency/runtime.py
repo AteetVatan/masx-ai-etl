@@ -19,12 +19,15 @@ from .model_pool import get_model_pool
 from app.config import get_settings
 from app.singleton import ModelManager
 
-#from app.nlp import Translator, NLPUtils
+# from app.nlp import Translator, NLPUtils
+
 
 def get_summarizer_utils():
     """Lazy import to avoid circular dependency."""
     from app.etl.tasks import SummarizerUtils
+
     return SummarizerUtils
+
 
 def _convert_to_python_list(labels) -> List[int]:
     """
@@ -47,7 +50,9 @@ def _convert_to_python_list(labels) -> List[int]:
         else:
             return list(labels)
     except Exception as e:
-        logger.warning(f"runtime.py:Failed to convert labels to list: {e}, using fallback")
+        logger.warning(
+            f"runtime.py:Failed to convert labels to list: {e}, using fallback"
+        )
         return list(labels)
 
 
@@ -189,7 +194,10 @@ class InferenceRuntime:
 
         # Get device_id from device configuration, defaulting to 0 for GPU
         device_id = 0  # Default GPU device
-        if hasattr(self.device_config, 'device_id') and self.device_config.device_id is not None:
+        if (
+            hasattr(self.device_config, "device_id")
+            and self.device_config.device_id is not None
+        ):
             device_id = self.device_config.device_id
 
         gpu_config = GPUConfig(
@@ -330,11 +338,15 @@ class InferenceRuntime:
                             )
                 else:
                     # Generic payload handling
-                    logger.debug(f"runtime.py:CPU inference for payload: {type(payload)}")
+                    logger.debug(
+                        f"runtime.py:CPU inference for payload: {type(payload)}"
+                    )
                     return payload
             else:
                 # Non-dict payload handling
-                logger.debug(f"runtime.py:CPU inference for non-dict payload: {type(payload)}")
+                logger.debug(
+                    f"runtime.py:CPU inference for non-dict payload: {type(payload)}"
+                )
                 return payload
         except Exception as e:
             logger.error(f"runtime.py:CPU inference failed: {e}")
@@ -391,13 +403,14 @@ class InferenceRuntime:
         CPU-based text summarization.
 
         This method runs on a separate thread to avoid blocking the event loop.
-        """        
+        """
         model, tokenizer, device = ModelManager.get_summarization_model()
         max_tokens = ModelManager.get_summarization_model_max_tokens()
         summarizer_utils = get_summarizer_utils()
-        result = summarizer_utils._summarizer(payload, model, tokenizer, device, max_tokens)
+        result = summarizer_utils._summarizer(
+            payload, model, tokenizer, device, max_tokens
+        )
         return result
-
 
     def _summarize_text_cpu_sync(self, payload: dict) -> dict:
         """
@@ -409,43 +422,49 @@ class InferenceRuntime:
         try:
             model, tokenizer, device = ModelManager.get_summarization_model()
             max_tokens = ModelManager.get_summarization_model_max_tokens()
-            summarizer_utils = get_summarizer_utils()       
-            result = summarizer_utils._summarizer(payload, model, tokenizer, device, max_tokens)
-            return result 
+            summarizer_utils = get_summarizer_utils()
+            result = summarizer_utils._summarizer(
+                payload, model, tokenizer, device, max_tokens
+            )
+            return result
         except Exception as e:
             logger.error(f"runtime.py:CPU summarization (sync) failed: {e}")
             raise
 
-    
     async def _summarize_text_cpu_pooled(self, payload: dict) -> dict:
         """
         CPU-based text summarization (pooled) — UPDATED to implement:
         Preprocess → Adaptive Compress → Map-Reduce (overlap) → Merge & Polish → Quality Gates
         """
-        #logger = getattr(self, "logger", None) or __import__("logging").getLogger(__name__)    
+        # logger = getattr(self, "logger", None) or __import__("logging").getLogger(__name__)
         if not self._model_pool:
-            logger.warning("runtime.py:Model pool not available, falling back to sync mode")
+            logger.warning(
+                "runtime.py:Model pool not available, falling back to sync mode"
+            )
             return self._summarize_text_cpu_sync(payload)
 
+        model_instance = await self._model_pool.get_model(
+            "summarization", lambda: self._get_summarization_model_components()
+        )
 
-        model_instance = await self._model_pool.get_model("summarization", lambda: self._get_summarization_model_components())
-        
         try:
             # -------- Load model/tokenizer --------
             model = model_instance.model
             tokenizer = model_instance.tokenizer
             device = model_instance.device
-            max_tokens = ModelManager.get_summarization_model_max_tokens() # encoder limit (e.g., 1024)   
+            max_tokens = (
+                ModelManager.get_summarization_model_max_tokens()
+            )  # encoder limit (e.g., 1024)
             summarizer_utils = get_summarizer_utils()
-            result = summarizer_utils._summarizer(payload, model, tokenizer, device, max_tokens)
+            result = summarizer_utils._summarizer(
+                payload, model, tokenizer, device, max_tokens
+            )
             return result
         except Exception as e:
             logger.error(f"runtime.py:CPU summarization (pooled) failed: {e}")
             raise
         finally:
             await self._model_pool.return_model(model_instance)
-  
-    
 
     def _get_summarization_model_components(self):
         """Helper to get summarization model components for the model pool."""
@@ -513,7 +532,9 @@ class InferenceRuntime:
             random_state = payload.get("random_state", 42)
 
             if len(embeddings) == 0:
-                logger.warning("runtime.py:Empty embeddings array provided for clustering")
+                logger.warning(
+                    "runtime.py:Empty embeddings array provided for clustering"
+                )
                 return []
 
             # 1) Normalize to unit sphere for cosine geometry
@@ -534,7 +555,9 @@ class InferenceRuntime:
                         random_state=random_state,
                     )
                     embeddings = reducer.fit_transform(embeddings)
-                    logger.debug(f"runtime.py:UMAP reduction applied: {embeddings.shape}")
+                    logger.debug(
+                        f"runtime.py:UMAP reduction applied: {embeddings.shape}"
+                    )
                 except ImportError:
                     logger.warning(
                         "runtime.py:UMAP not available, skipping dimensionality reduction"
@@ -599,7 +622,9 @@ class InferenceRuntime:
 
         This method processes payloads sequentially to avoid any concurrency issues.
         """
-        logger.debug(f"runtime.py:Sequential CPU batch inference for {len(payloads)} payloads")
+        logger.debug(
+            f"runtime.py:Sequential CPU batch inference for {len(payloads)} payloads"
+        )
 
         results = []
         for payload in payloads:

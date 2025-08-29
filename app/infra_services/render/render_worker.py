@@ -192,7 +192,9 @@ class RenderWorker:
                 try:
                     await page.wait_for_selector(wait_for, timeout=5000)
                 except Exception as e:
-                    logger.warning(f"render_worker.py:Failed to wait for selector '{wait_for}': {e}")
+                    logger.warning(
+                        f"render_worker.py:Failed to wait for selector '{wait_for}': {e}"
+                    )
 
             # Extract content
             content = await self._extract_page_content(page)
@@ -211,7 +213,9 @@ class RenderWorker:
                 "timestamp": time.time(),
             }
 
-            logger.debug(f"render_worker.py:Page rendered successfully: {url} in {render_time:.2f}s")
+            logger.debug(
+                f"render_worker.py:Page rendered successfully: {url} in {render_time:.2f}s"
+            )
             return result
 
         except Exception as e:
@@ -286,7 +290,9 @@ class RenderWorker:
                         break
 
                 except Exception as e:
-                    logger.debug(f"render_worker.py:Consent rule {rule.selector} failed: {e}")
+                    logger.debug(
+                        f"render_worker.py:Consent rule {rule.selector} failed: {e}"
+                    )
                     continue
 
         except Exception as e:

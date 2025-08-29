@@ -88,7 +88,9 @@ class RenderClient:
             logger.info("render_client.py:RenderClient disconnected from render worker")
 
         except Exception as e:
-            logger.error(f"render_client.py:Error disconnecting from render worker: {e}")
+            logger.error(
+                f"render_client.py:Error disconnecting from render worker: {e}"
+            )
             raise
 
     async def render_page(
@@ -209,7 +211,9 @@ class RenderClient:
             # Add other methods as needed
 
         except Exception as e:
-            logger.warning(f"render_client.py:Primary rendering method failed for {url}: {e}")
+            logger.warning(
+                f"render_client.py:Primary rendering method failed for {url}: {e}"
+            )
 
         # Try fallback method
         try:
@@ -225,7 +229,9 @@ class RenderClient:
                 )
 
         except Exception as e:
-            logger.warning(f"render_client.py:Fallback rendering method failed for {url}: {e}")
+            logger.warning(
+                f"render_client.py:Fallback rendering method failed for {url}: {e}"
+            )
 
         # All methods failed
         return RenderResponse(

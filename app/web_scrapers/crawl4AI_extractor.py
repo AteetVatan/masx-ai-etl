@@ -38,8 +38,7 @@ class Crawl4AIExtractor:
 
     def __init__(self):
         self.logger = get_service_logger("Crawl4AIExtractor")
-        
-    
+
     def _get_crawl4ai_config(self):
         """
         Get the Crawl4AI configuration.
@@ -49,18 +48,18 @@ class Crawl4AIExtractor:
         #     threshold=0.4,
         #     min_word_threshold=60,   # a bit higher to drop boilerplate
         # )
-        
+
         prune_filter = PruningContentFilter(
-            threshold=0.20,           # Lower value retains more text
+            threshold=0.20,  # Lower value retains more text
             threshold_type="fixed",  # Try switching from "dynamic" to "fixed"
-            min_word_threshold=25    # Increase threshold to focus on denser blocks
+            min_word_threshold=25,  # Increase threshold to focus on denser blocks
         )
 
         md_generator = DefaultMarkdownGenerator(
             content_filter=prune_filter,
-            options={"ignore_links": True, "ignore_images": True, "escape_html": True}
+            options={"ignore_links": True, "ignore_images": True, "escape_html": True},
         )
-        
+
         c4a_script = """# Give banners time to render
         WAIT 2
 
@@ -90,12 +89,10 @@ class Crawl4AIExtractor:
         # Let layout settle
         WAIT 0.5
         """
-        
+
         # readiness probe for main content
-        wait_for = (
-            "js:(() => !!document.querySelector('main, article, [role=main], .article, .article-body'))"
-        )
-        
+        wait_for = "js:(() => !!document.querySelector('main, article, [role=main], .article, .article-body'))"
+
         generic_ready = """js:() => {
         // one-time setup
         if (!window.__masx) {
@@ -131,53 +128,40 @@ class Crawl4AIExtractor:
         return contentful && stable;
         }"""
 
-
         config = CrawlerRunConfig(
             markdown_generator=md_generator,
-            
             wait_for=generic_ready,
-            #wait_for='js:() => !!document.querySelector("main, article, [role=\'main\'], .article, .article-body")',
-    
+            # wait_for='js:() => !!document.querySelector("main, article, [role=\'main\'], .article, .article-body")',
             delay_before_return_html=2.5,  # <-- the “works in debug” delay, but explicit
-            page_timeout=60000,            # ms — give slow SPAs time to settle
-            scan_full_page=True,           # crawl beyond just the viewport
-
+            page_timeout=60000,  # ms — give slow SPAs time to settle
+            scan_full_page=True,  # crawl beyond just the viewport
             # 1) Remove whole tags up front (kills inline JSON, scripts, styles)
             excluded_tags=["script", "style", "noscript"],
-
             # 2) Drop obvious chrome/banners/footers/headers
-            #excluded_selector="header, footer, #cookie-banner, .cookie-banner, .consent-banner, .gdpr, .ads, .advert, .newsletter",
-
+            # excluded_selector="header, footer, #cookie-banner, .cookie-banner, .consent-banner, .gdpr, .ads, .advert, .newsletter",
             excluded_selector=(
                 "header, footer, nav, aside, "
                 "#cookie-banner, .cookie-banner, .consent-banner, .gdpr, "
                 ".cmp-container, .ads, .advert, .newsletter, .subscribe"
             ),
-
             # 3) Skip trivial text blocks (great for boilerplate)
             word_count_threshold=50,
-
             # 4) (Optional) interact to clear overlays
             c4a_script=c4a_script,
-
             # 5) Stable, reproducible runs
-            cache_mode=CacheMode.BYPASS,   # or SMART if you want caching
-            
-            
+            cache_mode=CacheMode.BYPASS,  # or SMART if you want caching
         )
         return config
-    
+
     async def crawl4ai_scrape(
         self, url: str, timeout_sec: int = 120  # maximum 2 minute
     ):
-               
+
         try:
             config = self._get_crawl4ai_config()
-            #browser_cfg = BrowserConfig(text_mode=True)
+            # browser_cfg = BrowserConfig(text_mode=True)
             async with AsyncWebCrawler() as crawler:
-                result = await crawler.arun(
-                    url=url, config=config, timeout=timeout_sec
-                )
+                result = await crawler.arun(url=url, config=config, timeout=timeout_sec)
             if not result:
                 raise RuntimeError("Crawler returned no result")
 
@@ -203,13 +187,20 @@ class Crawl4AIExtractor:
                 f"crawl4AI_extractor.py:Crawl4AIExtractor:timed out after {timeout_sec}s for URL: {url}"
             )
         except Exception as e:
-            self.logger.error(f"crawl4AI_extractor.py:Crawl4AIExtractor:failed for URL {url}: {e}")
+            self.logger.error(
+                f"crawl4AI_extractor.py:Crawl4AIExtractor:failed for URL {url}: {e}"
+            )
 
-        self.logger.error(f"crawl4AI_extractor.py:Crawl4AIExtractor:crawl attempts failed for URL: {url}")
+        self.logger.error(
+            f"crawl4AI_extractor.py:Crawl4AIExtractor:crawl attempts failed for URL: {url}"
+        )
         return None
-    
+
     async def crawl4ai_scrape_with_retry(
-        self, url: str, max_retries: int = 1, timeout_sec: int = 3600  # maximum 1 minute
+        self,
+        url: str,
+        max_retries: int = 1,
+        timeout_sec: int = 3600,  # maximum 1 minute
     ):
         # prune_filter = PruningContentFilter(
         #     threshold=0.4,
@@ -219,7 +210,7 @@ class Crawl4AIExtractor:
         # md_generator = DefaultMarkdownGenerator(
         #     content_filter=prune_filter, options={"ignore_links": True}
         # )
-        #config = CrawlerRunConfig(markdown_generator=md_generator)
+        # config = CrawlerRunConfig(markdown_generator=md_generator)
         config = self._get_crawl4ai_config()
 
         for attempt in range(1, max_retries + 1):
@@ -253,11 +244,15 @@ class Crawl4AIExtractor:
                     f"crawl4AI_extractor.py:Crawl4AIExtractor:Attempt {attempt} timed out after {timeout_sec}s for URL: {url}"
                 )
             except Exception as e:
-                self.logger.error(f"crawl4AI_extractor.py:Crawl4AIExtractor:Attempt {attempt} failed for URL {url}: {e}")
+                self.logger.error(
+                    f"crawl4AI_extractor.py:Crawl4AIExtractor:Attempt {attempt} failed for URL {url}: {e}"
+                )
 
             # after last attempt
             if attempt < max_retries:
                 await asyncio.sleep(2**attempt)  # exponential back-off
 
-        self.logger.error(f"crawl4AI_extractor.py:Crawl4AIExtractor:All {max_retries} crawl attempts failed for URL: {url}")
+        self.logger.error(
+            f"crawl4AI_extractor.py:Crawl4AIExtractor:All {max_retries} crawl attempts failed for URL: {url}"
+        )
         return None

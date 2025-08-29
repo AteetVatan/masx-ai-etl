@@ -57,7 +57,7 @@ def _parse_date(s: Optional[str]) -> str:
 async def handler(job: Dict[str, Any]):
     """
     RunPod serverless entrypoint (Async version).
-    
+
     RunPod supports async handlers, which is the correct approach
     for our async ETL pipeline to avoid nested event loop conflicts.
 
@@ -73,9 +73,11 @@ async def handler(job: Dict[str, Any]):
     payload = job.get("input") or {}
     trigger = str(payload.get("trigger", WorkerEnums.COORDINATOR.value))
     flashpoints_ids = payload.get("flashpoints", None)
-    
+
     logger.info(f"handler.py:handler:**********trigger: {trigger}**********")
-    logger.info(f"handler.py:handler:**********flashpoints_ids: {flashpoints_ids}**********")
+    logger.info(
+        f"handler.py:handler:**********flashpoints_ids: {flashpoints_ids}**********"
+    )
 
     try:
         # Warm requests used by CI/Actions to pre-pull image/models
@@ -86,8 +88,7 @@ async def handler(job: Dict[str, Any]):
                 "status": "warmed",
                 "elapsed_sec": round(time.time() - start, 3),
             }
-        
-      
+
         date = _parse_date(payload.get("date"))
         cleanup = bool(payload.get("cleanup", ALLOW_CLEANUP))
 
@@ -97,17 +98,22 @@ async def handler(job: Dict[str, Any]):
         logger.info(
             f"handler.py:handler:running async handler for ETL pipeline for date: {date} and cleanup: {cleanup}"
         )
-        
+
         # Get worker configuration
         from app.config import get_settings
+
         settings = get_settings()
         num_workers = settings.runpod_workers
-        
-        logger.info(f"handler.py:handler:Using {num_workers} workers for parallel execution")
-        
+
+        logger.info(
+            f"handler.py:handler:Using {num_workers} workers for parallel execution"
+        )
+
         # Directly await the async ETL pipeline - no nested event loops!
-        await run_etl_pipeline(trigger=trigger, date=date, flashpoints_ids=flashpoints_ids, cleanup=cleanup)
-        
+        await run_etl_pipeline(
+            trigger=trigger, date=date, flashpoints_ids=flashpoints_ids, cleanup=cleanup
+        )
+
         logger.info(f"handler.py:handler:async handler completed")
         return {
             "ok": True,

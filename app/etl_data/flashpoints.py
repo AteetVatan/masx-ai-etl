@@ -76,7 +76,9 @@ class Flashpoints:
             )
             raise
 
-    def get_flashpoints(self, date: Optional[str] = None, flashpoints_ids: List[str] = None) -> List[FlashpointModel]:
+    def get_flashpoints(
+        self, date: Optional[str] = None, flashpoints_ids: List[str] = None
+    ) -> List[FlashpointModel]:
         """
         Retrieve all flashpoints from the daily flashpoint table (synchronous).
         Optionally filter by date (YYYY-MM-DD format) and specific flashpoint IDs.
@@ -101,7 +103,9 @@ class Flashpoints:
                         "flash_point", target_date
                     )
                 except ValueError:
-                    self.logger.error("flashpoints.py:Flashpoints:Invalid date format. Use YYYY-MM-DD")
+                    self.logger.error(
+                        "flashpoints.py:Flashpoints:Invalid date format. Use YYYY-MM-DD"
+                    )
                     return []
             else:
                 table_name = self.db.get_daily_table_name("flash_point")
@@ -111,12 +115,12 @@ class Flashpoints:
                 # Convert to canonical UUID strings and use ANY operator for efficient querying
                 ids_param = [str(uuid.UUID(s.strip())) for s in flashpoints_ids]
                 query = f'SELECT * FROM "{table_name}" WHERE id = ANY(%s::uuid[])'
-                self.logger.info(f"flashpoints.py:Flashpoints:Query executed: {query}")            
-                results = self.db.execute_sync_query(query, (ids_param,), fetch=True)                
+                self.logger.info(f"flashpoints.py:Flashpoints:Query executed: {query}")
+                results = self.db.execute_sync_query(query, (ids_param,), fetch=True)
             else:
-                query = f'SELECT * FROM "{table_name}"'                
+                query = f'SELECT * FROM "{table_name}"'
                 results = self.db.execute_sync_query(query, fetch=True)
-                self.logger.info(f"flashpoints.py:Flashpoints:Query executed: {query}")            
+                self.logger.info(f"flashpoints.py:Flashpoints:Query executed: {query}")
 
             if not results:
                 self.logger.warning("flashpoints.py:Flashpoints:No flashpoints found")
@@ -143,11 +147,15 @@ class Flashpoints:
                     )
                     continue
 
-            self.logger.info(f"flashpoints.py:Flashpoints:Flashpoints retrieved: {len(flashpoints)} records")
+            self.logger.info(
+                f"flashpoints.py:Flashpoints:Flashpoints retrieved: {len(flashpoints)} records"
+            )
             return flashpoints
 
         except Exception as e:
-            self.logger.error(f"flashpoints.py:Flashpoints:Flashpoints retrieval failed: {e}")
+            self.logger.error(
+                f"flashpoints.py:Flashpoints:Flashpoints retrieval failed: {e}"
+            )
             raise
 
     def get_feeds_per_flashpoint(
@@ -181,12 +189,16 @@ class Flashpoints:
                         "feed_entries", target_date
                     )
                 except ValueError:
-                    self.logger.error("flashpoints.py:Flashpoints:Invalid date format. Use YYYY-MM-DD")
+                    self.logger.error(
+                        "flashpoints.py:Flashpoints:Invalid date format. Use YYYY-MM-DD"
+                    )
                     return []
             else:
                 feed_table = self.db.get_daily_table_name("feed_entries")
-                
-            self.logger.info(f"flashpoints.py:Flashpoints:feed table name: {feed_table}")
+
+            self.logger.info(
+                f"flashpoints.py:Flashpoints:feed table name: {feed_table}"
+            )
 
             # Query feeds with pagination to handle large datasets
             all_records = []
@@ -205,7 +217,9 @@ class Flashpoints:
                 result = self.db.execute_sync_query(query, params, fetch=True)
 
                 if not result:
-                    self.logger.info(f"flashpoints.py:Flashpoints:No feeds found for flashpoint_id: {flashpoint_id}")
+                    self.logger.info(
+                        f"flashpoints.py:Flashpoints:No feeds found for flashpoint_id: {flashpoint_id}"
+                    )
                     break
 
                 all_records.extend(result)
@@ -216,7 +230,9 @@ class Flashpoints:
                 )
 
                 if len(result) < batch_size:
-                    self.logger.info(f"flashpoints.py:Flashpoints:No more feeds found for flashpoint_id: {flashpoint_id}")
+                    self.logger.info(
+                        f"flashpoints.py:Flashpoints:No more feeds found for flashpoint_id: {flashpoint_id}"
+                    )
                     break
 
             if not all_records:
@@ -245,7 +261,9 @@ class Flashpoints:
                     )
                     feeds.append(feed_model)
                 except Exception as e:
-                    self.logger.warning(f"flashpoints.py:Flashpoints:Failed to parse feed {feed.get('id')}: {e}")
+                    self.logger.warning(
+                        f"flashpoints.py:Flashpoints:Failed to parse feed {feed.get('id')}: {e}"
+                    )
                     continue
 
             self.logger.info(
@@ -254,5 +272,7 @@ class Flashpoints:
             return feeds
 
         except Exception as e:
-            self.logger.error(f"flashpoints.py:Flashpoints:Feeds per flashpoint retrieval failed: {e}")
+            self.logger.error(
+                f"flashpoints.py:Flashpoints:Feeds per flashpoint retrieval failed: {e}"
+            )
             raise

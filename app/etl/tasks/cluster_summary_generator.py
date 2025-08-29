@@ -80,7 +80,9 @@ class ClusterSummaryGenerator:
                 documents, metadatas, cluster_labels
             )
         except Exception as e:
-            self.logger.error(f"cluster_summary_generator.py:ClusterSummaryGenerator:Error generating cluster summaries: {e}")
+            self.logger.error(
+                f"cluster_summary_generator.py:ClusterSummaryGenerator:Error generating cluster summaries: {e}"
+            )
             raise e
 
     async def _cluster_embeddings(self, embeddings: np.ndarray) -> list[int]:
@@ -93,7 +95,9 @@ class ClusterSummaryGenerator:
                 # KMeans only has sync method
                 return self.clusterer.cluster(embeddings)
         except Exception as e:
-            self.logger.error(f"cluster_summary_generator.py:ClusterSummaryGenerator:Error clustering embeddings: {e}")
+            self.logger.error(
+                f"cluster_summary_generator.py:ClusterSummaryGenerator:Error clustering embeddings: {e}"
+            )
             raise e
 
     def _generate_cluster_summaries_KMean(
@@ -149,7 +153,9 @@ class ClusterSummaryGenerator:
 
                 return results
         except Exception as e:
-            self.logger.error(f"cluster_summary_generator.py:ClusterSummaryGenerator:Error generating cluster summaries: {e}")
+            self.logger.error(
+                f"cluster_summary_generator.py:ClusterSummaryGenerator:Error generating cluster summaries: {e}"
+            )
             raise e
 
     def _generate_cluster_summaries(
@@ -180,7 +186,9 @@ class ClusterSummaryGenerator:
                 results.append(res)
             return results
         except Exception as e:
-            self.logger.error(f"cluster_summary_generator.py:ClusterSummaryGenerator:Error generating cluster summaries: {e}")
+            self.logger.error(
+                f"cluster_summary_generator.py:ClusterSummaryGenerator:Error generating cluster summaries: {e}"
+            )
             raise e
 
     def _generate_group_summaries(
@@ -229,7 +237,9 @@ class ClusterSummaryGenerator:
             }
             return result
         except Exception as e:
-            self.logger.error(f"cluster_summary_generator.py:ClusterSummaryGenerator:Error generating cluster summaries: {e}")
+            self.logger.error(
+                f"cluster_summary_generator.py:ClusterSummaryGenerator:Error generating cluster summaries: {e}"
+            )
             raise e
 
     def summarize_cluster_dynamic(self, model, tokenizer, device, texts, metas) -> str:
@@ -280,7 +290,9 @@ class ClusterSummaryGenerator:
                 self._gen_args_long(final_target, max(80, final_target // 7)),
             )
         except Exception as e:
-            self.logger.error(f"cluster_summary_generator.py:ClusterSummaryGenerator:Error summarizing cluster: {e}")
+            self.logger.error(
+                f"cluster_summary_generator.py:ClusterSummaryGenerator:Error summarizing cluster: {e}"
+            )
             raise e
 
     def _safe_caps(self, model, tokenizer) -> tuple[int, int]:

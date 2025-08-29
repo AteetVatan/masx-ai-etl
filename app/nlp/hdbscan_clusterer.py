@@ -140,7 +140,9 @@ class HDBSCANClusterer(BaseClusterer):
                     pool_allocator=True, initial_pool_size=self.rmm_pool_size, devices=0
                 )
                 cp.cuda.set_allocator(rmm_cupy_allocator)
-                self.logger.info(f"hdbscan_clusterer.py:[GPU] RMM pool initialized: {self.rmm_pool_size}")
+                self.logger.info(
+                    f"hdbscan_clusterer.py:[GPU] RMM pool initialized: {self.rmm_pool_size}"
+                )
             except Exception as e:
                 self.logger.warning(
                     f"hdbscan_clusterer.py:[GPU] RMM init failed; will try GPU without pool or fall back. {e}"
@@ -187,12 +189,16 @@ class HDBSCANClusterer(BaseClusterer):
                     result = await self.inference_runtime.infer(payload)
 
                     if isinstance(result, Exception):
-                        self.logger.error(f"hdbscan_clusterer.py:GPU clustering failed: {result}")
+                        self.logger.error(
+                            f"hdbscan_clusterer.py:GPU clustering failed: {result}"
+                        )
                         # Fallback to CPU clustering
                         return await self._cluster_cpu_async(X)
 
                     self._labels = result
-                    self.logger.info(f"hdbscan_clusterer.py:[GPU] HDBSCAN done. n={len(result)}")
+                    self.logger.info(
+                        f"hdbscan_clusterer.py:[GPU] HDBSCAN done. n={len(result)}"
+                    )
                     return result.tolist()
 
                 except Exception as ge:
@@ -208,7 +214,8 @@ class HDBSCANClusterer(BaseClusterer):
 
         except Exception as e:
             self.logger.error(
-                f"hdbscan_clusterer.py:Error in HDBSCANClusterer.cluster_async: {e}", exc_info=True
+                f"hdbscan_clusterer.py:Error in HDBSCANClusterer.cluster_async: {e}",
+                exc_info=True,
             )
             raise
 
@@ -235,13 +242,17 @@ class HDBSCANClusterer(BaseClusterer):
             result = await self.inference_runtime.infer(payload)
 
             if isinstance(result, Exception):
-                self.logger.error(f"hdbscan_clusterer.py:CPU clustering failed: {result}")
+                self.logger.error(
+                    f"hdbscan_clusterer.py:CPU clustering failed: {result}"
+                )
                 # Fallback to synchronous CPU clustering
                 return self._cluster_cpu_sync(X)
 
             self._labels = result
             mode = "CPU (debug)" if self._debug else "CPU (fallback)"
-            self.logger.info(f"hdbscan_clusterer.py:[{mode}] HDBSCAN done. n={len(result)}")
+            self.logger.info(
+                f"hdbscan_clusterer.py:[{mode}] HDBSCAN done. n={len(result)}"
+            )
             if hasattr(result, "tolist"):
                 return result.tolist()
             else:
@@ -271,7 +282,9 @@ class HDBSCANClusterer(BaseClusterer):
             labels = self._cluster_cpu(Z)
             self._labels = labels
             mode = "CPU (debug)" if self._debug else "CPU (fallback)"
-            self.logger.info(f"hdbscan_clusterer.py:[{mode}] HDBSCAN done. n={len(labels)}")
+            self.logger.info(
+                f"hdbscan_clusterer.py:[{mode}] HDBSCAN done. n={len(labels)}"
+            )
 
             # Convert numpy array to Python list for consistency
             if hasattr(labels, "tolist"):
@@ -280,7 +293,8 @@ class HDBSCANClusterer(BaseClusterer):
                 return list(labels)
         except Exception as e:
             self.logger.error(
-                f"hdbscan_clusterer.py:Error in synchronous CPU clustering: {e}", exc_info=True
+                f"hdbscan_clusterer.py:Error in synchronous CPU clustering: {e}",
+                exc_info=True,
             )
             raise
 
@@ -305,10 +319,14 @@ class HDBSCANClusterer(BaseClusterer):
             )
 
             await self.inference_runtime.start()
-            self.logger.info("hdbscan_clusterer.py:Inference runtime initialized for HDBSCAN clustering")
+            self.logger.info(
+                "hdbscan_clusterer.py:Inference runtime initialized for HDBSCAN clustering"
+            )
 
         except Exception as e:
-            self.logger.error(f"hdbscan_clusterer.py:Failed to initialize inference runtime: {e}")
+            self.logger.error(
+                f"hdbscan_clusterer.py:Failed to initialize inference runtime: {e}"
+            )
             raise
 
     def _get_clustering_model_loader(self):
@@ -355,7 +373,9 @@ class HDBSCANClusterer(BaseClusterer):
         if self.device_provider is not None:
             try:
                 d = self.device_provider()
-                self.logger.info(f"hdbscan_clusterer.py:Using device from provider: {d}")
+                self.logger.info(
+                    f"hdbscan_clusterer.py:Using device from provider: {d}"
+                )
                 return d
             except Exception as e:
                 self.logger.warning(
@@ -369,7 +389,9 @@ class HDBSCANClusterer(BaseClusterer):
                 def __str__(self):
                     return "cpu"
 
-            self.logger.info("hdbscan_clusterer.py:Torch not available; defaulting to CPU.")
+            self.logger.info(
+                "hdbscan_clusterer.py:Torch not available; defaulting to CPU."
+            )
             return _CPU()
         if self._debug:
             dev = torch.device("cpu")
@@ -465,4 +487,6 @@ class HDBSCANClusterer(BaseClusterer):
         """Stop the inference runtime."""
         if self.inference_runtime:
             await self.inference_runtime.stop()
-            self.logger.info("hdbscan_clusterer.py:HDBSCAN clusterer inference runtime stopped")
+            self.logger.info(
+                "hdbscan_clusterer.py:HDBSCAN clusterer inference runtime stopped"
+            )

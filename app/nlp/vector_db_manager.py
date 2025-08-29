@@ -42,17 +42,23 @@ class VectorDBManager:
     ):
         """Insert or upsert documents into a collection."""
         try:
-            self._logger.info(f"vector_db_manager.py:Inserting documents into collection: {collection_name}")
+            self._logger.info(
+                f"vector_db_manager.py:Inserting documents into collection: {collection_name}"
+            )
             collection = self.client.get_or_create_collection(name=collection_name)
         except Exception as e:
-            self._logger.error(f"vector_db_manager.py:Error getting or creating collection: {e}")
+            self._logger.error(
+                f"vector_db_manager.py:Error getting or creating collection: {e}"
+            )
             raise e
 
         # Generate UUIDs if not provided
         if ids is None:
             ids = [str(uuid4()) for _ in texts]
 
-        self._logger.info(f"vector_db_manager.py:Adding documents to collection: {collection_name}")
+        self._logger.info(
+            f"vector_db_manager.py:Adding documents to collection: {collection_name}"
+        )
         collection.add(
             documents=texts, metadatas=metadatas, ids=ids, embeddings=embeddings
         )
@@ -62,7 +68,9 @@ class VectorDBManager:
     ) -> List[dict]:
         """Query similar documents from a collection."""
         try:
-            self._logger.info(f"vector_db_manager.py:Querying collection: {collection_name}")
+            self._logger.info(
+                f"vector_db_manager.py:Querying collection: {collection_name}"
+            )
             collection = self.client.get_or_create_collection(name=collection_name)
             results = collection.query(query_texts=[query_text], n_results=top_k)
         except Exception as e:
@@ -79,7 +87,9 @@ class VectorDBManager:
     def delete_collection(self, collection_name: str):
         """Delete a collection entirely."""
         try:
-            self._logger.info(f"vector_db_manager.py:Deleting collection: {collection_name}")
+            self._logger.info(
+                f"vector_db_manager.py:Deleting collection: {collection_name}"
+            )
             self.client.delete_collection(name=collection_name)
         except Exception as e:
             self._logger.error(f"vector_db_manager.py:Error deleting collection: {e}")

@@ -174,9 +174,13 @@ class ConsentResolver:
             details: Additional details about the process
         """
         if success:
-            self.logger.debug(f"consent_resolver.py:Consent handling succeeded for {url}: {details}")
+            self.logger.debug(
+                f"consent_resolver.py:Consent handling succeeded for {url}: {details}"
+            )
         else:
-            self.logger.warning(f"consent_resolver.py:Consent handling failed for {url}: {details}")
+            self.logger.warning(
+                f"consent_resolver.py:Consent handling failed for {url}: {details}"
+            )
 
     def get_consent_metrics(self) -> Dict[str, Any]:
         """Get consent handling metrics."""

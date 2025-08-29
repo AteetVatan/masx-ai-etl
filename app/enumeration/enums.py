@@ -17,10 +17,9 @@
 # Contact: ab@masxai.com | MASXAI.com
 
 
-
 from enum import Enum
+
 
 class WorkerEnums(Enum):
     COORDINATOR = "coordinator"
     ETL_WORKER = "etl_worker"
-

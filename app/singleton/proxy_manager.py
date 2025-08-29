@@ -157,7 +157,9 @@ class ProxyManager:
             valid_proxies = []
             for i, result in enumerate(results):
                 if isinstance(result, Exception):
-                    cls.__logger.debug(f"proxy_manager.py:Proxy {proxies[i]} testing failed: {result}")
+                    cls.__logger.debug(
+                        f"proxy_manager.py:Proxy {proxies[i]} testing failed: {result}"
+                    )
                     continue
 
                 if result:
@@ -178,7 +180,9 @@ class ProxyManager:
                 if cls.__test_single_proxy(proxy):
                     valid_proxies.append(proxy)
             except Exception as e:
-                cls.__logger.debug(f"proxy_manager.py:Proxy {proxy} testing failed: {e}")
+                cls.__logger.debug(
+                    f"proxy_manager.py:Proxy {proxy} testing failed: {e}"
+                )
         return valid_proxies
 
     @classmethod

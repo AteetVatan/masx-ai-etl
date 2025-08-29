@@ -38,5 +38,5 @@ class FeedModel(BaseModel):
     compressed_text: Optional[str] = ""
     summary: Optional[str] = ""
     image: Optional[str] = ""
-    created_at: datetime = None 
+    created_at: datetime = None
     updated_at: datetime = None

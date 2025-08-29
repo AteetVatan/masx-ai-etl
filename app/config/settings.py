@@ -60,8 +60,7 @@ class Settings(BaseSettings):
 
     log_level: str = Field(default="INFO", description="Logging level")
 
-
-    #CPU & GPU settings
+    # CPU & GPU settings
     masx_force_cpu: bool = Field(default=True, description="Force CPU usage")
     masx_force_gpu: bool = Field(default=False, description="Force GPU usage")
 
@@ -72,7 +71,7 @@ class Settings(BaseSettings):
     proxy_testing_url: str = Field(
         default="https://httpbin.org/ip", description="Proxy testing URL"
     )
- 
+
     # ChromaClient Settings
     chroma_dev_persist_dir: str = Field(
         default="./.chroma_storage", description="Chroma development persist directory"
@@ -111,22 +110,31 @@ class Settings(BaseSettings):
     api_host: str = Field(default="0.0.0.0", description="API host address")
     api_port: int = Field(default=8000, description="API port number")
     api_workers: int = Field(default=4, description="Number of API workers")
-    
+
     # RunPod Worker Configuration
-    runpod_workers: int = Field(default=1, description="Number of RunPod workers for parallel execution")
-    
+    runpod_workers: int = Field(
+        default=1, description="Number of RunPod workers for parallel execution"
+    )
+
     runpod_api_key: str = Field(default="", description="RunPod API key")
-    runpod_endpoint_id: str = Field(default="rrbf5aifol52jo", description="RunPod endpoint ID")
-    runpod_endpoint: str = Field(default="https://api.runpod.io/v2/rrbf5aifol52jo/run", description="RunPod endpoint")
-    
-    
+    runpod_endpoint_id: str = Field(
+        default="rrbf5aifol52jo", description="RunPod endpoint ID"
+    )
+    runpod_endpoint: str = Field(
+        default="https://api.runpod.io/v2/rrbf5aifol52jo/run",
+        description="RunPod endpoint",
+    )
+
     model_pool_enabled: bool = Field(default=True, description="Enable model pool")
-    model_pool_max_instances: int = Field(default=2, description="Maximum number of model instances")
-    
-    
-    #WEB_SCRAPER
-    web_scraper_batch_size: int = Field(default=10, description="Web scraper batch size")
-    
+    model_pool_max_instances: int = Field(
+        default=2, description="Maximum number of model instances"
+    )
+
+    # WEB_SCRAPER
+    web_scraper_batch_size: int = Field(
+        default=10, description="Web scraper batch size"
+    )
+
     api_secret_key: str = Field(
         default="change_this_in_production", description="API secret key for security"
     )
@@ -136,7 +144,10 @@ class Settings(BaseSettings):
     max_concurrent_requests: int = Field(
         default=10, description="Maximum concurrent requests"
     )
-    request_timeout: int = Field(default=7200, description="Request timeout in seconds (2 hours for ETL processes)")
+    request_timeout: int = Field(
+        default=7200,
+        description="Request timeout in seconds (2 hours for ETL processes)",
+    )
     retry_attempts: int = Field(default=3, description="Number of retry attempts")
     retry_delay: int = Field(default=2, description="Retry delay in seconds")
     cache_ttl: int = Field(default=3600, description="Cache TTL in seconds")
@@ -152,7 +163,8 @@ class Settings(BaseSettings):
     )
     gpu_queue_size: int = Field(default=1000, description="GPU inference queue size")
     gpu_timeout: float = Field(
-        default=7200.0, description="GPU inference timeout (seconds) (2 hours for ETL processes)"
+        default=7200.0,
+        description="GPU inference timeout (seconds) (2 hours for ETL processes)",
     )
     gpu_use_fp16: bool = Field(default=True, description="Use FP16 for GPU inference")
     gpu_enable_warmup: bool = Field(default=True, description="Enable GPU model warmup")
@@ -166,7 +178,10 @@ class Settings(BaseSettings):
         default=5, description="Maximum concurrent render pages"
     )
     render_queue_max: int = Field(default=100, description="Maximum render queue size")
-    render_timeout_s: int = Field(default=3600, description="Render timeout (seconds) (1 hour for complex web pages)")
+    render_timeout_s: int = Field(
+        default=3600,
+        description="Render timeout (seconds) (1 hour for complex web pages)",
+    )
     render_retries: int = Field(default=3, description="Render retry attempts")
 
     # Security Configuration

@@ -59,10 +59,14 @@ class Summarizer:
         Translate, compress if needed, and summarize each article using InferenceRuntime with GPU micro-batching.
         """
         try:
-            self.logger.info(f"summarizer.py:Summarizer:summarize_all_feeds {len(self.feeds)} feeds")
+            self.logger.info(
+                f"summarizer.py:Summarizer:summarize_all_feeds {len(self.feeds)} feeds"
+            )
             # Initialize inference runtime if not already done
             if not self.inference_runtime:
-                self.logger.info(f"summarizer.py:Summarizer:Initializing inference runtime")
+                self.logger.info(
+                    f"summarizer.py:Summarizer:Initializing inference runtime"
+                )
                 await self._initialize_inference_runtime()
 
             self.logger.info(f"summarizer.py:Summarizer:Inference runtime initialized")
@@ -70,7 +74,9 @@ class Summarizer:
             summarized_feeds = []
 
             # Process in batches for efficiency
-            self.logger.info(f"summarizer.py:Summarizer:Process in batches for efficiency")
+            self.logger.info(
+                f"summarizer.py:Summarizer:Process in batches for efficiency"
+            )
             batch_size = 10
             for i in range(0, len(self.feeds), batch_size):
                 batch = self.feeds[i : i + batch_size]
@@ -108,10 +114,14 @@ class Summarizer:
             )
 
             await self.inference_runtime.start()
-            self.logger.info("summarizer.py:Summarizer:Inference runtime initialized for summarization")
+            self.logger.info(
+                "summarizer.py:Summarizer:Inference runtime initialized for summarization"
+            )
 
         except Exception as e:
-            self.logger.error(f"summarizer.py:Summarizer:Failed to initialize inference runtime: {e}")
+            self.logger.error(
+                f"summarizer.py:Summarizer:Failed to initialize inference runtime: {e}"
+            )
             raise
 
     def _get_summarization_model_loader(self):
@@ -135,14 +145,18 @@ class Summarizer:
                 payloads.append(payload)
 
             # Use inference runtime for batch processing with GPU micro-batching
-            self.logger.info(f"summarizer.py:Summarizer:_process_batch using inference runtime")
+            self.logger.info(
+                f"summarizer.py:Summarizer:_process_batch using inference runtime"
+            )
             results = await self.inference_runtime.infer_many(payloads)
 
             # Process results
             processed_feeds = []
             for i, result in enumerate(results):
                 if isinstance(result, Exception):
-                    self.logger.error(f"summarizer.py:Summarizer:Feed {i} processing failed: {result}")
+                    self.logger.error(
+                        f"summarizer.py:Summarizer:Feed {i} processing failed: {result}"
+                    )
                     # Fallback to direct summarization
                     try:
                         processed_feed = await self._summarize_feed_async(feeds[i])
@@ -175,9 +189,9 @@ class Summarizer:
                             if processed_feed:
                                 processed_feeds.append(processed_feed)
                         except Exception as e:
-                                                    self.logger.error(
-                            f"summarizer.py:Summarizer:Fallback summarization failed for feed {i}: {e}"
-                        )
+                            self.logger.error(
+                                f"summarizer.py:Summarizer:Fallback summarization failed for feed {i}: {e}"
+                            )
                 elif result and isinstance(result, Exception):
                     # Handle case where result is an exception
                     self.logger.error(
@@ -201,7 +215,9 @@ class Summarizer:
             try:
                 return await self._process_batch_sequential(feeds)
             except Exception as fallback_error:
-                self.logger.error(f"summarizer.py:Summarizer:Sequential fallback also failed: {fallback_error}")
+                self.logger.error(
+                    f"summarizer.py:Summarizer:Sequential fallback also failed: {fallback_error}"
+                )
                 # Last resort: return empty list to prevent complete failure
                 return []
 
@@ -218,7 +234,9 @@ class Summarizer:
             processed_feeds = []
             for i, result in enumerate(results):
                 if isinstance(result, Exception):
-                    self.logger.error(f"summarizer.py:Summarizer:Feed {i} processing failed: {result}")
+                    self.logger.error(
+                        f"summarizer.py:Summarizer:Feed {i} processing failed: {result}"
+                    )
                     continue
 
                 if result:
@@ -247,7 +265,9 @@ class Summarizer:
                 if result:
                     results.append(result)
             except Exception as e:
-                self.logger.error(f"summarizer.py:Summarizer:Feed processing failed: {e}")
+                self.logger.error(
+                    f"summarizer.py:Summarizer:Feed processing failed: {e}"
+                )
         return results
 
     async def _summarize_feed_async(self, feed: FeedModel):
@@ -256,6 +276,7 @@ class Summarizer:
         """
         try:
             from app.etl.tasks import SummarizerUtils
+
             payload = {
                 "feed": feed,
                 "text": feed.raw_text,
@@ -263,11 +284,13 @@ class Summarizer:
                 "prompt_prefix": self.prompt_prefix,
             }
             model, tokenizer, device = ModelManager.get_summarization_model()
-            max_tokens = ModelManager.get_summarization_model_max_tokens()            
-            result = SummarizerUtils._summarizer(payload, model, tokenizer, device, max_tokens)            
+            max_tokens = ModelManager.get_summarization_model_max_tokens()
+            result = SummarizerUtils._summarizer(
+                payload, model, tokenizer, device, max_tokens
+            )
             feed.compressed_text = result["compressed_text"]
             feed.translated_text = result["translated_text"]
-            feed.summary = result["summary"]           
+            feed.summary = result["summary"]
             return feed
 
         except Exception as e:
@@ -282,9 +305,13 @@ class Summarizer:
 
             # Step 1: Translate non-English articles to English
             try:
-                feed.raw_text_en = asyncio.run(self.translator.ensure_english(feed.raw_text))
+                feed.raw_text_en = asyncio.run(
+                    self.translator.ensure_english(feed.raw_text)
+                )
             except Exception as e:
-                self.logger.error(f"summarizer.py:Summarizer:Error translating feed: {e}")
+                self.logger.error(
+                    f"summarizer.py:Summarizer:Error translating feed: {e}"
+                )
                 raise ServiceException(f"Error translating feed: {e}")
 
             # Step 2: Check if text fits the model, else compress using TF-IDF
@@ -299,7 +326,9 @@ class Summarizer:
                     feed.raw_text_en,
                     max_tokens,
                 ):
-                    self.logger.info(f"summarizer.py:Summarizer:Compressing text using TF-IDF")
+                    self.logger.info(
+                        f"summarizer.py:Summarizer:Compressing text using TF-IDF"
+                    )
                     text = NLPUtils.compress_text_tfidf(
                         tokenizer,
                         feed.raw_text_en,
@@ -309,12 +338,16 @@ class Summarizer:
                 else:
                     text = feed.raw_text_en
             except Exception as e:
-                self.logger.error(f"summarizer.py:Summarizer:Error compressing text: {e}")
+                self.logger.error(
+                    f"summarizer.py:Summarizer:Error compressing text: {e}"
+                )
                 raise ServiceException(f"Error compressing text: {e}")
 
             # Step 3: Summarize using the BART model
             try:
-                self.logger.info(f"summarizer.py:Summarizer:__summarize_feed text using BART model")
+                self.logger.info(
+                    f"summarizer.py:Summarizer:__summarize_feed text using BART model"
+                )
                 max_tokens = ModelManager.get_summarization_model_max_tokens()
                 summarizer = self.summarization_model
                 tokenizer = self.summarization_tokenizer.__class__.from_pretrained(
@@ -325,7 +358,9 @@ class Summarizer:
                     summarizer, tokenizer, device, self.prompt_prefix + text, max_tokens
                 )
             except Exception as e:
-                self.logger.error(f"summarizer.py:Summarizer:Error summarizing text: {e}")
+                self.logger.error(
+                    f"summarizer.py:Summarizer:Error summarizing text: {e}"
+                )
                 raise ServiceException(f"Error summarizing text: {e}")
 
             # step 5: Generate questions from summary

@@ -51,15 +51,23 @@ class NewsContentExtractor:
         Extract raw text for each article using proxy-enabled scraping with async concurrency.
         """
         if not self.feeds:
-            self.logger.error("news_content_extractor.py:NewsContentExtractor:No feeds found in context.")
+            self.logger.error(
+                "news_content_extractor.py:NewsContentExtractor:No feeds found in context."
+            )
             raise ValueError("No feeds found in context.")
 
-        self.logger.info(f"news_content_extractor.py:NewsContentExtractor:---- ProxyManager initiated ----")
+        self.logger.info(
+            f"news_content_extractor.py:NewsContentExtractor:---- ProxyManager initiated ----"
+        )
         proxies = await ProxyManager.proxies_async()
-        self.logger.info(f"news_content_extractor.py:NewsContentExtractor:---- {len(proxies)} proxies found ----")
+        self.logger.info(
+            f"news_content_extractor.py:NewsContentExtractor:---- {len(proxies)} proxies found ----"
+        )
 
         if not proxies:
-            self.logger.error("news_content_extractor.py:NewsContentExtractor:No valid proxies found in context.")
+            self.logger.error(
+                "news_content_extractor.py:NewsContentExtractor:No valid proxies found in context."
+            )
             raise ValueError("No valid proxies found in context.")
 
         self.logger.info(
@@ -99,7 +107,9 @@ class NewsContentExtractor:
             processed_feeds = []
             for i, result in enumerate(results):
                 if isinstance(result, Exception):
-                    self.logger.error(f"news_content_extractor.py:NewsContentExtractor:Feed {i} processing failed: {result}")
+                    self.logger.error(
+                        f"news_content_extractor.py:NewsContentExtractor:Feed {i} processing failed: {result}"
+                    )
                     continue
 
                 if result and result.raw_text and len(result.raw_text) >= 1500:
@@ -108,7 +118,9 @@ class NewsContentExtractor:
             return processed_feeds
 
         except Exception as e:
-            self.logger.error(f"news_content_extractor.py:NewsContentExtractor:Batch processing failed: {e}")
+            self.logger.error(
+                f"news_content_extractor.py:NewsContentExtractor:Batch processing failed: {e}"
+            )
             # Fallback to sequential processing
             return await self._process_batch_sequential(feeds, proxies)
 
@@ -126,7 +138,9 @@ class NewsContentExtractor:
                 if result and result.raw_text and len(result.raw_text) >= 1500:
                     results.append(result)
             except Exception as e:
-                self.logger.error(f"news_content_extractor.py:NewsContentExtractor:Feed processing failed: {e}")
+                self.logger.error(
+                    f"news_content_extractor.py:NewsContentExtractor:Feed processing failed: {e}"
+                )
         return results
 
     def __scrape_multilang_feeds(self, feed: FeedModel, proxy: str) -> FeedModel:
@@ -134,7 +148,7 @@ class NewsContentExtractor:
         Use BeautifulSoup first, fallback to Crawl4AI if needed.
         """
         try:
- 
+
             self.logger.info(
                 f"news_content_extractor.py:NewsContentExtractor:Scraping ------ {feed.url} ----- with proxy------- {proxy}"
             )
@@ -169,86 +183,86 @@ class NewsContentExtractor:
                 )
 
             # Step 2: Fallback to Crawl4AI
-            self.logger.info(f"news_content_extractor.py:NewsContentExtractor:[Fallback] Invoking Crawl4AI for: {feed.url}")
+            self.logger.info(
+                f"news_content_extractor.py:NewsContentExtractor:[Fallback] Invoking Crawl4AI for: {feed.url}"
+            )
             try:
                 text = asyncio.run(self.crawl4AIExtractor.crawl4ai_scrape(feed.url))
                 if not text or len(text.strip()) < 1500:  # sanity check
                     raise ValueError("Crawl4AI returned empty or too short content.")
                 feed.raw_text = text.strip()
-                self.logger.info(f"news_content_extractor.py:NewsContentExtractor:Successfully scraped via Crawl4AI: {feed.url}")
+                self.logger.info(
+                    f"news_content_extractor.py:NewsContentExtractor:Successfully scraped via Crawl4AI: {feed.url}"
+                )
                 return feed
             except Exception as c4_err:
-                self.logger.error(f"news_content_extractor.py:NewsContentExtractor:Crawl4AI scraping failed for {feed.url}: {c4_err}")
+                self.logger.error(
+                    f"news_content_extractor.py:NewsContentExtractor:Crawl4AI scraping failed for {feed.url}: {c4_err}"
+                )
                 return None
 
         except Exception as e:
             self.logger.error(
-                f"news_content_extractor.py:NewsContentExtractor:[Error] Failed to scrape {feed.url}: {e}", exc_info=True
+                f"news_content_extractor.py:NewsContentExtractor:[Error] Failed to scrape {feed.url}: {e}",
+                exc_info=True,
             )
             return None
 
 
 def __scrape_multilang_feeds_debug(url: str, proxy: str):
-        """
-        Use BeautifulSoup first, fallback to Crawl4AI if needed.
-        """
-        try:            
-            
-            #testing save the feed model json here
-            crawl4AIExtractor = Crawl4AIExtractor()
+    """
+    Use BeautifulSoup first, fallback to Crawl4AI if needed.
+    """
+    try:
 
-            text = ""
-            # Step 1: Try BeautifulSoup extraction
-            try:
-                soup = BeautifulSoupExtractor.beautiful_soup_scrape(url, proxy)
-                if soup:
-                    text = BeautifulSoupExtractor.extract_text_from_soup(soup)
-                    if (
-                        text and len(text.strip()) >= 1000
-                    ):  # case sometime the JS is there to accept cookies, need a better solution.
-                        text = text.strip()
-                        text = WebScraperUtils.remove_links_images_ui_junk(
-                            text
-                        )
+        # testing save the feed model json here
+        crawl4AIExtractor = Crawl4AIExtractor()
 
-                        return text
-                    else:
-                        print(
-                            f"[Fallback] BeautifulSoup produced insufficient content for: {url}"
-                        )
+        text = ""
+        # Step 1: Try BeautifulSoup extraction
+        try:
+            soup = BeautifulSoupExtractor.beautiful_soup_scrape(url, proxy)
+            if soup:
+                text = BeautifulSoupExtractor.extract_text_from_soup(soup)
+                if (
+                    text and len(text.strip()) >= 1000
+                ):  # case sometime the JS is there to accept cookies, need a better solution.
+                    text = text.strip()
+                    text = WebScraperUtils.remove_links_images_ui_junk(text)
+
+                    return text
                 else:
                     print(
-                        f"[Fallback] BeautifulSoup failed (no soup) for: {url}"
+                        f"[Fallback] BeautifulSoup produced insufficient content for: {url}"
                     )
-            except Exception as bs_err:
-                print(
-                    f"BeautifulSoup scraping failed for {url}: {bs_err}"
-                )
+            else:
+                print(f"[Fallback] BeautifulSoup failed (no soup) for: {url}")
+        except Exception as bs_err:
+            print(f"BeautifulSoup scraping failed for {url}: {bs_err}")
 
-            # Step 2: Fallback to Crawl4AI
-            print(f"[Fallback] Invoking Crawl4AI for: {url}")
-            try:
-                text = asyncio.run(crawl4AIExtractor.crawl4ai_scrape(url))
-                if not text or len(text.strip()) < 1500:  # sanity check
-                    raise ValueError("Crawl4AI returned empty or too short content.")
-                text = text.strip()
-                print(f"Successfully scraped via Crawl4AI: {url}")
-                return text
-            except Exception as c4_err:
-                print(f"Crawl4AI scraping failed for {url}: {c4_err}")
-                return None
-
-        except Exception as e:
-            print(
-                f"[Error] Failed to scrape {url}: {e}", exc_info=True
-            )
+        # Step 2: Fallback to Crawl4AI
+        print(f"[Fallback] Invoking Crawl4AI for: {url}")
+        try:
+            text = asyncio.run(crawl4AIExtractor.crawl4ai_scrape(url))
+            if not text or len(text.strip()) < 1500:  # sanity check
+                raise ValueError("Crawl4AI returned empty or too short content.")
+            text = text.strip()
+            print(f"Successfully scraped via Crawl4AI: {url}")
+            return text
+        except Exception as c4_err:
+            print(f"Crawl4AI scraping failed for {url}: {c4_err}")
             return None
-        
-# if __name__ == "__main__":     
-    
+
+    except Exception as e:
+        print(f"[Error] Failed to scrape {url}: {e}", exc_info=True)
+        return None
+
+
+# if __name__ == "__main__":
+
 #     proxy = '198.199.86.11:8080'
 #     url = 'https://news.google.com/rss/articles/CBMikgFBVV95cUxNV2xFR0ZENm1ZbEhKMUNjc0dYRkFadk5xUHBrM3ZQUlJjdjRsamNrQmFYcm1JZ1hTdkFybkRuRjVVTWxoTFA2d2Q3Vk1KZjUzcEJQdEQyd1ROUzBTRy03aVIwYnNpVFJjT0JHSmtULVlEX2tMRDhGQmdQcDRXLUQ2SjkydmgzTkRJY3VCN1lkbzdBUQ?oc=5'
-    
+
 #     result = __scrape_multilang_feeds(url, proxy)
 #     print(result)
 

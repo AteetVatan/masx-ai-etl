@@ -113,7 +113,9 @@ class NLLBTranslatorSingleton:
             return result[0]["translation_text"]
 
         except Exception as e:
-            self.logger.error(f"nllb_translator_singleton.py:NLLBTranslator:Translation failed: {e}")
+            self.logger.error(
+                f"nllb_translator_singleton.py:NLLBTranslator:Translation failed: {e}"
+            )
             return text  # Return original text if translation fails
 
     def _translate_sync(self, text: str, src_lang: str, tgt_lang: str) -> str:
@@ -125,7 +127,9 @@ class NLLBTranslatorSingleton:
             result = pipeline(text)
             return result[0]["translation_text"]
         except Exception as e:
-            self.logger.error(f"nllb_translator_singleton.py:NLLBTranslator:Synchronous translation failed: {e}")
+            self.logger.error(
+                f"nllb_translator_singleton.py:NLLBTranslator:Synchronous translation failed: {e}"
+            )
             return text  # Return original text if translation fails
 
     async def translate_batch(
@@ -145,34 +149,44 @@ class NLLBTranslatorSingleton:
         try:
             # Get pipeline once for batch processing
             pipeline = self._get_pipeline(src_lang, tgt_lang)
-            
+
             # Process texts in batches to avoid memory issues
             batch_size = 8  # Process 8 texts at a time
             translated_texts = []
-            
+
             for i in range(0, len(texts), batch_size):
-                batch = texts[i:i + batch_size]
+                batch = texts[i : i + batch_size]
                 try:
                     # Process batch
                     results = pipeline(batch)
                     # Extract translation text from results
-                    batch_translations = [result["translation_text"] for result in results]
+                    batch_translations = [
+                        result["translation_text"] for result in results
+                    ]
                     translated_texts.extend(batch_translations)
                 except Exception as e:
-                    self.logger.error(f"nllb_translator_singleton.py:NLLBTranslator:Batch translation failed for batch {i//batch_size}: {e}")
+                    self.logger.error(
+                        f"nllb_translator_singleton.py:NLLBTranslator:Batch translation failed for batch {i//batch_size}: {e}"
+                    )
                     # Fallback to individual translation for failed batch
                     for text in batch:
                         try:
                             result = pipeline(text)
                             translated_texts.append(result[0]["translation_text"])
                         except Exception as e2:
-                            self.logger.error(f"nllb_translator_singleton.py:NLLBTranslator:Individual translation failed: {e2}")
-                            translated_texts.append(text)  # Use original text as fallback
+                            self.logger.error(
+                                f"nllb_translator_singleton.py:NLLBTranslator:Individual translation failed: {e2}"
+                            )
+                            translated_texts.append(
+                                text
+                            )  # Use original text as fallback
 
             return translated_texts
 
         except Exception as e:
-            self.logger.error(f"nllb_translator_singleton.py:NLLBTranslator:Batch translation failed: {e}")
+            self.logger.error(
+                f"nllb_translator_singleton.py:NLLBTranslator:Batch translation failed: {e}"
+            )
             # Fallback to individual translation
             return [self._translate_sync(text, src_lang, tgt_lang) for text in texts]
 
@@ -180,4 +194,6 @@ class NLLBTranslatorSingleton:
         """Stop the inference runtime."""
         # The inference_runtime object was removed, so this method is no longer needed.
         # Keeping it for now as it might be called externally, but it will do nothing.
-        self.logger.warning("nllb_translator_singleton.py:NLLBTranslator:Inference runtime object removed, stop method is no longer functional.")
+        self.logger.warning(
+            "nllb_translator_singleton.py:NLLBTranslator:Inference runtime object removed, stop method is no longer functional."
+        )

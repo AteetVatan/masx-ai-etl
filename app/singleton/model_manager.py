@@ -95,7 +95,9 @@ class ModelManager:
                 cls._logger.error(f"model_manager.py:Failed to get device: {e}")
                 # Fallback to CPU if device detection fails
                 cls._device = torch.device("cpu")
-                cls._logger.warning(f"model_manager.py:Falling back to CPU device due to error: {e}")
+                cls._logger.warning(
+                    f"model_manager.py:Falling back to CPU device due to error: {e}"
+                )
         return cls._device
 
     @classmethod
@@ -104,11 +106,11 @@ class ModelManager:
         try:
             import nltk
             from nltk.tokenize import sent_tokenize
-            
+
             # Test core models
             test_text = "This is a test sentence. Another one."
             sent_tokenize(test_text, language="english")
-            
+
             # Test additional language models
             test_languages = ["german", "french", "spanish", "italian"]
             for lang in test_languages:
@@ -116,31 +118,33 @@ class ModelManager:
                     sent_tokenize("Test sentence.", language=lang)
                     cls._logger.info(f"NLTK model for {lang} is available")
                 except LookupError:
-                    cls._logger.warning(f"NLTK model for {lang} not found, will use fallback tokenization")
-            
+                    cls._logger.warning(
+                        f"NLTK model for {lang} not found, will use fallback tokenization"
+                    )
+
             cls._logger.info("NLTK models validation completed")
-            
+
         except LookupError:
             cls._logger.warning("NLTK models not found, downloading...")
             try:
-                nltk.download('punkt', quiet=True)
-                nltk.download('averaged_perceptron_tagger', quiet=True)
+                nltk.download("punkt", quiet=True)
+                nltk.download("averaged_perceptron_tagger", quiet=True)
                 cls._logger.info("NLTK models downloaded successfully")
             except Exception as e:
                 cls._logger.error(f"Failed to download NLTK models: {e}")
                 raise RuntimeError("NLTK models required for production operation")
-        
+
         except Exception as e:
             cls._logger.error(f"Unexpected error checking NLTK models: {e}")
             raise
-    
+
     @classmethod
     def get_summarization_model(cls):
         """Return BART summarization model (lazy init with CPU/GPU)."""
         if cls._summarization_model is None or cls._summarization_tokenizer is None:
             cls._ensure_nltk_models()
             cls.__load_summarization_model()
-        
+
         # Validate that all components are properly loaded
         if cls._summarization_model is None:
             raise RuntimeError("Summarization model failed to load")
@@ -148,8 +152,10 @@ class ModelManager:
             raise RuntimeError("Summarization tokenizer failed to load")
         if cls._device is None:
             raise RuntimeError("Device configuration failed to load")
-        
-        cls._logger.debug(f"model_manager.py:Returning summarization model components: model={type(cls._summarization_model)}, tokenizer={type(cls._summarization_tokenizer)}, device={cls._device}")
+
+        cls._logger.debug(
+            f"model_manager.py:Returning summarization model components: model={type(cls._summarization_model)}, tokenizer={type(cls._summarization_tokenizer)}, device={cls._device}"
+        )
         return cls._summarization_model, cls._summarization_tokenizer, cls._device
 
     @classmethod
@@ -275,7 +281,10 @@ class ModelManager:
             )
 
         except Exception as e:
-            cls._logger.error(f"model_manager.py:Failed to load summarization model: {e}", exc_info=True)
+            cls._logger.error(
+                f"model_manager.py:Failed to load summarization model: {e}",
+                exc_info=True,
+            )
             raise RuntimeError(f"Failed to load summarization model: {e}")
 
     @classmethod
@@ -297,10 +306,14 @@ class ModelManager:
                 ),
             ).to(cls._device)
 
-            cls._logger.info(f"model_manager.py:Loaded summarization model on {cls._device}")
+            cls._logger.info(
+                f"model_manager.py:Loaded summarization model on {cls._device}"
+            )
 
         except Exception as e:
-            cls._logger.error(f"model_manager.py:Failed to load summarization model: {e}")
+            cls._logger.error(
+                f"model_manager.py:Failed to load summarization model: {e}"
+            )
             raise RuntimeError(f"Failed to load summarization model: {e}")
 
     @classmethod

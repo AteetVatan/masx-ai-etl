@@ -73,7 +73,9 @@ class GPUWorker:
 
         # Validate device_id
         if not isinstance(self.config.device_id, int) or self.config.device_id < 0:
-            raise ValueError(f"Invalid device_id: {self.config.device_id}. Must be a non-negative integer.")
+            raise ValueError(
+                f"Invalid device_id: {self.config.device_id}. Must be a non-negative integer."
+            )
 
         # Model state
         self._model = None
@@ -94,7 +96,9 @@ class GPUWorker:
         self._total_batch_time = 0.0
         self._start_time = time.time()
 
-        logger.info(f"gpu_worker.py:GPUWorker initialized on device {self.config.device_id}")
+        logger.info(
+            f"gpu_worker.py:GPUWorker initialized on device {self.config.device_id}"
+        )
 
     async def start(self):
         """Start the GPU worker and load model."""
@@ -123,7 +127,10 @@ class GPUWorker:
                 self._model = self.model_loader()
 
                 # Validate device_id before creating device string
-                if not isinstance(self.config.device_id, int) or self.config.device_id < 0:
+                if (
+                    not isinstance(self.config.device_id, int)
+                    or self.config.device_id < 0
+                ):
                     raise ValueError(f"Invalid device_id: {self.config.device_id}")
 
                 # Move to GPU
@@ -264,7 +271,7 @@ class GPUWorker:
                         raise RuntimeError(
                             "Model is not callable and has no forward method"
                         )
-    
+
             # Process outputs
             results = self._process_batch_output(batch_output, batch_size)
 
@@ -321,18 +328,22 @@ class GPUWorker:
 
             # Get model components - model_loader only returns the model, so get tokenizer and device separately
             model = self._model  # Use the already loaded model
-            model_manager_model, tokenizer, device = ModelManager.get_summarization_model()
+            model_manager_model, tokenizer, device = (
+                ModelManager.get_summarization_model()
+            )
             max_tokens = ModelManager.get_summarization_model_max_tokens()
 
             # Store original payloads for processing
             original_payloads = []
             for payload in payloads:
-                original_payloads.append({
-                    "feed": payload.get("feed"),
-                    "text": payload.get("text", ""),
-                    "url": payload.get("url", ""),
-                    "prompt_prefix": payload.get("prompt_prefix", "summarize: ")
-                })
+                original_payloads.append(
+                    {
+                        "feed": payload.get("feed"),
+                        "text": payload.get("text", ""),
+                        "url": payload.get("url", ""),
+                        "prompt_prefix": payload.get("prompt_prefix", "summarize: "),
+                    }
+                )
 
             # Return the simplified batch structure - SummarizerUtils._summarizer will handle all preprocessing
             return {
@@ -367,7 +378,9 @@ class GPUWorker:
 
             # Move to GPU if available
             if torch.cuda.is_available():
-                embeddings = embeddings.to(torch.device(f"cuda:{self.config.device_id}"))
+                embeddings = embeddings.to(
+                    torch.device(f"cuda:{self.config.device_id}")
+                )
 
             # Convert to list format for result processing
             embedding_lists = []
@@ -505,23 +518,33 @@ class GPUWorker:
         This method handles summarization, embedding, and clustering model outputs.
         """
         try:
-            logger.info(f"gpu_worker.py:GPUWorker:_process_batch_output batch output processing")
+            logger.info(
+                f"gpu_worker.py:GPUWorker:_process_batch_output batch output processing"
+            )
             # Check if this is a batch with original payloads
             if isinstance(batch_output, dict) and "original_payloads" in batch_output:
                 # Check if this is an embedding batch (has embeddings field)
                 if "embeddings" in batch_output:
-                    logger.info(f"gpu_worker.py:GPUWorker:_process_batch_output embedding output processing")
+                    logger.info(
+                        f"gpu_worker.py:GPUWorker:_process_batch_output embedding output processing"
+                    )
                     return self._process_embedding_output(batch_output, batch_size)
                 # Check if this is a clustering batch (has labels field)
                 elif "labels" in batch_output:
-                    logger.info(f"gpu_worker.py:GPUWorker:_process_batch_output clustering output processing")
+                    logger.info(
+                        f"gpu_worker.py:GPUWorker:_process_batch_output clustering output processing"
+                    )
                     return self._process_clustering_output(batch_output, batch_size)
                 # Check if this is a clustering fallback (fallback_to_cpu)
                 elif "fallback_to_cpu" in batch_output:
-                    logger.info(f"gpu_worker.py:GPUWorker:_process_batch_output clustering fallback processing")
+                    logger.info(
+                        f"gpu_worker.py:GPUWorker:_process_batch_output clustering fallback processing"
+                    )
                     return self._process_clustering_fallback(batch_output, batch_size)
                 else:
-                    logger.info(f"gpu_worker.py:GPUWorker:_process_batch_output summarization output processing")
+                    logger.info(
+                        f"gpu_worker.py:GPUWorker:_process_batch_output summarization output processing"
+                    )
                     return self._process_summarization_output(batch_output, batch_size)
             else:
                 # Generic output processing
@@ -545,10 +568,12 @@ class GPUWorker:
         """
         Process summarization model output using the same method as runtime.py.
         """
-        logger.info(f"gpu_worker.py:GPUWorker:_process_summarization_output summarization output processing")
+        logger.info(
+            f"gpu_worker.py:GPUWorker:_process_summarization_output summarization output processing"
+        )
         try:
             from app.etl.tasks import SummarizerUtils
-            
+
             # Extract components from batch output
             original_payloads = batch_output["original_payloads"]
             model = batch_output["model"]
@@ -567,21 +592,21 @@ class GPUWorker:
                         "feed": payload["feed"],
                         "text": payload["text"],
                         "url": payload["url"],
-                        "prompt_prefix": "summarize: "
+                        "prompt_prefix": "summarize: ",
                     }
-                    logger.info(f"GPUWorker:_process_summarization_output summarizer_payload: {summarizer_payload}")
+                    logger.info(
+                        f"GPUWorker:_process_summarization_output summarizer_payload: {summarizer_payload}"
+                    )
                     # Use the same summarization method as runtime.py
                     result = SummarizerUtils._summarizer(
-                        summarizer_payload, 
-                        model, 
-                        tokenizer, 
-                        device, 
-                        max_tokens
+                        summarizer_payload, model, tokenizer, device, max_tokens
                     )
-                    logger.info(f"gpu_worker.py:GPUWorker:_process_summarization_output result: {result}")
+                    logger.info(
+                        f"gpu_worker.py:GPUWorker:_process_summarization_output result: {result}"
+                    )
                     # Extract the summary from the result
                     summary = result.get("summary", "")
-                    
+
                     # Create the final result in the expected format
                     final_result = {
                         "feed": payload["feed"],
@@ -591,11 +616,13 @@ class GPUWorker:
                         "compressed_text": result.get("compressed_text", ""),
                         "summary": summary,
                     }
-                    
+
                     results.append(final_result)
-                    
+
                 except Exception as e:
-                    logger.error(f"Failed to process individual payload in GPU batch: {e}")
+                    logger.error(
+                        f"Failed to process individual payload in GPU batch: {e}"
+                    )
                     # Fallback: return original payload with error
                     fallback_result = {
                         "feed": payload["feed"],
