@@ -595,7 +595,7 @@ class GPUWorker:
                         "prompt_prefix": "summarize: ",
                     }
                     logger.info(
-                        f"GPUWorker:_process_summarization_output summarizer_payload: {summarizer_payload}"
+                        f"GPUWorker:_process_summarization_output"
                     )
                     # Use the same summarization method as runtime.py
                     result = SummarizerUtils._summarizer(
