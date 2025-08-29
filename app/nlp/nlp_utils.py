@@ -421,7 +421,7 @@ class NLPUtils:
             min_length=250,
             num_beams=5,
             length_penalty=1.0,
-            early_stopping=True,
+            eos_token_id=bart_tokenizer.eos_token_id,
             no_repeat_ngram_size=3,
             repetition_penalty=1.05,
         )
@@ -535,7 +535,6 @@ class NLPUtils:
             "max_new_tokens": 600 if total_tokens > 1000 else 400,
             "no_repeat_ngram_size": 3,
             "length_penalty": 1.0,
-            "early_stopping": True,
             "eos_token_id": bart_tokenizer.eos_token_id,
             "pad_token_id": bart_tokenizer.pad_token_id,
         }
@@ -581,7 +580,7 @@ class NLPUtils:
             "min_length": 300,
             "num_beams": 5,
             "length_penalty": 1.0,
-            "early_stopping": True,
+            "eos_token_id": bart_tokenizer.eos_token_id,
             "no_repeat_ngram_size": 3,
             "repetition_penalty": 1.05,
         }

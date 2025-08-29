@@ -258,11 +258,11 @@ class ModelManager:
             cls._max_src_len = max(32, max_pos - 4)
 
             # 5) Generation defaults (modern API; avoids overflows)
+            # Note: early_stopping is deprecated, will be set per-call with eos_token_id
             cls._gen_cfg = GenerationConfig(
                 num_beams=4,
                 length_penalty=2.0,
                 no_repeat_ngram_size=3,
-                early_stopping=True,
                 do_sample=False,
             )
 
