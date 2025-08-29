@@ -59,6 +59,14 @@ RUN micromamba run -n appenv python -m pip install --no-cache-dir "playwright>=1
 # ---- Install spaCy models ----
 RUN micromamba run -n appenv python -c "import nltk; nltk.download('punkt'); nltk.download('averaged_perceptron_tagger')"
 
+# Download additional language models for common languages
+RUN micromamba run -n appenv python -c "import nltk; nltk.download('punkt', quiet=True); nltk.download('averaged_perceptron_tagger', quiet=True)"
+
+# Verify NLTK models are available
+RUN micromamba run -n appenv python -c "import nltk; from nltk.tokenize import sent_tokenize; print('Testing NLTK models...'); sent_tokenize('Test sentence.', language='english'); print('English model OK'); sent_tokenize('Test sentence.', language='german'); print('German model OK')"
+
+
+
 # ---- App code ----
 COPY . /app
 
