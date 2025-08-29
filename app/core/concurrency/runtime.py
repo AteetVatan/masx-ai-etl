@@ -256,9 +256,11 @@ class InferenceRuntime:
 
         try:
             if self.use_gpu_flag and self._gpu_worker:
+                logger.info(f"runtime.py:infer_many using GPU batch inference")
                 self._total_gpu_requests += len(payloads)
                 return await self._gpu_worker.infer_many(payloads)
             else:
+                logger.info(f"runtime.py:infer_many using CPU batch inference")
                 self._total_cpu_requests += len(payloads)
                 # For CPU path, process in parallel using appropriate executor
                 try:
