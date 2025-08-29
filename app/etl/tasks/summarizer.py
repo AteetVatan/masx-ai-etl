@@ -59,7 +59,7 @@ class Summarizer:
         Translate, compress if needed, and summarize each article using InferenceRuntime with GPU micro-batching.
         """
         try:
-            self.logger.info(f"summarizer.py:Summarizer:Summarizing {len(self.feeds)} feeds")
+            self.logger.info(f"summarizer.py:Summarizer:summarize_all_feeds {len(self.feeds)} feeds")
             # Initialize inference runtime if not already done
             if not self.inference_runtime:
                 self.logger.info(f"summarizer.py:Summarizer:Initializing inference runtime")
@@ -135,6 +135,7 @@ class Summarizer:
                 payloads.append(payload)
 
             # Use inference runtime for batch processing with GPU micro-batching
+            self.logger.info(f"summarizer.py:Summarizer:_process_batch using inference runtime")
             results = await self.inference_runtime.infer_many(payloads)
 
             # Process results
@@ -313,7 +314,7 @@ class Summarizer:
 
             # Step 3: Summarize using the BART model
             try:
-                self.logger.info(f"summarizer.py:Summarizer:Summarizing text using BART model")
+                self.logger.info(f"summarizer.py:Summarizer:__summarize_feed text using BART model")
                 max_tokens = ModelManager.get_summarization_model_max_tokens()
                 summarizer = self.summarization_model
                 tokenizer = self.summarization_tokenizer.__class__.from_pretrained(

@@ -43,7 +43,7 @@ class SummarizerUtils:
     
     @staticmethod
     def _summarizer(payload: dict, model, tokenizer, device, max_tokens) -> dict:
-        
+        SummarizerUtils.logger.info(f"summarizer_utils.py:_summarizer called with payload: {payload}")
         # -------- Extract payload --------
         feed_data = payload.get("feed")
         raw_text = payload.get("text", "")
