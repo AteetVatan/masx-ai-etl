@@ -99,6 +99,7 @@ class SummarizerUtils:
                     keep_bounds=(0.2, 0.4),
                     must_keep=must_keep,
                     target_tokens=target_tokens,
+                    lang=lang,
                 )
                 result["compressed_text"] = compressed
             except Exception as e:

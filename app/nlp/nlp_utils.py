@@ -56,6 +56,15 @@ class NLPUtils:
    
     nlp_en = load_spacy_model("en_core_web_sm", "en")
     nlp_all = load_spacy_model("xx_ent_wiki_sm", "xx")
+    
+    
+    NLTK_LANGS = {
+    "en": "english", "fr": "french", "de": "german", "es": "spanish",
+    "pt": "portuguese", "it": "italian", "nl": "dutch", "tr": "turkish",
+    "sv": "swedish", "da": "danish", "fi": "finnish", "no": "norwegian",
+    "pl": "polish", "sl": "slovene", "et": "estonian", "el": "greek",
+    "ru": "russian",
+    }
    
     @staticmethod
     def load_spacy_model(name: str, blank_fallback: str):
@@ -256,39 +265,104 @@ class NLPUtils:
             raise e
 
     @staticmethod
-    def safe_sent_tokenize(text, lang="english"):
+    def safe_sent_tokenize(text: str, lang_iso: str = "en"):
         """
-        Safe sentence tokenization using nltk with proper error handling.
+        Safe sentence tokenization using NLTK with proper multi-language support.
+        Falls back to regex/naive splitting for unsupported langs.
         """
         try:
+            if lang_iso.lower() not in NLPUtils.NLTK_LANGS:
+                logger.info(f"Using language-agnostic tokenization for '{lang_iso}'")
+                return NLPUtils._language_agnostic_tokenize(text, lang_iso)
+
+            lang = NLPUtils.NLTK_LANGS[lang_iso.lower()]
+
             # First try with specified language
-            sentences = sent_tokenize(text, language=lang)
-            return sentences
+            return sent_tokenize(text, language=lang)
+
         except LookupError:
-            logger.warning(f"NLTK tokenizer model for '{lang}' not found. Attempting to download...")
+            logger.warning(f"NLTK tokenizer model for '{lang_iso}' not found. Attempting to download...")
             try:
-                # Try to download the required model
                 import nltk
-                nltk.download('punkt', quiet=True)
+                nltk.download("punkt", quiet=True)
+
+                lang = NLPUtils.NLTK_LANGS.get(lang_iso.lower(), "english")
                 sentences = sent_tokenize(text, language=lang)
                 logger.info(f"Successfully downloaded and used NLTK model for '{lang}'")
                 return sentences
+
             except Exception as download_error:
-                logger.warning(f"Failed to download NLTK model for '{lang}': {download_error}")
-                # Fallback to English
+                logger.warning(f"Failed to download NLTK model for '{lang_iso}': {download_error}")
+
+                if lang_iso.lower() != "en":
+                    logger.info(f"Using language-agnostic tokenization for '{lang_iso}'")
+                    return NLPUtils._language_agnostic_tokenize(text, lang_iso)
+
+                # English fallback
                 try:
                     sentences = sent_tokenize(text, language="english")
                     logger.info("Using English tokenizer as fallback")
                     return sentences
                 except Exception as english_error:
                     logger.error(f"English tokenizer also failed: {english_error}")
-                    # Final fallback to naive splitting
                     return NLPUtils._naive_sentence_split(text)
-        
+
         except Exception as e:
             logger.error(f"Tokenization failed with unexpected error: {e}")
             return NLPUtils._naive_sentence_split(text)
-
+        
+    @staticmethod
+    def _language_agnostic_tokenize(text: str, lang: str) -> List[str]:
+        """
+        Language-agnostic sentence tokenization for languages without NLTK models.
+        Uses regex patterns and heuristics that work across multiple languages.
+        """
+        import re
+        
+        # Common sentence ending patterns across languages
+        sentence_endings = [
+            r'[.!?]+',           # English, German, French, Spanish
+            r'[。！？]+',         # Chinese, Japanese
+            r'[।!?]+',           # Hindi, Bengali
+            r'[؟!]+',            # Arabic
+            r'[!?]+',            # Russian, other Cyrillic
+        ]
+        
+        # Combine all patterns
+        pattern = '|'.join(sentence_endings)
+        
+        # Split on sentence endings, preserving the endings
+        sentences = re.split(f'({pattern})', text)
+        
+        # Reconstruct sentences with their endings
+        result = []
+        current_sentence = ""
+        
+        for i, part in enumerate(sentences):
+            if re.match(pattern, part):
+                # This is a sentence ending
+                current_sentence += part
+                if current_sentence.strip():
+                    result.append(current_sentence.strip())
+                current_sentence = ""
+            else:
+                # This is text content
+                current_sentence += part
+        
+        # Add any remaining text
+        if current_sentence.strip():
+            result.append(current_sentence.strip())
+        
+        # Filter out very short sentences
+        result = [s for s in result if len(s.strip()) > 20]
+        
+        if not result:
+            logger.warning(f"Language-agnostic tokenization failed for '{lang}', using naive split")
+            return NLPUtils._naive_sentence_split(text)
+        
+        return result    
+    
+        
     @staticmethod
     def _naive_sentence_split(text: str) -> List[str]:
         """Naive sentence splitting as final fallback."""
@@ -588,6 +662,7 @@ class NLPUtils:
             keep_bounds: Tuple[float, float] = (0.2, 0.4),
             must_keep: Optional[List[str]] = None,
             target_tokens: Optional[int] = None,
+            lang: str = "en"
         ) -> str:
         """
         Compress news text adaptively using TF-IDF + MMR.
@@ -596,8 +671,9 @@ class NLPUtils:
         - enforce token budget using BART tokenizer
         - if target_tokens provided, we cap around it; otherwise cap to ~2 * model_max_tokens
         """
-        must_keep = set([m.lower() for m in (must_keep or [])])
-        sentences = NLPUtils.safe_sent_tokenize(text)
+        must_keep = set([m.lower() for m in (must_keep or [])])        
+        
+        sentences = NLPUtils.safe_sent_tokenize(text, lang)
         if not sentences:
             return text
         # pick keep_fraction

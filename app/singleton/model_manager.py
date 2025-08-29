@@ -100,12 +100,25 @@ class ModelManager:
 
     @classmethod
     def _ensure_nltk_models(cls):
-        """Ensure NLTK models are available for production."""
+        """Ensure NLTK models are available for production with multi-language support."""
         try:
-            # Test if models are available
+            import nltk
+            from nltk.tokenize import sent_tokenize
+            
+            # Test core models
             test_text = "This is a test sentence. Another one."
             sent_tokenize(test_text, language="english")
-            cls._logger.info("NLTK models are available")
+            
+            # Test additional language models
+            test_languages = ["german", "french", "spanish", "italian"]
+            for lang in test_languages:
+                try:
+                    sent_tokenize("Test sentence.", language=lang)
+                    cls._logger.info(f"NLTK model for {lang} is available")
+                except LookupError:
+                    cls._logger.warning(f"NLTK model for {lang} not found, will use fallback tokenization")
+            
+            cls._logger.info("NLTK models validation completed")
             
         except LookupError:
             cls._logger.warning("NLTK models not found, downloading...")
