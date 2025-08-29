@@ -1,7 +1,7 @@
 # ┌───────────────────────────────────────────────────────────────┐
-# │  Copyright (c) 2025 Ateet Vatan Bahmani                      │
-# │  Project: MASX AI – Strategic Agentic AI System              │
-# │  All rights reserved.                                        │
+# │  Copyright (c) 2025 Ateet Vatan Bahmani                       │
+# │  Project: MASX AI – Strategic Agentic AI System               │
+# │  All rights reserved.                                         │
 # └───────────────────────────────────────────────────────────────┘
 #
 # MASX AI is a proprietary software system developed and owned by Ateet Vatan Bahmani.
@@ -34,24 +34,38 @@ All aligned with real-world scale and performance in MASX AI
 """
 
 
-async def run_etl_pipeline(trigger: str = WorkerEnums.COORDINATOR.value, date: Optional[str] = None, flashpoints_ids: List[str] = None, cleanup: bool = True):
+async def run_etl_pipeline(
+    trigger: str = WorkerEnums.COORDINATOR.value,
+    date: Optional[str] = None,
+    flashpoints_ids: List[str] = None,
+    cleanup: bool = True,
+):
     # centralize the cleanup right before invoking all of them
     # print("Deleting all tracked Chroma collections before pipeline runs...")
     logger.info(f"main_etl.py:run_etl_pipeline called")
     if cleanup:
         ChromaClientSingleton.cleanup_chroma()
 
-    # trigger = WorkerEnums.ETL_WORKER.value
-    # date = "2025-07-01"    
-    # flashpoints_ids = ["70ef3f5a-3dbd-4b9a-8eb5-1b971a37fbc0"]
+
 
     etl_pipeline = ETLPipeline(date)
-    await etl_pipeline.run_all_etl_pipelines(trigger=trigger, flashpoints_ids=flashpoints_ids)
+    await etl_pipeline.run_all_etl_pipelines(
+        trigger=trigger, flashpoints_ids=flashpoints_ids
+    )
 
 
-def run_etl_pipeline_sync(trigger: str = WorkerEnums.COORDINATOR.value, date: Optional[str] = None, flashpoints_ids: List[str] = None, cleanup: bool = True):
+def run_etl_pipeline_sync(
+    trigger: str = WorkerEnums.COORDINATOR.value,
+    date: Optional[str] = None,
+    flashpoints_ids: List[str] = None,
+    cleanup: bool = True,
+):
     """Synchronous wrapper for backward compatibility."""
-    return asyncio.run(run_etl_pipeline(trigger=trigger, date=date, flashpoints_ids=flashpoints_ids, cleanup=cleanup))
+    return asyncio.run(
+        run_etl_pipeline(
+            trigger=trigger, date=date, flashpoints_ids=flashpoints_ids, cleanup=cleanup
+        )
+    )
 
 
 if __name__ == "__main__":
