@@ -321,11 +321,13 @@ class NLPUtils:
         
         # Common sentence ending patterns across languages
         sentence_endings = [
-            r'[.!?]+',           # English, German, French, Spanish
+            r'[.!?]+',            # English, German, French, Spanish
             r'[。！？]+',         # Chinese, Japanese
-            r'[।!?]+',           # Hindi, Bengali
+            r'[।!?]+',            # Hindi, Bengali
             r'[؟!]+',            # Arabic
             r'[!?]+',            # Russian, other Cyrillic
+            r'[.!?。！？]+',     # Korean
+            r'[.!?。！？؟!।]+'   # Universal fallback            
         ]
         
         # Combine all patterns
