@@ -236,6 +236,7 @@ class GPUWorker:
         Returns:
             Batch of inference results
         """
+        logger.info(f"gpu_worker.py:GPUWorker:_process_batch batch inference")
         if not self._model:
             raise RuntimeError("Model not loaded")
 
@@ -263,7 +264,7 @@ class GPUWorker:
                         raise RuntimeError(
                             "Model is not callable and has no forward method"
                         )
-
+    
             # Process outputs
             results = self._process_batch_output(batch_output, batch_size)
 
@@ -504,18 +505,23 @@ class GPUWorker:
         This method handles summarization, embedding, and clustering model outputs.
         """
         try:
+            logger.info(f"gpu_worker.py:GPUWorker:_process_batch_output batch output processing")
             # Check if this is a batch with original payloads
             if isinstance(batch_output, dict) and "original_payloads" in batch_output:
                 # Check if this is an embedding batch (has embeddings field)
                 if "embeddings" in batch_output:
+                    logger.info(f"gpu_worker.py:GPUWorker:_process_batch_output embedding output processing")
                     return self._process_embedding_output(batch_output, batch_size)
                 # Check if this is a clustering batch (has labels field)
                 elif "labels" in batch_output:
+                    logger.info(f"gpu_worker.py:GPUWorker:_process_batch_output clustering output processing")
                     return self._process_clustering_output(batch_output, batch_size)
                 # Check if this is a clustering fallback (fallback_to_cpu)
                 elif "fallback_to_cpu" in batch_output:
+                    logger.info(f"gpu_worker.py:GPUWorker:_process_batch_output clustering fallback processing")
                     return self._process_clustering_fallback(batch_output, batch_size)
                 else:
+                    logger.info(f"gpu_worker.py:GPUWorker:_process_batch_output summarization output processing")
                     return self._process_summarization_output(batch_output, batch_size)
             else:
                 # Generic output processing
@@ -539,7 +545,7 @@ class GPUWorker:
         """
         Process summarization model output using the same method as runtime.py.
         """
-        
+        logger.info(f"gpu_worker.py:GPUWorker:_process_summarization_output summarization output processing")
         try:
             from app.etl.tasks import SummarizerUtils
             
@@ -563,7 +569,7 @@ class GPUWorker:
                         "url": payload["url"],
                         "prompt_prefix": "summarize: "
                     }
-                    
+                    logger.info(f"GPUWorker:_process_summarization_output summarizer_payload: {summarizer_payload}")
                     # Use the same summarization method as runtime.py
                     result = SummarizerUtils._summarizer(
                         summarizer_payload, 
@@ -572,7 +578,7 @@ class GPUWorker:
                         device, 
                         max_tokens
                     )
-                    
+                    logger.info(f"gpu_worker.py:GPUWorker:_process_summarization_output result: {result}")
                     # Extract the summary from the result
                     summary = result.get("summary", "")
                     
