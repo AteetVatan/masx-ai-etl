@@ -252,14 +252,14 @@ class ClusterSummaryGenerator:
             # If it fits, single pass with long target
             final_target = self._choose_final_new_tokens(total_tokens, dec_cap)
             if total_tokens <= src_cap:
-                return self._summ_text(
-                    model,
-                    tokenizer,
-                    device,
-                    joined,
-                    src_cap,
-                    self._gen_args_long(final_target, max(80, final_target // 7)),
-                )
+                            return self._summ_text(
+                model,
+                tokenizer,
+                device,
+                joined,
+                src_cap,
+                self._gen_args_long(final_target, max(80, final_target // 7), tokenizer),
+            )
 
             # Otherwise: pack by docs → per-chunk → reduce
             # src_cap - 100 --> encoder’s safe capacity + Reserves 100 tokens for special tokens or extra safety margin.
@@ -273,7 +273,7 @@ class ClusterSummaryGenerator:
             # Optionally weight by chunk size (simple uniform is usually fine):
             # per_chunk_targets = [max(60, min(220, int(per_chunk_target * (len(tokenizer.encode(p, add_special_tokens=False)) / total_tokens)))) for p in parts]
             # For simplicity, use uniform target:
-            per_gen = self._gen_args_chunk(per_chunk_target)
+            per_gen = self._gen_args_chunk(per_chunk_target, tokenizer)
 
             partials = [
                 self._summ_text(model, tokenizer, device, p, src_cap, per_gen)
@@ -287,7 +287,7 @@ class ClusterSummaryGenerator:
                 device,
                 combined,
                 src_cap,
-                self._gen_args_long(final_target, max(80, final_target // 7)),
+                self._gen_args_long(final_target, max(80, final_target // 7), tokenizer),
             )
         except Exception as e:
             self.logger.error(
@@ -340,7 +340,7 @@ class ClusterSummaryGenerator:
         )
         return tokenizer.decode(out[0], skip_special_tokens=True)
 
-    def _gen_args_long(self, final_max_new: int, final_min_new: int) -> dict:
+    def _gen_args_long(self, final_max_new: int, final_min_new: int, tokenizer) -> dict:
         return dict(
             num_beams=4,
             max_new_tokens=final_max_new,
@@ -348,10 +348,10 @@ class ClusterSummaryGenerator:
             length_penalty=1.05 if final_max_new >= 600 else 1.1,
             no_repeat_ngram_size=3,
             repetition_penalty=1.05,
-            early_stopping=True,
+            eos_token_id=tokenizer.eos_token_id,
         )
 
-    def _gen_args_chunk(self, per_max_new: int) -> dict:
+    def _gen_args_chunk(self, per_max_new: int, tokenizer) -> dict:
         return dict(
             num_beams=4,
             max_new_tokens=per_max_new,
@@ -359,7 +359,7 @@ class ClusterSummaryGenerator:
             length_penalty=1.6,  # keep chunks concise
             no_repeat_ngram_size=3,
             repetition_penalty=1.05,
-            early_stopping=True,
+            eos_token_id=tokenizer.eos_token_id,
         )
 
     def _pack_by_docs_with_budget(
