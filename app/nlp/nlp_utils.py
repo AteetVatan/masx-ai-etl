@@ -30,24 +30,51 @@ from collections import Counter
 import math
 import numpy as np
 from numpy import array as np_array
+import logging
+
+logger = logging.getLogger(__name__)
+
+def load_spacy_model(name: str, blank_fallback: str):
+    try:
+        nlp = spacy.load(name)
+        logger.info(f"NLPUtils: Successfully loaded {name}")
+        return nlp
+    except OSError as e:  # model package not found
+        logger.warning(f"NLPUtils: spaCy model {name} not installed. Falling back to blank {blank_fallback}. Error: {e}")
+        nlp = spacy.blank(blank_fallback)
+        if "sentencizer" not in nlp.pipe_names:
+            nlp.add_pipe("sentencizer")
+        return nlp
+    except Exception as e:
+        logger.error(f"NLPUtils: Unexpected error loading {name}: {e}")
+        raise   # don't silently fallback on unrelated errors!
+
 
 class NLPUtils:
     """Utility functions for NLP operations."""
+    logger = logging.getLogger(__name__)
    
-    try:
-        nlp_en = spacy.load("en_core_web_sm")        # English: full NER + POS + deps
-    except Exception:
-        nlp_en = spacy.blank("en")
-        if "sentencizer" not in nlp_en.pipe_names:
-            nlp_en.add_pipe("sentencizer")
+    nlp_en = load_spacy_model("en_core_web_sm", "en")
+    nlp_all = load_spacy_model("xx_ent_wiki_sm", "xx")
+   
+    @staticmethod
+    def load_spacy_model(name: str, blank_fallback: str):
+        try:
+            nlp = spacy.load(name)
+            NLPUtils.logger.info(f"NLPUtils: Successfully loaded {name}")
+            return nlp
+        except OSError as e:  # model package not found
+            NLPUtils.logger.warning(f"NLPUtils: spaCy model {name} not installed. Falling back to blank {blank_fallback}. Error: {e}")
+            nlp = spacy.blank(blank_fallback)
+            if "sentencizer" not in nlp.pipe_names:
+                nlp.add_pipe("sentencizer")
+            return nlp
+        except Exception as e:
+            NLPUtils.logger.error(f"NLPUtils: Unexpected error loading {name}: {e}")
+            raise   # don't silently fallback on unrelated errors!
 
-    try:
-        nlp_all = spacy.load("xx_ent_wiki_sm")    # Multilingual: NER only (PER/LOC/ORG/MISC)
-    except Exception:
-        nlp_all = spacy.blank("xx")
-        if "sentencizer" not in nlp_all.pipe_names:
-            nlp_all.add_pipe("sentencizer")
-            
+   
+                
                     
 
     @staticmethod
