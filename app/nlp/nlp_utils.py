@@ -303,6 +303,7 @@ class NLPUtils:
                 import nltk
 
                 nltk.download("punkt", quiet=True)
+                nltk.download("punkt_tab", quiet=True)
 
                 lang = NLPUtils.NLTK_LANGS.get(lang_iso.lower(), "english")
                 sentences = sent_tokenize(text, language=lang)

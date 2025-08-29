@@ -128,7 +128,8 @@ class ModelManager:
             cls._logger.warning("NLTK models not found, downloading...")
             try:
                 nltk.download("punkt", quiet=True)
-                nltk.download("averaged_perceptron_tagger", quiet=True)
+                nltk.download("punkt_tab", quiet=True)
+                
                 cls._logger.info("NLTK models downloaded successfully")
             except Exception as e:
                 cls._logger.error(f"Failed to download NLTK models: {e}")

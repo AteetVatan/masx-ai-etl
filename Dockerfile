@@ -60,6 +60,7 @@ RUN micromamba run -n appenv python - <<'PY'
 import nltk
 print("Downloading NLTK punkt models...")
 nltk.download("punkt", quiet=True)
+nltk.download("punkt_tab", quiet=True)
 print("NLTK punkt models installed")
 PY
 
