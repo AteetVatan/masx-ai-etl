@@ -1,7 +1,7 @@
 # ┌───────────────────────────────────────────────────────────────┐
-# │  Copyright (c) 2025 Ateet Vatan Bahmani                      │
-# │  Project: MASX AI – Strategic Agentic AI System              │
-# │  All rights reserved.                                        │
+# │  Copyright (c) 2025 Ateet Vatan Bahmani                       │
+# │  Project: MASX AI – Strategic Agentic AI System               │
+# │  All rights reserved.                                         │
 # └───────────────────────────────────────────────────────────────┘
 #
 # MASX AI is a proprietary software system developed and owned by Ateet Vatan Bahmani.
@@ -69,13 +69,12 @@ class RunPodServerlessManager:
         self, flashpoints: List["FlashpointModel"]
     ) -> List[List["FlashpointModel"]]:
         """
-        Distribute flashpoints across workers by *workload* (number of feeds), not just count.
+        Distribute flashpoints across workers: 1 flashpoint per worker.
 
         Strategy:
-        1) Sort flashpoints by feeds_count desc.
-        2) Assign top-K (K = min(num_workers, N)) heavy flashpoints as singletons (one per worker).
-        3) Assign remaining flashpoints greedily to the worker with the lowest cumulative feeds_count.
-            (LPT - Longest Processing Time heuristic)
+        1) Assign one flashpoint per worker in round-robin fashion
+        2) If more flashpoints than workers, distribute evenly
+        3) If fewer flashpoints than workers, some workers will be idle
 
         Returns:
         List[List[FlashpointModel]] of length exactly self.num_workers.
@@ -84,60 +83,32 @@ class RunPodServerlessManager:
         if not flashpoints:
             return [[] for _ in range(num_workers)]
 
-        if num_workers == 1 or len(flashpoints) == 1:
+        if num_workers == 1:
             return [flashpoints]
-
-        # Precompute feed counts (robust to None/missing)
-        def feed_count(fp: FlashpointModel) -> int:
-            fp.feeds
-            feeds = fp.feeds
-            try:
-                return len(feeds)
-            except Exception:
-                return 0
-
-        flashpoint_feeds_tuple_list: List[Tuple["FlashpointModel", int]] = [
-            (fp, feed_count(fp)) for fp in flashpoints
-        ]
-
-        # Log inventory
-        for fp, c in flashpoint_feeds_tuple_list:
-            self.logger.info(
-                f"runpod_serverless_manager.py:RunPodServerlessManager:Flashpoint {fp.id}: {fp.title} | feeds={c}"
-            )
-
-        # Sort heavy → light; tie-break deterministically by id if present
-        flashpoint_feeds_tuple_list.sort(
-            key=lambda t: (-t[1], str(getattr(t[0], "id", "")))
-        )
 
         # Initialize worker bins
         chunks: List[List["FlashpointModel"]] = [[] for _ in range(num_workers)]
-        loads: List[int] = [0] * num_workers
+        
+        # Simple round-robin distribution: 1 flashpoint per worker
+        for i, flashpoint in enumerate(flashpoints):
+            worker_index = i % num_workers
+            chunks[worker_index].append(flashpoint)
 
-        # Phase 1: dedicate the top-K heavy flashpoints one-per-worker
-        K = min(num_workers, len(flashpoint_feeds_tuple_list))
-        for i in range(K):
-            fp, c = flashpoint_feeds_tuple_list[i]
-            chunks[i].append(fp)
-            loads[i] += c
-
-        # Phase 2: greedily place the rest onto the least-loaded worker
-        for fp, c in flashpoint_feeds_tuple_list[K:]:
-            idx = min(range(num_workers), key=lambda i: loads[i])
-            chunks[idx].append(fp)
-            loads[idx] += c
-
-        # Final logs
-        total_feeds = sum(c for _, c in flashpoint_feeds_tuple_list)
+        # Log distribution
         self.logger.info(
             f"runpod_serverless_manager.py:RunPodServerlessManager:Distributed {len(flashpoints)} flashpoints "
-            f"(total_feeds={total_feeds}) across {num_workers} workers"
+            f"across {num_workers} workers (1 per worker)"
         )
-        for i, (chunk, load) in enumerate(zip(chunks, loads), start=1):
-            self.logger.info(
-                f"runpod_serverless_manager.py:RunPodServerlessManager:Worker {i}: {len(chunk)} flashpoints, sum_feeds={load}"
-            )
+        
+        for i, chunk in enumerate(chunks, start=1):
+            if chunk:
+                self.logger.info(
+                    f"runpod_serverless_manager.py:RunPodServerlessManager:Worker {i}: {len(chunk)} flashpoint(s)"
+                )
+            else:
+                self.logger.info(
+                    f"runpod_serverless_manager.py:RunPodServerlessManager:Worker {i}: idle (no flashpoints assigned)"
+                )
 
         return chunks
 
@@ -145,7 +116,7 @@ class RunPodServerlessManager:
         self, flashpoints: List[FlashpointModel], date: str, cleanup: bool = True
     ) -> List[Any]:
         """
-        Distribute flashpoints to multiple RunPod Serverless instances.
+        Distribute flashpoints to multiple RunPod Serverless instances (fire and forget).
 
         Args:
             flashpoints: List of flashpoints to process
@@ -153,7 +124,7 @@ class RunPodServerlessManager:
             cleanup: Whether to cleanup before processing
 
         Returns:
-            List of results from all workers
+            Status information about launched workers (no actual results)
         """
         if self.num_workers == 1:
             # Single worker - process locally
@@ -165,23 +136,23 @@ class RunPodServerlessManager:
         # Split flashpoints into chunks
         worker_chunks = self._distribute_flashpoints(flashpoints)
 
-        # Send each chunk to a different RunPod instance
-        worker_tasks = []
+        # Send each chunk to a different RunPod instance (fire and forget)
+        launched_workers = 0
         for i, chunk in enumerate(worker_chunks):
             if chunk:
                 self.logger.info(
-                    f"runpod_serverless_manager.py:RunPodServerlessManager:**********Sending chunk {i + 1} to RunPod Serverless worker***********"
+                    f"runpod_serverless_manager.py:RunPodServerlessManager:**********Launching chunk {i + 1} to RunPod Serverless worker (fire and forget)***********"
                 )
-                task = self._send_to_worker_instance(i + 1, chunk, date, cleanup)
-                worker_tasks.append(task)
+                # Fire and forget - don't wait for completion
+                asyncio.create_task(self._send_to_worker_instance(i + 1, chunk, date, cleanup))
+                launched_workers += 1
 
-        # Wait for all workers to complete
-        if worker_tasks:
+        if launched_workers > 0:
             self.logger.info(
-                f"runpod_serverless_manager.py:RunPodServerlessManager:Starting {len(worker_tasks)} RunPod Serverless workers"
+                f"runpod_serverless_manager.py:RunPodServerlessManager:Launched {launched_workers} RunPod Serverless workers (fire and forget mode)"
             )
-            results = await asyncio.gather(*worker_tasks, return_exceptions=True)
-            return self._aggregate_results(results, flashpoints)
+            # Return immediately - workers will process independently
+            return [{"status": "workers_launched", "count": launched_workers, "mode": "fire_and_forget"}]
 
         return []
 
@@ -191,9 +162,9 @@ class RunPodServerlessManager:
         flashpoints: List[FlashpointModel],
         date: str,
         cleanup: bool,
-    ) -> Dict[str, Any]:
+    ) -> None:
         """
-        Send work to a RunPod Serverless instance.
+        Send work to a RunPod Serverless instance (fire and forget).
 
         Args:
             worker_id: ID of the worker
@@ -202,7 +173,7 @@ class RunPodServerlessManager:
             cleanup: Whether to cleanup
 
         Returns:
-            Result from the worker instance
+            None (fire and forget - no results returned)
         """
         # Create payload for this worker
         payload = {
@@ -216,39 +187,37 @@ class RunPodServerlessManager:
         }
 
         self.logger.info(
-            f"runpod_serverless_manager.py:RunPodServerlessManager:Worker {worker_id}: Sending {len(flashpoints)} flashpoints to RunPod"
+            f"runpod_serverless_manager.py:RunPodServerlessManager:Worker {worker_id}: Launching {len(flashpoints)} flashpoints to RunPod (fire and forget)"
         )
 
-        # Call RunPod API to create new instance
+        # Call RunPod API to create new instance (fire and forget)
         # Note: No timeout set - ETL processes can take hours to complete
-        async with aiohttp.ClientSession() as session:
-            headers = {
-                "Authorization": f"Bearer {self.runpod_api_key}",
-                "Content-Type": "application/json",
-            }
+        try:
+            async with aiohttp.ClientSession() as session:
+                headers = {
+                    "Authorization": f"Bearer {self.runpod_api_key}",
+                    "Content-Type": "application/json",
+                }
 
-            try:
                 # This creates a new RunPod Serverless instance
                 async with session.post(
                     self.runpod_endpoint, json=payload, headers=headers
                 ) as response:
                     if response.status == 200:
-                        result = await response.json()
                         self.logger.info(
-                            f"runpod_serverless_manager.py:RunPodServerlessManager:Worker {worker_id} instance created successfully"
+                            f"runpod_serverless_manager.py:RunPodServerlessManager:Worker {worker_id} instance launched successfully"
                         )
-                        return result
                     else:
                         error_text = await response.text()
-                        raise Exception(
-                            f"RunPod API error {response.status}: {error_text}"
+                        self.logger.error(
+                            f"runpod_serverless_manager.py:RunPodServerlessManager:Worker {worker_id} RunPod API error {response.status}: {error_text}"
                         )
 
-            except Exception as e:
-                self.logger.error(
-                    f"runpod_serverless_manager.py:RunPodServerlessManager:Error creating worker {worker_id}: {e}"
-                )
-                raise e
+        except Exception as e:
+            self.logger.error(
+                f"runpod_serverless_manager.py:RunPodServerlessManager:Error launching worker {worker_id}: {e}"
+            )
+            # Don't raise - this is fire and forget, just log the error
 
     async def _process_locally(
         self, flashpoints: List[FlashpointModel], date: str, cleanup: bool
@@ -294,7 +263,7 @@ class RunPodServerlessManager:
         self, worker_results: List[Any], original_flashpoints: List[FlashpointModel]
     ) -> List[Any]:
         """
-        Aggregate results from multiple workers.
+        Aggregate results from multiple workers (legacy method - not used in fire and forget mode).
 
         Args:
             worker_results: Results from all workers
@@ -303,31 +272,10 @@ class RunPodServerlessManager:
         Returns:
             Flattened list of results
         """
-        self.logger.info(
-            "runpod_serverless_manager.py:RunPodServerlessManager:Aggregating results from all workers"
+        self.logger.warning(
+            "runpod_serverless_manager.py:RunPodServerlessManager:_aggregate_results called but not used in fire and forget mode"
         )
-
-        # Flatten results and handle exceptions
-        flattened_results = []
-        for i, result in enumerate(worker_results):
-            if isinstance(result, Exception):
-                self.logger.error(
-                    f"runpod_serverless_manager.py:RunPodServerlessManager:Worker {i+1} error: {result}"
-                )
-                # Estimate how many results this worker should have produced
-                estimated_results = len(original_flashpoints) // self.num_workers
-                flattened_results.extend([None] * estimated_results)
-            else:
-                # Add the worker's results
-                if isinstance(result, list):
-                    flattened_results.extend(result)
-                else:
-                    flattened_results.append(result)
-
-        self.logger.info(
-            f"runpod_serverless_manager.py:RunPodServerlessManager:Aggregated {len(flattened_results)} results from {len(worker_results)} workers"
-        )
-        return flattened_results
+        return []
 
     def get_status(self) -> Dict[str, Any]:
         """
@@ -340,5 +288,6 @@ class RunPodServerlessManager:
             "num_workers": self.num_workers,
             "runpod_api_key_configured": bool(self.runpod_api_key),
             "runpod_endpoint_configured": bool(self.runpod_endpoint),
-            "mode": "multi_worker" if self.num_workers > 1 else "single_worker",
+            "mode": "multi_worker_fire_forget" if self.num_workers > 1 else "single_worker",
+            "execution_strategy": "fire_and_forget" if self.num_workers > 1 else "local_processing",
         }

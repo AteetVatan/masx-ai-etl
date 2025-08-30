@@ -41,8 +41,16 @@ requests==2.32.4
 beautifulsoup4==4.13.4
 lxml==5.4.0
 crawl4ai>=0.1.0
-#pip install playwright # python -m playwright install chromium
-playwright>=1.46.0
+# pip uninstall playwright -y #pip install playwright # python -m playwright install chromium
+
+
+# Remove-Item -Recurse -Force "C:\Users\ateet\AppData\Local\ms-playwright"
+# pip uninstall playwright -y
+# pip install playwright==1.46.0 #The -y flag is just a “yes to all prompts”
+# python -m playwright install chromium
+# setx PLAYWRIGHT_BROWSERS_PATH "C:\Users\ateet\AppData\Local\ms-playwright"
+
+playwright==1.46.0 # expects chromium-1129
 
 # Logging and Configuration
 structlog==23.2.0
