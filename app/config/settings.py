@@ -132,7 +132,14 @@ class Settings(BaseSettings):
 
     # WEB_SCRAPER
     web_scraper_batch_size: int = Field(
-        default=10, description="Web scraper batch size"
+        default=15 if environment == "production" else 5,
+        description="Web scraper batch size (5 for dev, 15 for prod)"
+    )
+    
+    # SUMMARIZER
+    summarizer_batch_size: int = Field(
+        default=40 if environment == "production" else 5,
+        description="Summarizer batch size (5 for dev, 40 for prod - optimized for per-flashpoint worker isolation with RTX A4500)"
     )
 
     api_secret_key: str = Field(
@@ -157,7 +164,10 @@ class Settings(BaseSettings):
 
     # Concurrency Configuration
     # GPU settings
-    gpu_batch_size: int = Field(default=32, description="GPU batch size for inference")
+    gpu_batch_size: int = Field(
+        default=48 if environment == "production" else 8,
+        description="GPU batch size for inference (8 for dev, 48 for prod - optimized for per-flashpoint worker with RTX A4500 20GB VRAM)"
+    )
     gpu_max_delay_ms: int = Field(
         default=50, description="GPU max delay before batch processing (ms)"
     )
@@ -168,31 +178,35 @@ class Settings(BaseSettings):
     )
     gpu_use_fp16: bool = Field(default=True, description="Use FP16 for GPU inference")
     gpu_enable_warmup: bool = Field(default=True, description="Enable GPU model warmup")
-
+    
+    # Multi-GPU Configuration for RTX A4500 + RTX 2000 series
+    gpu_primary_device_id: int = Field(default=0, description="Primary GPU device ID (RTX A4500)")
+    gpu_secondary_device_ids: List[int] = Field(default=[1, 2], description="Secondary GPU device IDs (RTX 2000 series)")
+    gpu_primary_batch_size: int = Field(default=48, description="Primary GPU batch size (RTX A4500 - 20GB VRAM) for per-flashpoint worker")
+    gpu_secondary_batch_size: int = Field(default=24, description="Secondary GPU batch size (RTX 2000 series - 4-8GB VRAM) for per-flashpoint worker")
+    gpu_enable_multi_gpu: bool = Field(default=True, description="Enable multi-GPU processing")
+    
+    # Flashpoint Worker Optimization (per-flashpoint resource allocation)
+    flashpoint_worker_enabled: bool = Field(default=True, description="Enable per-flashpoint worker optimization")
+    flashpoint_worker_max_feeds: int = Field(
+        default=1000, description="Maximum feeds per flashpoint worker (RTX A4500 + 12 vCPUs)"
+    )
+    flashpoint_worker_batch_multiplier: float = Field(
+        default=2.0, description="Batch size multiplier for per-flashpoint worker isolation (2x larger batches)"
+    )
+    
     # CPU settings
-    cpu_max_threads: int = Field(default=20, description="Maximum CPU threads")
-    cpu_max_processes: int = Field(default=4, description="Maximum CPU processes")
-
-    # Render settings
-    render_max_pages: int = Field(
-        default=5, description="Maximum concurrent render pages"
+    cpu_max_threads: int = Field(default=12, description="Maximum CPU threads (optimized for 12 vCPUs per flashpoint worker)")
+    cpu_max_processes: int = Field(default=8, description="Maximum CPU processes (optimized for 12 vCPUs per flashpoint worker)")
+    cpu_batch_size: int = Field(
+        default=16 if environment == "production" else 2,
+        description="CPU batch size for inference (2 for dev, 16 for prod - optimized for 12 vCPUs per flashpoint worker)"
     )
-    render_queue_max: int = Field(default=100, description="Maximum render queue size")
-    render_timeout_s: int = Field(
-        default=3600,
-        description="Render timeout (seconds) (1 hour for complex web pages)",
-    )
-    render_retries: int = Field(default=3, description="Render retry attempts")
 
     # Security Configuration
     cors_origins: List[str] = Field(
         default=["http://localhost:3000"], description="Allowed CORS origins"
     )
-    enable_content_filtering: bool = Field(
-        default=True, description="Enable content filtering"
-    )
-    max_content_length: int = Field(default=10000, description="Maximum content length")
-
     # Monitoring and Logging
     log_format: str = Field(default="json", description="Log format")
     log_file: str = Field(default="logs/masx.log", description="Log file path")
