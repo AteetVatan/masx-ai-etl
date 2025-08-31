@@ -166,7 +166,7 @@ class ETLPipeline:
 
             # return True
 
-            feeds = feeds[:5]
+            #feeds = feeds[:5]
 
             # load summarized feeds from file
             self.logger.info(
@@ -190,7 +190,7 @@ class ETLPipeline:
                 f"etl_pipeline.py:ETLPipeline:summarized_feeds length: {len(summarized_feeds)}"
             )
 
-            for feed in summarized_feeds:
+            for feed in summarized_feeds[:5]:
                 self.logger.info(
                     f"etl_pipeline.py:ETLPipeline:**************************************************************************"
                 )
