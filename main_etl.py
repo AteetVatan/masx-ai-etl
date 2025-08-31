@@ -17,11 +17,12 @@
 # Contact: ab@masxai.com | MASXAI.com
 
 import asyncio
+from typing import Optional, List
 from app.etl import ETLPipeline
 from app.singleton import ChromaClientSingleton
-from typing import Optional, List
 from app.config import get_service_logger
 from app.enumeration import WorkerEnums
+from app.services import ProxyService
 
 logger = get_service_logger("ETLPipeline")
 
@@ -45,8 +46,10 @@ async def run_etl_pipeline(
     logger.info(f"main_etl.py:run_etl_pipeline called")
     if cleanup:
         ChromaClientSingleton.cleanup_chroma()
-
-
+        
+    if trigger == WorkerEnums.COORDINATOR.value:
+        proxy_service = ProxyService()
+        await proxy_service.ping_start_proxy()
 
     etl_pipeline = ETLPipeline(date)
     await etl_pipeline.run_all_etl_pipelines(
