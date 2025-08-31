@@ -12,6 +12,7 @@ from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 from typing import Optional, Callable, Any, List, TypeVar, Awaitable
 from functools import partial
 import threading
+from app.config import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -47,10 +48,11 @@ class CPUExecutors:
         self._thread_pool: Optional[ThreadPoolExecutor] = None
         self._process_pool: Optional[ProcessPoolExecutor] = None
         self._shutdown_event = threading.Event()
+        self.settings = get_settings()
 
         # Configuration from environment
-        self.max_threads = int(os.getenv("MAX_THREADS", "20"))
-        self.max_processes = int(os.getenv("MAX_PROCS", "4"))
+        self.max_threads = self.settings.cpu_max_threads
+        self.max_processes = self.settings.cpu_max_processes
 
         logger.info(
             f"cpu_executors.py:CPUExecutors initialized: max_threads={self.max_threads}, max_processes={self.max_processes}"

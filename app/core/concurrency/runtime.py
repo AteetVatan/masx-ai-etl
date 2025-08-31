@@ -69,27 +69,27 @@ class RuntimeConfig:
     settings = get_settings()
 
     # GPU settings
-    gpu_batch_size: int = 32
-    gpu_max_delay_ms: int = 50
-    gpu_queue_size: int = 1000
-    gpu_timeout: float = 7200.0  # 2 hours for ETL processes
-    gpu_use_fp16: bool = True
-    gpu_enable_warmup: bool = True
+    gpu_batch_size: int = settings.gpu_batch_size
+    gpu_max_delay_ms: int = settings.gpu_max_delay_ms
+    gpu_queue_size: int = settings.gpu_queue_size
+    gpu_timeout: float = settings.gpu_timeout
+    gpu_use_fp16: bool = settings.gpu_use_fp16
+    gpu_enable_warmup: bool = settings.gpu_enable_warmup
 
     # CPU settings
-    cpu_max_threads: int = 20
-    cpu_max_processes: int = 4
+    cpu_max_threads: int = settings.cpu_max_threads
+    cpu_max_processes: int = settings.cpu_max_processes
 
     # Model Pool settings (for production mode)
     model_pool_max_instances: int = settings.model_pool_max_instances
     model_pool_enabled: bool = settings.model_pool_enabled
 
     # Debug settings
-    debug_mode: Optional[bool] = None  # Auto-detect from settings if None
+    debug_mode: Optional[bool] = settings.debug
 
     # General settings
-    enable_metrics: bool = True
-    log_level: str = "INFO"
+    enable_metrics: bool = settings.enable_metrics
+    log_level: str = settings.log_level
 
 
 class InferenceRuntime:
