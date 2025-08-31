@@ -77,7 +77,7 @@ class Summarizer:
             self.logger.info(
                 f"summarizer.py:Summarizer:Process in batches for efficiency"
             )
-            batch_size = 10
+            batch_size = self.settings.summarizer_batch_size
             for i in range(0, len(self.feeds), batch_size):
                 batch = self.feeds[i : i + batch_size]
                 batch_results = await self._process_batch(batch)
