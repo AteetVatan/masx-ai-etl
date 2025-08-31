@@ -6,6 +6,8 @@ ENV DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC PYTHONUNBUFFERED=1 \
     CUDA_HOME=/usr/local/cuda PATH=/usr/local/cuda/bin:${PATH} \
     LD_LIBRARY_PATH=/usr/local/cuda/lib64:${LD_LIBRARY_PATH}
 
+ENV TRANSFORMERS_VERBOSITY=info
+
 WORKDIR /app
 
 # ---- System deps ----

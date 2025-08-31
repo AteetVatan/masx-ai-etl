@@ -62,6 +62,25 @@ class Crawl4AIExtractor:
 
         c4a_script = """# Give banners time to render
         WAIT 2
+        
+        # Block navigation events that cause content changes
+        EVAL `(() => {
+            // Prevent navigation events
+            window.addEventListener('beforeunload', (e) => e.preventDefault());
+            window.addEventListener('unload', (e) => e.preventDefault());
+            
+            // Disable auto-refresh and navigation
+            if (window.location.href.includes('news.google.com')) {
+                // Google News specific handling
+                const observer = new MutationObserver(() => {
+                    // Block any navigation attempts
+                    if (window.location.href !== window.location.href) {
+                        window.stop();
+                    }
+                });
+                observer.observe(document, {subtree: true, childList: true});
+            }
+        })()`
 
         # OneTrust accept
         IF (EXISTS `#onetrust-accept-btn-handler, .onetrust-accept-btn-handler`) THEN CLICK `#onetrust-accept-btn-handler, .onetrust-accept-btn-handler`
@@ -98,9 +117,10 @@ class Crawl4AIExtractor:
         if (!window.__masx) {
             window.__masx = {
             lastMut: performance.now(),
-            stableMs: 600,
-            textMin: 500,
-            pMin: 4,
+            stableMs: 1000,  // Increased stability window
+            textMin: 300,    // Lower text requirement
+            pMin: 2,         // Lower paragraph requirement
+            navBlocked: false
             };
             const obs = new MutationObserver(() => { window.__masx.lastMut = performance.now(); });
             obs.observe(document, {subtree: true, childList: true, characterData: true, attributes: true});
@@ -142,7 +162,8 @@ class Crawl4AIExtractor:
             excluded_selector=(
                 "header, footer, nav, aside, "
                 "#cookie-banner, .cookie-banner, .consent-banner, .gdpr, "
-                ".cmp-container, .ads, .advert, .newsletter, .subscribe"
+                ".cmp-container, .ads, .advert, .newsletter, .subscribe, "
+                "[data-testid*='navigation'], [role='navigation']"
             ),
             # 3) Skip trivial text blocks (great for boilerplate)
             word_count_threshold=50,
