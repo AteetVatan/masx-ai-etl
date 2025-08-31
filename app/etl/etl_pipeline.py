@@ -149,7 +149,7 @@ class ETLPipeline:
     async def run_etl_pipeline(self, flashpoint: FlashpointModel):
         try:
             # Optimize batch sizes for per-flashpoint worker isolation
-            self._optimize_batch_sizes_for_worker(flashpoint)
+            #self._optimize_batch_sizes_for_worker(flashpoint)
             
             if self.settings.debug:
                 self.logger.info(
@@ -177,7 +177,7 @@ class ETLPipeline:
 
             self.logger.info(f"etl_pipeline.py:ETLPipeline:feeds length: {len(feeds)}")
             self.logger.info(
-                f"etl_pipeline.py:ETLPipeline:scraped_feeds length: {len(scraped_feeds)} out of {len(feeds)}"
+                f"*****************etl_pipeline.py:ETLPipeline:scraped_feeds length: {len(scraped_feeds)} out of {len(feeds)}*****************"
             )
 
             # scraped_feeds = scraped_feeds[:1]
