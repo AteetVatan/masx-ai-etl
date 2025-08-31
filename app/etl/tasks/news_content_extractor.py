@@ -27,6 +27,7 @@ from app.etl_data.etl_models import FeedModel
 from app.config import get_settings, get_service_logger
 from app.web_scrapers import WebScraperUtils
 from app.core.concurrency import CPUExecutors
+from app.services import ProxyService
 
 
 class NewsContentExtractor:
@@ -45,6 +46,7 @@ class NewsContentExtractor:
         # Initialize CPU executors for async processing
         self.cpu_executors = CPUExecutors()
         self.web_scraper_batch_size = self.settings.web_scraper_batch_size
+        self.proxy_service = ProxyService()
 
     async def extract_feeds(self) -> list[FeedModel]:
         """
@@ -59,7 +61,11 @@ class NewsContentExtractor:
         self.logger.info(
             f"news_content_extractor.py:NewsContentExtractor:---- ProxyManager initiated ----"
         )
-        proxies = await ProxyManager.proxies_async()
+        #proxies = await ProxyManager.proxies_async()
+        
+        proxies = await self.proxy_service.get_proxies()
+        
+        
         self.logger.info(
             f"news_content_extractor.py:NewsContentExtractor:---- {len(proxies)} proxies found ----"
         )
@@ -256,6 +262,8 @@ def __scrape_multilang_feeds_debug(url: str, proxy: str):
     except Exception as e:
         print(f"[Error] Failed to scrape {url}: {e}", exc_info=True)
         return None
+
+
 
 
 # if __name__ == "__main__":
