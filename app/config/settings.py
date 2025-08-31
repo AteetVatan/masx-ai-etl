@@ -195,9 +195,11 @@ class Settings(BaseSettings):
         default=2.0, description="Batch size multiplier for per-flashpoint worker isolation (2x larger batches)"
     )
     
-    # CPU settings
+    # CPU settings    
     cpu_max_threads: int = Field(default=12, description="Maximum CPU threads (optimized for 12 vCPUs per flashpoint worker)")
     cpu_max_processes: int = Field(default=8, description="Maximum CPU processes (optimized for 12 vCPUs per flashpoint worker)")
+    
+    
     cpu_batch_size: int = Field(
         default=16 if environment == "production" else 2,
         description="CPU batch size for inference (2 for dev, 16 for prod - optimized for 12 vCPUs per flashpoint worker)"
