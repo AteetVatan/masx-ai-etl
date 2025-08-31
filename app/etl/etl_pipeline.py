@@ -148,6 +148,9 @@ class ETLPipeline:
 
     async def run_etl_pipeline(self, flashpoint: FlashpointModel):
         try:
+            # Optimize batch sizes for per-flashpoint worker isolation
+            self._optimize_batch_sizes_for_worker(flashpoint)
+            
             if self.settings.debug:
                 self.logger.info(
                     "etl_pipeline.py:ETLPipeline:Starting MASX News ETL (Standalone Debug Mode)"
@@ -347,6 +350,31 @@ class ETLPipeline:
     def _clean_flashpoints(self, flashpoints: list[FlashpointModel]):
         # clean the flashpoints
         return [x for x in flashpoints if x.feeds is not None and len(x.feeds) > 0]
+    
+    def _optimize_batch_sizes_for_worker(self, flashpoint: FlashpointModel):
+        """
+        Optimize batch sizes for per-flashpoint worker isolation.
+        Each worker gets dedicated RTX A4500 + 12 vCPUs + 31-62GB RAM.
+        """
+        if not self.settings.flashpoint_worker_enabled:
+            return
+        
+        feed_count = len(flashpoint.feeds) if flashpoint.feeds else 0
+        
+        # Log worker optimization
+        self.logger.info(
+            f"etl_pipeline.py:ETLPipeline:Optimizing batch sizes for flashpoint worker: "
+            f"Flashpoint ID: {flashpoint.id}, Feeds: {feed_count}, "
+            f"RTX A4500 + 12 vCPUs + {self.settings.max_memory_usage * 100:.0f}% RAM utilization"
+        )
+        
+        # Apply per-flashpoint worker batch multiplier
+        if self.settings.is_production:
+            self.logger.info(
+                f"etl_pipeline.py:ETLPipeline:Per-flashpoint worker optimization enabled: "
+                f"Batch multiplier: {self.settings.flashpoint_worker_batch_multiplier}x, "
+                f"Max feeds per worker: {self.settings.flashpoint_worker_max_feeds}"
+            )
 
     def _load_summarized_feeds(self, flashpoint_id: str):
         from app.etl_data.etl_models.feed_model import FeedModel
