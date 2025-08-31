@@ -65,6 +65,13 @@ class Settings(BaseSettings):
     masx_force_gpu: bool = Field(default=False, description="Force GPU usage")
 
     # PROXY SETTINGS
+    proxy_base: str = Field(default="https://masxaiproxyservice-production.up.railway.app", description="Proxy base URL")
+    proxy_post_start_service: str = Field(default="/api/v1/start-refresh", description="Proxy post start service")
+    proxy_get_proxies: str = Field(default="/api/v1/proxies", description="Proxy get proxies")
+    proxy_api_key: str = Field(default="", description="Proxy API key")
+    
+        
+    
     proxy_webpage: str = Field(
         default="https://free-proxy-list.net/", description="Proxy webpage"
     )
