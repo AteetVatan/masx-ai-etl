@@ -19,15 +19,15 @@
 import torch
 import asyncio
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
-
+from typing import Optional
 from app.core.exceptions import ServiceException
 from app.core.concurrency import InferenceRuntime, RuntimeConfig
 from app.nlp import Translator, NLPUtils
 from app.singleton import ModelManager
 from app.config import get_service_logger, get_settings
 from app.etl_data.etl_models import FeedModel
-from typing import Optional
-
+from app.core.models import SummarizationModelManager
+from app.core.concurrency import CPUExecutors
 
 class Summarizer:
     """
@@ -43,74 +43,64 @@ class Summarizer:
 
     def __init__(self, feeds: list[FeedModel]):
         self.feeds = feeds
-        self.summarization_model, self.summarization_tokenizer, self.device = (
-            ModelManager.get_summarization_model()
-        )
-        self.translator = Translator()
         self.logger = get_service_logger("Summarizer")
         self.settings = get_settings()
-        self.prompt_prefix = "summarize: "
-
-        # Initialize inference runtime
+        # inference runtime for summarization
         self.inference_runtime: Optional[InferenceRuntime] = None
+        self.cpu_executors = CPUExecutors()
+        
+    def get_summarizer_utils():
+        """Lazy import to avoid circular dependency."""
+        from app.etl.tasks import SummarizerUtils
 
-    async def summarize_all_feeds(self):
+        return SummarizerUtils
+
+    async def summarize_all_feeds(self) -> list[FeedModel]:
         """
         Translate, compress if needed, and summarize each article using InferenceRuntime with GPU micro-batching.
         """
         try:
-            self.logger.info(
-                f"summarizer.py:Summarizer:summarize_all_feeds {len(self.feeds)} feeds"
-            )
+            self.logger.info(f"Summarizer: summarizing {len(self.feeds)} feeds")
+            
             # Initialize inference runtime if not already done
             if not self.inference_runtime:
-                self.logger.info(
-                    f"summarizer.py:Summarizer:Initializing inference runtime"
-                )
+                self.logger.info("Summarizer: initializing inference runtime")
                 await self._initialize_inference_runtime()
 
-            self.logger.info(f"summarizer.py:Summarizer:Inference runtime initialized")
-            # Process feeds using the inference runtime
-            summarized_feeds = []
+            summarizer: SummarizationModelManager = self.inference_runtime.model_manager
+            batch_size = summarizer.pool_size
+            summarized_feeds: list[FeedModel] = []
 
-            # Process in batches for efficiency
-            self.logger.info(
-                f"summarizer.py:Summarizer:Process in batches for efficiency"
-            )
-            batch_size = self.settings.summarizer_batch_size
+            # Process feeds in batches
             for i in range(0, len(self.feeds), batch_size):
                 batch = self.feeds[i : i + batch_size]
-                batch_results = await self._process_batch(batch)
-                summarized_feeds.extend([r for r in batch_results if r])
+                self.logger.info(f"Summarizer: processing batch of {len(batch)} feeds")
+                batch_feeds = await self._process_batch(batch) # parallel execution of the batch
+                summarized_feeds.extend(batch_feeds)
 
             return summarized_feeds
 
         except Exception as e:
-            self.logger.error(f"summarizer.py:Summarizer:Error summarizing feeds: {e}")
+            self.logger.error(f"Summarizer: error summarizing feeds: {e}")
             raise ServiceException(f"Error summarizing feeds: {e}")
         finally:
-            # Cleanup inference runtime
+            # Final cleanup -- remove all the models from the pool
             if self.inference_runtime:
+                self.inference_runtime.model_manager.cleanup()
                 await self.inference_runtime.stop()
+               
+                
 
     async def _initialize_inference_runtime(self):
         """Initialize the inference runtime for summarization."""
         try:
             # Create runtime config optimized for summarization
             config = RuntimeConfig(
-                gpu_batch_size=self.settings.gpu_batch_size,
-                gpu_max_delay_ms=self.settings.gpu_max_delay_ms,
-                gpu_queue_size=self.settings.gpu_queue_size,
-                gpu_timeout=self.settings.gpu_timeout,
-                gpu_use_fp16=self.settings.gpu_use_fp16,
-                gpu_enable_warmup=self.settings.gpu_enable_warmup,
-                cpu_max_threads=self.settings.cpu_max_threads,
-                cpu_max_processes=self.settings.cpu_max_processes,
             )
 
             # Create and start inference runtime
             self.inference_runtime = InferenceRuntime(
-                model_loader=self._get_summarization_model_loader, config=config
+                model_manager_loader=self._get_summarization_model_manager, config=config
             )
 
             await self.inference_runtime.start()
@@ -124,254 +114,52 @@ class Summarizer:
             )
             raise
 
-    def _get_summarization_model_loader(self):
+    def _get_summarization_model_manager(self):
         """Model loader function for the inference runtime."""
-        # Return only the model, not the tuple, since GPUWorker expects a single model
-        model, tokenizer, device = ModelManager.get_summarization_model()
-        return model
+        # Return only the model, not the tuple, since GPUWorker expects a single model        
+        return SummarizationModelManager(self.settings)
+
+    
 
     async def _process_batch(self, feeds: list[FeedModel]) -> list[FeedModel]:
-        """Process a batch of feeds using the inference runtime with GPU micro-batching."""
-        try:
-            # Prepare payloads for inference
-            payloads = []
-            for feed in feeds:
-                payload = {
-                    "feed": feed,
-                    "text": feed.raw_text,
-                    "url": feed.url,
-                    "prompt_prefix": self.prompt_prefix,
-                }
-                payloads.append(payload)
-
-            # Use inference runtime for batch processing with GPU micro-batching
-            self.logger.info(
-                f"summarizer.py:Summarizer:_process_batch using inference runtime"
-            )
-            results = await self.inference_runtime.infer_many(payloads)
-
-            # Process results
-            processed_feeds = []
-            for i, result in enumerate(results):
-                if isinstance(result, Exception):
-                    self.logger.error(
-                        f"summarizer.py:Summarizer:Feed {i} processing failed: {result}"
-                    )
-                    # Fallback to direct summarization
-                    try:
-                        processed_feed = await self._summarize_feed_async(feeds[i])
-                        if processed_feed:
-                            processed_feeds.append(processed_feed)
-                    except Exception as e:
-                        self.logger.error(
-                            f"summarizer.py:Summarizer:Direct summarization also failed for feed {i}: {e}"
-                        )
-                    continue
-
-                # Apply the processed result to the feed
-                feed = feeds[i]
-                if result and isinstance(result, dict):
-                    # Update feed with processed result from inference runtime
-                    if "translated_text" in result:
-                        feed.raw_text_en = result["translated_text"]
-                    if "compressed_text" in result:
-                        feed.compressed_text = result["compressed_text"]
-                    if "summary" in result:
-                        feed.summary = result["summary"]
-
-                    # Only add if we got a valid summary
-                    if hasattr(feed, "summary") and feed.summary:
-                        processed_feeds.append(feed)
-                    else:
-                        # Fallback to direct summarization if no summary was generated
-                        try:
-                            processed_feed = await self._summarize_feed_async(feed)
-                            if processed_feed:
-                                processed_feeds.append(processed_feed)
-                        except Exception as e:
-                            self.logger.error(
-                                f"summarizer.py:Summarizer:Fallback summarization failed for feed {i}: {e}"
-                            )
-                elif result and isinstance(result, Exception):
-                    # Handle case where result is an exception
-                    self.logger.error(
-                        f"summarizer.py:Summarizer:Inference runtime returned exception for feed {i}: {result}"
-                    )
-                    # Fallback to direct summarization
-                    try:
-                        processed_feed = await self._summarize_feed_async(feed)
-                        if processed_feed:
-                            processed_feeds.append(processed_feed)
-                    except Exception as e:
-                        self.logger.error(
-                            f"summarizer.py:Summarizer:Fallback summarization also failed for feed {i}: {e}"
-                        )
-
-            return processed_feeds
-
-        except Exception as e:
-            self.logger.error(f"summarizer.py:Summarizer:Batch processing failed: {e}")
-            # Fallback to sequential processing
-            try:
-                return await self._process_batch_sequential(feeds)
-            except Exception as fallback_error:
-                self.logger.error(
-                    f"summarizer.py:Summarizer:Sequential fallback also failed: {fallback_error}"
-                )
-                # Last resort: return empty list to prevent complete failure
-                return []
-
-    async def _process_batch_async(self, feeds: list[FeedModel]) -> list[FeedModel]:
-        """Process a batch of feeds using async concurrency."""
-        try:
-            # Create tasks for concurrent processing
-            tasks = [self._summarize_feed_async(feed) for feed in feeds]
-
-            # Execute all tasks concurrently
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-
-            # Process results
-            processed_feeds = []
-            for i, result in enumerate(results):
-                if isinstance(result, Exception):
-                    self.logger.error(
-                        f"summarizer.py:Summarizer:Feed {i} processing failed: {result}"
-                    )
-                    continue
-
-                if result:
-                    processed_feeds.append(result)
-
-            return processed_feeds
-
-        except Exception as e:
-            self.logger.error(f"Batch processing failed: {e}")
-            # Fallback to sequential processing
-            try:
-                return await self._process_batch_sequential(feeds)
-            except Exception as fallback_error:
-                self.logger.error(f"Sequential fallback also failed: {fallback_error}")
-                # Last resort: return empty list to prevent complete failure
-                return []
-
-    async def _process_batch_sequential(
-        self, feeds: list[FeedModel]
-    ) -> list[FeedModel]:
-        """Fallback sequential processing."""
-        results = []
-        for feed in feeds:
-            try:
-                result = await self._summarize_feed_async(feed)
-                if result:
-                    results.append(result)
-            except Exception as e:
-                self.logger.error(
-                    f"summarizer.py:Summarizer:Feed processing failed: {e}"
-                )
-        return results
-
-    async def _summarize_feed_async(self, feed: FeedModel):
-        """
-        Summarize a single feed asynchronously.
-        """
+        """Process a batch of feeds using the inference runtime with CPI/GPU micro-batching."""
         try:
             from app.etl.tasks import SummarizerUtils
+            summarizer_utils = SummarizerUtils()
 
-            payload = {
-                "feed": feed,
-                "text": feed.raw_text,
-                "url": feed.url,
-                "prompt_prefix": self.prompt_prefix,
-            }
-            model, tokenizer, device = ModelManager.get_summarization_model()
-            max_tokens = ModelManager.get_summarization_model_max_tokens()
-            result = SummarizerUtils._summarizer(
-                payload, model, tokenizer, device, max_tokens
-            )
-            feed.compressed_text = result["compressed_text"]
-            feed.translated_text = result["translated_text"]
-            feed.summary = result["summary"]
-            return feed
+            summarizer: SummarizationModelManager = self.inference_runtime.model_manager
+
+            async def run(feed: FeedModel) -> FeedModel | None:
+                # each task acquires its own instance
+                with summarizer.acquire(destroy_after_use=False) as instance:
+                    try:
+                        result = summarizer_utils._summarizer(
+                            feed.raw_text,
+                            instance.model,
+                            instance.tokenizer,
+                            instance.device,
+                            instance.max_tokens,
+                        )
+                        feed.summary = result
+                        return feed
+                    except Exception as e:
+                        self.logger.error(f"Summarizer: Error summarizing feed: {e}")
+                        return None
+
+            # schedule all feeds in parallel
+            tasks = [run(feed) for feed in feeds]
+            results = await asyncio.gather(*tasks, return_exceptions=True)            
+
+            # filter out None values and exceptions
+            summarized_feeds = [
+                feed for feed in results if isinstance(feed, FeedModel)
+            ]
+            return summarized_feeds
 
         except Exception as e:
-            self.logger.error(f"summarizer.py:Summarizer:Error summarizing feed: {e}")
-            raise ServiceException(f"Error summarizing feed: {e}")
-
-    def __summarize_feed(self, feed: FeedModel):
-        """
-        Summarize a single feed (synchronous version for backward compatibility).
-        """
-        try:
-
-            # Step 1: Translate non-English articles to English
-            try:
-                feed.raw_text_en = asyncio.run(
-                    self.translator.ensure_english(feed.raw_text)
-                )
-            except Exception as e:
-                self.logger.error(
-                    f"summarizer.py:Summarizer:Error translating feed: {e}"
-                )
-                raise ServiceException(f"Error translating feed: {e}")
-
-            # Step 2: Check if text fits the model, else compress using TF-IDF
-            try:
-                # tokenizer = self.summarization_tokenizer
-                tokenizer = self.summarization_tokenizer.__class__.from_pretrained(
-                    self.summarization_tokenizer.name_or_path
-                )
-                max_tokens = ModelManager.get_summarization_model_max_tokens()
-                if not NLPUtils.text_suitable_for_model(
-                    tokenizer,
-                    feed.raw_text_en,
-                    max_tokens,
-                ):
-                    self.logger.info(
-                        f"summarizer.py:Summarizer:Compressing text using TF-IDF"
-                    )
-                    text = NLPUtils.compress_text_tfidf(
-                        tokenizer,
-                        feed.raw_text_en,
-                        max_tokens,
-                        prompt_prefix=self.prompt_prefix,
-                    )
-                else:
-                    text = feed.raw_text_en
-            except Exception as e:
-                self.logger.error(
-                    f"summarizer.py:Summarizer:Error compressing text: {e}"
-                )
-                raise ServiceException(f"Error compressing text: {e}")
-
-            # Step 3: Summarize using the BART model
-            try:
-                self.logger.info(
-                    f"summarizer.py:Summarizer:__summarize_feed text using BART model"
-                )
-                max_tokens = ModelManager.get_summarization_model_max_tokens()
-                summarizer = self.summarization_model
-                tokenizer = self.summarization_tokenizer.__class__.from_pretrained(
-                    self.summarization_tokenizer.name_or_path
-                )
-                device = self.device
-                feed.summary = NLPUtils.summarize_text(
-                    summarizer, tokenizer, device, self.prompt_prefix + text, max_tokens
-                )
-            except Exception as e:
-                self.logger.error(
-                    f"summarizer.py:Summarizer:Error summarizing text: {e}"
-                )
-                raise ServiceException(f"Error summarizing text: {e}")
-
-            # step 5: Generate questions from summary
-            # self.generate_questions_from_summary(max_questions=3)
-
-            # Step 4: Push serializable version of all NewsArticle objects
-            # serialized = [a.model_dump() for a in self.news_articles]
-            return feed
-        except Exception as e:
-            self.logger.error(f"summarizer.py:Summarizer:Error summarizing feed: {e}")
-            raise ServiceException(f"Error summarizing feed: {e}")
+            self.logger.error(f"Summarizer: Batch processing failed: {e}")
+            return []       
+        
 
     # ─── Generate Questions from Summary ──────────────────────────────────────────────On trial for now
     def generate_questions_from_summary(self, max_questions: int = 3) -> list:

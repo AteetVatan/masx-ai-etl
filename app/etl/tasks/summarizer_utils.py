@@ -20,6 +20,7 @@
 import logging
 import asyncio
 from app.singleton import ModelManager
+from app.etl_data.etl_models import FeedModel
 
 
 class SummarizerUtils:
@@ -41,26 +42,12 @@ class SummarizerUtils:
         return Translator
 
     @staticmethod
-    def _summarizer(payload: dict, model, tokenizer, device, max_tokens) -> dict:
+    def _summarizer(text: str, model, tokenizer, device, max_tokens) -> dict:
         SummarizerUtils.logger.info(
             f"summarizer_utils.py:_summarizer called with payload"
-        )
-        # -------- Extract payload --------
-        feed_data = payload.get("feed")
-        raw_text = payload.get("text", "")
-        url = payload.get("url", "")
-        # prompt_prefix = payload.get("prompt_prefix", "summarize: ")
-
-        result = {
-            "feed_data": feed_data,
-            "text": raw_text,
-            "url": url,
-            "translated_text": None,
-            "compressed_text": None,
-            "summary": None,
-            "quality": None,
-        }
-
+        )     
+        
+        raw_text = text
         nlp_utils = SummarizerUtils.get_nlp_utils()
         Translator = SummarizerUtils.get_translator()
 
@@ -99,37 +86,31 @@ class SummarizerUtils:
                     must_keep=must_keep,
                     target_tokens=target_tokens,
                     lang=lang,
-                )
-                result["compressed_text"] = compressed
+                )                
             except Exception as e:
                 SummarizerUtils.logger.error(
                     f"runtime.py:Adaptive compression failed for {url}: {e}"
-                )
-                result["compressed_text"] = raw_text
+                )               
                 compressed = raw_text
 
         else:
             compressed = raw_text
-            result["compressed_text"] = compressed
-
         # -------- Preprocess: language + translation --------
         try:
             translator = Translator()
-            text_en = translator.ensure_english_sync(result["compressed_text"])
-            result["translated_text"] = text_en
+            text_en = translator.ensure_english_sync(compressed)
         except Exception as e:
             SummarizerUtils.logger.error(
                 f"runtime.py:Translation failed for {url}: {e}"
             )
             text_en = raw_text
-            result["translated_text"] = text_en
-
+            
         # calculate the total number of tokens in the raw_text
         total_tokens = len(tokenizer.tokenize(text_en))
         # if total_tokens is less than max_tokens, then summarize directly
         if total_tokens < max_tokens * 2:
             summaries = [text_en]
-            result["summary"] = SummarizerUtils._final_summary(
+            result = SummarizerUtils._final_summary(
                 model, tokenizer, device, summaries, max_tokens
             )
             return result
@@ -164,7 +145,7 @@ class SummarizerUtils:
             )
         except Exception as e:
             SummarizerUtils.logger.error(
-                f"runtime.py:Window summarization failed for {url}: {e}"
+                f"runtime.py:Window summarization failed for : {e}"
             )
             # single-shot fall back
             chunk_summaries = [
@@ -187,14 +168,14 @@ class SummarizerUtils:
         try:
             q = nlp_utils.run_quality_gates(final_summary, must_keep, ents)
             final_summary = q.pop("summary", final_summary)
-            result["quality"] = q
+            #result["quality"] = q
         except Exception as e:
             SummarizerUtils.logger.error(
-                f"runtime.py:Quality gates failed for {url}: {e}"
+                f"runtime.py:Quality gates failed for {e}"
             )
             final_summary = "\n\n".join(chunk_summaries)
 
-        result["summary"] = final_summary
+        result = final_summary
         return result
 
     @staticmethod
