@@ -132,7 +132,6 @@ class Settings(BaseSettings):
         description="RunPod endpoint",
     )
 
-    model_pool_enabled: bool = Field(default=True, description="Enable model pool")
     model_pool_max_instances: int = Field(
         default=2, description="Maximum number of model instances"
     )
@@ -143,12 +142,6 @@ class Settings(BaseSettings):
         description="Web scraper batch size (5 for dev, 15 for prod)"
     )
     
-    # SUMMARIZER
-    summarizer_batch_size: int = Field(
-        default=40 if environment == "production" else 5,
-        description="Summarizer batch size (5 for dev, 40 for prod - optimized for per-flashpoint worker isolation with RTX A4500)"
-    )
-
     api_secret_key: str = Field(
         default="change_this_in_production", description="API secret key for security"
     )
@@ -170,21 +163,8 @@ class Settings(BaseSettings):
     )
 
     # Concurrency Configuration
-    # GPU settings
-    gpu_batch_size: int = Field(
-        default=48 if environment == "production" else 8,
-        description="GPU batch size for inference (8 for dev, 48 for prod - optimized for per-flashpoint worker with RTX A4500 20GB VRAM)"
-    )
-    gpu_max_delay_ms: int = Field(
-        default=50, description="GPU max delay before batch processing (ms)"
-    )
-    gpu_queue_size: int = Field(default=1000, description="GPU inference queue size")
-    gpu_timeout: float = Field(
-        default=7200.0,
-        description="GPU inference timeout (seconds) (2 hours for ETL processes)",
-    )
-    gpu_use_fp16: bool = Field(default=True, description="Use FP16 for GPU inference")
-    gpu_enable_warmup: bool = Field(default=True, description="Enable GPU model warmup")
+
+    
     
     # Multi-GPU Configuration for RTX A4500 + RTX 2000 series
     gpu_primary_device_id: int = Field(default=0, description="Primary GPU device ID (RTX A4500)")
