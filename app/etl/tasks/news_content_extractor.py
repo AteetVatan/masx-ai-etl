@@ -52,45 +52,53 @@ class NewsContentExtractor:
         """
         Extract raw text for each article using proxy-enabled scraping with async concurrency.
         """
-        if not self.feeds:
-            self.logger.error(
-                "news_content_extractor.py:NewsContentExtractor:No feeds found in context."
+        try:
+            if not self.feeds:
+                self.logger.error(
+                    "news_content_extractor.py:NewsContentExtractor:No feeds found in context."
+                )
+                raise ValueError("No feeds found in context.")
+
+            self.logger.info(
+                f"news_content_extractor.py:NewsContentExtractor:---- ProxyManager initiated ----"
             )
-            raise ValueError("No feeds found in context.")
-
-        self.logger.info(
-            f"news_content_extractor.py:NewsContentExtractor:---- ProxyManager initiated ----"
-        )
-        #proxies = await ProxyManager.proxies_async()
-        
-        proxies = await self.proxy_service.get_proxies()
-        
-        
-        self.logger.info(
-            f"news_content_extractor.py:NewsContentExtractor:---- {len(proxies)} proxies found ----"
-        )
-
-        if not proxies:
-            self.logger.error(
-                "news_content_extractor.py:NewsContentExtractor:No valid proxies found in context."
+            #proxies = await ProxyManager.proxies_async()
+            
+            proxies = await self.proxy_service.get_proxies()
+            
+            
+            self.logger.info(
+                f"news_content_extractor.py:NewsContentExtractor:---- {len(proxies)} proxies found ----"
             )
-            raise ValueError("No valid proxies found in context.")
 
-        self.logger.info(
-            f"news_content_extractor.py:NewsContentExtractor:-----Scraping {len(self.feeds)} feeds....Using {len(proxies)} proxies-----"
-        )
+            if not proxies:
+                self.logger.error(
+                    "news_content_extractor.py:NewsContentExtractor:No valid proxies found in context."
+                )
+                raise ValueError("No valid proxies found in context.")
 
-        # Process feeds using async CPU executors
-        scraped_feeds = []
+            self.logger.info(
+                f"news_content_extractor.py:NewsContentExtractor:-----Scraping {len(self.feeds)} feeds....Using {len(proxies)} proxies-----"
+            )
 
-        # Process in batches for efficiency
-        batch_size = self.web_scraper_batch_size
-        for i in range(0, len(self.feeds), batch_size):
-            batch = self.feeds[i : i + batch_size]
-            batch_results = await self._process_batch(batch, proxies)
-            scraped_feeds.extend([r for r in batch_results if r])
+            # Process feeds using async CPU executors
+            scraped_feeds = []
 
-        return scraped_feeds
+            # Process in batches for efficiency
+            batch_size = self.web_scraper_batch_size
+            for i in range(0, len(self.feeds), batch_size):
+                batch = self.feeds[i : i + batch_size]
+                batch_results = await self._process_batch(batch, proxies)
+                scraped_feeds.extend([r for r in batch_results if r])
+
+            return scraped_feeds
+        except Exception as e:
+            self.logger.error(
+                f"news_content_extractor.py:NewsContentExtractor:Batch processing failed: {e}"
+            )
+            return []
+        finally:
+            self.cpu_executors.shutdown(wait=True)
 
     async def _process_batch(
         self, feeds: list[FeedModel], proxies: list[str]
@@ -105,6 +113,8 @@ class NewsContentExtractor:
                     self.__scrape_multilang_feeds, feed, proxy
                 )
                 tasks.append(task)
+                
+                
 
             # Execute all tasks concurrently
             results = await asyncio.gather(*tasks, return_exceptions=True)
