@@ -204,7 +204,7 @@ class ProxyService:
                 async with session.get(
                     url,
                     headers=self.headers,
-                    timeout=aiohttp.ClientTimeout(total=30)
+                    timeout=aiohttp.ClientTimeout(total=5 * 60) # 5 minutes
                 ) as response:
                     
                     if response.status == 200:
