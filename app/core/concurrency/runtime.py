@@ -13,11 +13,12 @@ from typing import List, TypeVar, Optional, Dict, Any, Union, Callable
 from dataclasses import dataclass
 
 from .device import use_gpu, get_device_config
-from .cpu_executors import CPUExecutors
-from .gpu_worker import GPUWorker, GPUConfig
+#from .cpu_executors import CPUExecutors
+#from .gpu_worker import GPUWorker, GPUConfig
 from .model_pool import get_model_pool
-from app.config import get_settings
+from app.config import get_settings, get_service_logger
 from app.singleton import ModelManager
+from app.core.models import AbstractModel
 
 # from app.nlp import Translator, NLPUtils
 
@@ -50,13 +51,13 @@ def _convert_to_python_list(labels) -> List[int]:
         else:
             return list(labels)
     except Exception as e:
-        logger.warning(
+        print(
             f"runtime.py:Failed to convert labels to list: {e}, using fallback"
         )
         return list(labels)
 
 
-logger = logging.getLogger(__name__)
+
 
 T = TypeVar("T")
 R = TypeVar("R")
@@ -65,28 +66,11 @@ R = TypeVar("R")
 @dataclass
 class RuntimeConfig:
     """Runtime configuration parameters."""
-
     settings = get_settings()
-
-    # GPU settings
-    gpu_batch_size: int = settings.gpu_batch_size
-    gpu_max_delay_ms: int = settings.gpu_max_delay_ms
-    gpu_queue_size: int = settings.gpu_queue_size
-    gpu_timeout: float = settings.gpu_timeout
-    gpu_use_fp16: bool = settings.gpu_use_fp16
-    gpu_enable_warmup: bool = settings.gpu_enable_warmup
-
-    # CPU settings
-    cpu_max_threads: int = settings.cpu_max_threads
-    cpu_max_processes: int = settings.cpu_max_processes
-
     # Model Pool settings (for production mode)
     model_pool_max_instances: int = settings.model_pool_max_instances
-    model_pool_enabled: bool = settings.model_pool_enabled
-
     # Debug settings
     debug_mode: Optional[bool] = settings.debug
-
     # General settings
     enable_metrics: bool = settings.enable_metrics
     log_level: str = settings.log_level
@@ -105,18 +89,20 @@ class InferenceRuntime:
 
     def __init__(
         self,
-        model_loader: Optional[Callable] = None,
+        model_manager_loader: Optional[Callable] = None,
         config: Optional[RuntimeConfig] = None,
     ):
         """
         Initialize the inference runtime.
 
         Args:
-            model_loader: Function that loads and returns the model (for GPU path)
+            model_pool_loader: Function that loads and returns the model pool (for GPU path)
             config: Runtime configuration parameters
         """
-        self.model_loader = model_loader
+        self.model_manager_loader = model_manager_loader
+        self.model_manager: AbstractModel = None
         self.config = config or RuntimeConfig()
+        self.logger = get_service_logger("InferenceRuntime")
 
         # Auto-detect debug mode if not specified
         if self.config.debug_mode is None:
@@ -133,13 +119,13 @@ class InferenceRuntime:
         self.use_gpu_flag = use_gpu()
 
         # Execution components
-        self._gpu_worker: Optional[GPUWorker] = None
-        self._cpu_executors = CPUExecutors()
+        #self._gpu_worker: Optional[GPUWorker] = None
+        #self._cpu_executors = CPUExecutors()
 
         # Model pool for production mode
-        self._model_pool = None
-        if not self.config.debug_mode and self.config.model_pool_enabled:
-            self._model_pool = get_model_pool(self.config.model_pool_max_instances)
+        # self._model_pool = None
+        # if not self.config.debug_mode and self.config.model_pool_enabled:
+        #     self._model_pool = get_model_pool(self.config.model_pool_max_instances)
 
         # Runtime state
         self._is_started = False
@@ -149,18 +135,19 @@ class InferenceRuntime:
         self._total_requests = 0
         self._total_gpu_requests = 0
         self._total_cpu_requests = 0
+        
 
         mode = "Debug" if self.config.debug_mode else "Production"
-        pool_info = (
-            f", ModelPool={self._model_pool is not None}"
-            if not self.config.debug_mode
-            else ""
-        )
+        # pool_info = (
+        #     f", ModelPool={self._model_pool is not None}"
+        #     if not self.config.debug_mode
+        #     else ""
+        # )
 
-        logger.info(
-            f"runtime.py:InferenceRuntime initialized: Mode={mode}, GPU={self.use_gpu_flag}, "
-            f"device={self.device_config.device_type}{pool_info}"
-        )
+        # self.logger.info(
+        #     f"runtime.py:InferenceRuntime initialized: Mode={mode}, GPU={self.use_gpu_flag}, "
+        #     f"device={self.device_config.device_type}{pool_info}"
+        # )
 
     async def start(self) -> None:
         """
@@ -169,123 +156,127 @@ class InferenceRuntime:
         This method initializes the appropriate execution path based on device configuration.
         """
         if self._is_started:
-            logger.warning("runtime.py:InferenceRuntime already started")
+            self.logger.warning("runtime.py:InferenceRuntime already started")
             return
 
         try:
-            if self.use_gpu_flag and self.model_loader:
-                await self._start_gpu_worker()
-            else:
-                logger.info("runtime.py:Using CPU execution path")
+            # if self.use_gpu_flag and self.model_pool_loader:
+            #     await self._start_gpu_worker()
+            # else:
+            #     self.logger.info("runtime.py:Using CPU execution path")
+                
+            self.model_manager = self.model_manager_loader()   
+            self.model_manager.initialize()
+                
 
             self._is_started = True
-            logger.info("runtime.py:InferenceRuntime started successfully")
+            self.logger.info("runtime.py:InferenceRuntime started successfully")
 
         except Exception as e:
-            logger.error(f"runtime.py:Failed to start InferenceRuntime: {e}")
+            self.logger.error(f"runtime.py:Failed to start InferenceRuntime: {e}")
             raise
 
-    async def _start_gpu_worker(self):
-        """Start the GPU worker."""
-        if not self.model_loader:
-            raise RuntimeError("Model loader required for GPU execution")
+    # async def _start_gpu_worker(self):
+    #     """Start the GPU worker."""
+    #     if not self.model_pool_loader:
+    #         raise RuntimeError("Model loader required for GPU execution")
 
-        logger.info("runtime.py:Starting GPU worker...")
+    #     self.logger.info("runtime.py:Starting GPU worker...")
 
-        # Get device_id from device configuration, defaulting to 0 for GPU
-        device_id = 0  # Default GPU device
-        if (
-            hasattr(self.device_config, "device_id")
-            and self.device_config.device_id is not None
-        ):
-            device_id = self.device_config.device_id
+    #     # Get device_id from device configuration, defaulting to 0 for GPU
+    #     device_id = 0  # Default GPU device
+    #     if (
+    #         hasattr(self.device_config, "device_id")
+    #         and self.device_config.device_id is not None
+    #     ):
+    #         device_id = self.device_config.device_id
 
-        gpu_config = GPUConfig(
-            device_id=device_id,  # Pass the correct device_id
-            max_batch_size=self.config.gpu_batch_size,
-            max_delay_ms=self.config.gpu_max_delay_ms,
-            max_queue_size=self.config.gpu_queue_size,
-            timeout_seconds=self.config.gpu_timeout,
-            use_fp16=self.config.gpu_use_fp16,
-            enable_warmup=self.config.gpu_enable_warmup,
-        )
+    #     gpu_config = GPUConfig(
+    #         device_id=device_id,  # Pass the correct device_id
+    #         max_batch_size=self.config.gpu_batch_size,
+    #         max_delay_ms=self.config.gpu_max_delay_ms,
+    #         max_queue_size=self.config.gpu_queue_size,
+    #         timeout_seconds=self.config.gpu_timeout,
+    #         use_fp16=self.config.gpu_use_fp16,
+    #         enable_warmup=self.config.gpu_enable_warmup,
+    #     )
 
-        self._gpu_worker = GPUWorker(model_loader=self.model_loader, config=gpu_config)
+    #     self._gpu_worker = GPUWorker(model_loader=self.model_pool_loader, config=gpu_config)
 
-        await self._gpu_worker.start()
-        logger.info("runtime.py:GPU worker started successfully")
+    #     await self._gpu_worker.start()
+    #     self.logger.info("runtime.py:GPU worker started successfully")
 
-    async def infer(self, payload: T) -> R:
-        """
-        Perform single inference.
+    # async def infer(self, payload: T) -> R:
+    #     """
+    #     Perform single inference.
 
-        Args:
-            payload: Input data for inference
+    #     Args:
+    #         payload: Input data for inference
 
-        Returns:
-            Inference result
-        """
-        if not self._is_started:
-            raise RuntimeError("InferenceRuntime not started")
+    #     Returns:
+    #         Inference result
+    #     """
+    #     if not self._is_started:
+    #         raise RuntimeError("InferenceRuntime not started")
 
-        self._total_requests += 1
+    #     self._total_requests += 1
 
-        try:
-            if self.use_gpu_flag and self._gpu_worker:
-                self._total_gpu_requests += 1
-                return await self._gpu_worker.infer(payload)
-            else:
-                self._total_cpu_requests += 1
-                # For CPU path, we need to implement the actual inference logic
-                # This is a placeholder - should be customized based on actual models
-                return await self._cpu_infer(payload)
+    #     try:
+    #         if self.use_gpu_flag and self._gpu_worker:
+    #             self._total_gpu_requests += 1
+    #             return await self._gpu_worker.infer(payload)
+    #         else:
+    #             self._total_cpu_requests += 1
+    #             # For CPU path, we need to implement the actual inference logic
+    #             # This is a placeholder - should be customized based on actual models
+    #             return await self._cpu_infer(payload)
 
-        except Exception as e:
-            logger.error(f"runtime.py:Inference failed: {e}")
-            raise
+    #     except Exception as e:
+    #         self.logger.error(f"runtime.py:Inference failed: {e}")
+    #         raise
 
-    async def infer_many(self, payloads: List[T]) -> List[R]:
-        """
-        Perform batch inference.
+    # async def infer_many(self, payloads: List[T]) -> List[R]:
+    #     """
+    #     Perform batch inference.
 
-        Args:
-            payloads: List of input data
+    #     Args:
+    #         payloads: List of input data
 
-        Returns:
-            List of inference results
-        """
-        if not self._is_started:
-            raise RuntimeError("InferenceRuntime not started")
+    #     Returns:
+    #         List of inference results
+    #     """
+    #     if not self._is_started:
+    #         raise RuntimeError("InferenceRuntime not started")
 
-        if not payloads:
-            return []
+    #     if not payloads:
+    #         return []
 
-        self._total_requests += len(payloads)
+    #     self._total_requests += len(payloads)
 
-        try:
-            if self.use_gpu_flag and self._gpu_worker:
-                logger.info(f"runtime.py:infer_many using GPU batch inference")
-                self._total_gpu_requests += len(payloads)
-                return await self._gpu_worker.infer_many(payloads)
-            else:
-                logger.info(f"runtime.py:infer_many using CPU batch inference")
-                self._total_cpu_requests += len(payloads)
-                # For CPU path, process in parallel using appropriate executor
-                try:
-                    return await self._cpu_infer_many(payloads)
-                except TypeError as e:
-                    if "cannot pickle" in str(e):
-                        logger.warning(
-                            f"runtime.py:Pickling error in CPU batch inference, falling back to sequential: {e}"
-                        )
-                        # Fallback to sequential processing to avoid pickling issues
-                        return await self._cpu_infer_many_sequential(payloads)
-                    else:
-                        raise
+    #     try:
+    #         if self.use_gpu_flag and self._gpu_worker:
+    #             self.logger.info(f"runtime.py:infer_many using GPU batch inference")
+    #             self._total_gpu_requests += len(payloads)
+    #             return await self._gpu_worker.infer_many(payloads)
+    #         else:
+    #             self.logger.info(f"runtime.py:infer_many using CPU batch inference")
+    #             self._total_cpu_requests += len(payloads)
+    #             # For CPU path, process in parallel using appropriate executor
+    #             try:
+    #                 return await self._cpu_infer_many(payloads)
+    #             except TypeError as e:
+    #                 if "cannot pickle" in str(e):
+    #                     self.logger.warning(
+    #                         f"runtime.py:Pickling error in CPU batch inference, falling back to sequential: {e}"
+    #                     )
+    #                     # Fallback to sequential processing to avoid pickling issues
+    #                     return await self._cpu_infer_many_sequential(payloads)
+    #                 else:
+    #                     raise
 
-        except Exception as e:
-            logger.error(f"runtime.py:Batch inference failed: {e}")
-            raise
+    #     except Exception as e:
+    #         self.logger.error(f"runtime.py:Batch inference failed: {e}")
+    #         raise
 
     async def _cpu_infer(self, payload: T) -> R:
         """
@@ -298,59 +289,60 @@ class InferenceRuntime:
         - Debug mode: Synchronous execution (simple, reliable)
         - Production mode: Model pool with controlled concurrency
         """
-        try:
-            if isinstance(payload, dict):
-                # Check if this is a clustering payload (has embeddings field)
-                if "embeddings" in payload:
-                    # This is a clustering payload - use thread pool for CPU clustering
-                    logger.debug("runtime.py:Processing clustering payload via CPU")
-                    return await self._cpu_executors.run_in_thread(
-                        self._cluster_embeddings_cpu, payload
-                    )
+        pass
+        # try:
+        #     if isinstance(payload, dict):
+        #         # Check if this is a clustering payload (has embeddings field)
+        #         if "embeddings" in payload:
+        #             # This is a clustering payload - use thread pool for CPU clustering
+        #             self.logger.debug("runtime.py:Processing clustering payload via CPU")
+        #             return await self._cpu_executors.run_in_thread(
+        #                 self._cluster_embeddings_cpu, payload
+        #             )
 
-                # Check if this is a text processing payload
-                elif "text" in payload:
-                    # Check if this is an embedding payload (has index field)
-                    if "index" in payload:
-                        # This is an embedding generation payload - always use thread pool
-                        return await self._cpu_executors.run_in_thread(
-                            self._generate_embedding_cpu, payload
-                        )
-                    else:
-                        # This is a summarization payload
-                        serializable_payload = self._prepare_serializable_payload(
-                            payload
-                        )
+        #         # Check if this is a text processing payload
+        #         elif "text" in payload:
+        #             # Check if this is an embedding payload (has index field)
+        #             if "index" in payload:
+        #                 # This is an embedding generation payload - always use thread pool
+        #                 return await self._cpu_executors.run_in_thread(
+        #                     self._generate_embedding_cpu, payload
+        #                 )
+        #             else:
+        #                 # This is a summarization payload
+        #                 serializable_payload = self._prepare_serializable_payload(
+        #                     payload
+        #                 )
 
-                        if self.config.debug_mode:
-                            # Debug mode: Synchronous execution (no threading/processing issues)
-                            logger.debug(
-                                "Using synchronous summarization for debug mode"
-                            )
-                            return self._summarize_text_cpu_sync(serializable_payload)
-                        else:
-                            # Production mode: Model pool with controlled concurrency
-                            logger.debug(
-                                "Using model pool summarization for production mode"
-                            )
-                            return await self._summarize_text_cpu_pooled(
-                                serializable_payload
-                            )
-                else:
-                    # Generic payload handling
-                    logger.debug(
-                        f"runtime.py:CPU inference for payload: {type(payload)}"
-                    )
-                    return payload
-            else:
-                # Non-dict payload handling
-                logger.debug(
-                    f"runtime.py:CPU inference for non-dict payload: {type(payload)}"
-                )
-                return payload
-        except Exception as e:
-            logger.error(f"runtime.py:CPU inference failed: {e}")
-            raise
+        #                 if self.config.debug_mode:
+        #                     # Debug mode: Synchronous execution (no threading/processing issues)
+        #                     self.logger.debug(
+        #                         "Using synchronous summarization for debug mode"
+        #                     )
+        #                     return self._summarize_text_cpu_sync(serializable_payload)
+        #                 else:
+        #                     # Production mode: Model pool with controlled concurrency
+        #                     self.logger.debug(
+        #                         "Using model pool summarization for production mode"
+        #                     )
+        #                     return await self._summarize_text_cpu_pooled(
+        #                         serializable_payload
+        #                     )
+        #         else:
+        #             # Generic payload handling
+        #             self.logger.debug(
+        #                 f"runtime.py:CPU inference for payload: {type(payload)}"
+        #             )
+        #             return payload
+        #     else:
+        #         # Non-dict payload handling
+        #         self.logger.debug(
+        #             f"runtime.py:CPU inference for non-dict payload: {type(payload)}"
+        #         )
+        #         return payload
+        # except Exception as e:
+        #     self.logger.error(f"runtime.py:CPU inference failed: {e}")
+        #     raise
 
     def _prepare_serializable_payload(self, payload: dict) -> dict:
         """
@@ -389,7 +381,7 @@ class InferenceRuntime:
             }
 
         except Exception as e:
-            logger.error(f"runtime.py:Failed to prepare serializable payload: {e}")
+            self.logger.error(f"runtime.py:Failed to prepare serializable payload: {e}")
             # Return minimal payload if serialization fails
             return {
                 "feed": None,
@@ -428,7 +420,7 @@ class InferenceRuntime:
             )
             return result
         except Exception as e:
-            logger.error(f"runtime.py:CPU summarization (sync) failed: {e}")
+            self.logger.error(f"runtime.py:CPU summarization (sync) failed: {e}")
             raise
 
     async def _summarize_text_cpu_pooled(self, payload: dict) -> dict:
@@ -438,7 +430,7 @@ class InferenceRuntime:
         """
         # logger = getattr(self, "logger", None) or __import__("logging").getLogger(__name__)
         if not self._model_pool:
-            logger.warning(
+            self.logger.warning(
                 "runtime.py:Model pool not available, falling back to sync mode"
             )
             return self._summarize_text_cpu_sync(payload)
@@ -461,7 +453,7 @@ class InferenceRuntime:
             )
             return result
         except Exception as e:
-            logger.error(f"runtime.py:CPU summarization (pooled) failed: {e}")
+            self.logger.error(f"runtime.py:CPU summarization (pooled) failed: {e}")
             raise
         finally:
             await self._model_pool.return_model(model_instance)
@@ -495,14 +487,14 @@ class InferenceRuntime:
                 embedding.tolist() if hasattr(embedding, "tolist") else list(embedding)
             )
 
-            logger.debug(
+            self.logger.debug(
                 f"runtime.py:Generated embedding for text {index} with shape: {len(embedding_list)}"
             )
 
             return embedding_list
 
         except Exception as e:
-            logger.error(f"runtime.py:CPU embedding generation failed: {e}")
+            self.logger.error(f"runtime.py:CPU embedding generation failed: {e}")
             raise
 
     def _cluster_embeddings_cpu(self, payload: dict) -> list:
@@ -532,7 +524,7 @@ class InferenceRuntime:
             random_state = payload.get("random_state", 42)
 
             if len(embeddings) == 0:
-                logger.warning(
+                self.logger.warning(
                     "runtime.py:Empty embeddings array provided for clustering"
                 )
                 return []
@@ -555,15 +547,15 @@ class InferenceRuntime:
                         random_state=random_state,
                     )
                     embeddings = reducer.fit_transform(embeddings)
-                    logger.debug(
+                    self.logger.debug(
                         f"runtime.py:UMAP reduction applied: {embeddings.shape}"
                     )
                 except ImportError:
-                    logger.warning(
+                    self.logger.warning(
                         "runtime.py:UMAP not available, skipping dimensionality reduction"
                     )
                 except Exception as e:
-                    logger.warning(
+                    self.logger.warning(
                         f"runtime.py:UMAP reduction failed: {e}, using original embeddings"
                     )
 
@@ -593,7 +585,7 @@ class InferenceRuntime:
             )
 
             labels = model.fit_predict(embeddings).astype(np.int32)
-            logger.info(
+            self.logger.info(
                 f"runtime.py:CPU clustering completed: {len(labels)} labels, {len(set(labels) - {-1})} clusters"
             )
 
@@ -601,7 +593,7 @@ class InferenceRuntime:
             return _convert_to_python_list(labels)
 
         except Exception as e:
-            logger.error(f"runtime.py:CPU clustering failed: {e}")
+            self.logger.error(f"runtime.py:CPU clustering failed: {e}")
             raise
 
     async def _cpu_infer_many(self, payloads: List[T]) -> List[R]:
@@ -610,7 +602,7 @@ class InferenceRuntime:
 
         This method processes payloads in parallel using thread pool to avoid pickling issues.
         """
-        logger.debug(f"runtime.py:CPU batch inference for {len(payloads)} payloads")
+        self.logger.debug(f"runtime.py:CPU batch inference for {len(payloads)} payloads")
 
         # Process in parallel using thread pool (not process pool to avoid pickling issues)
         tasks = [self._cpu_infer(payload) for payload in payloads]
@@ -622,7 +614,7 @@ class InferenceRuntime:
 
         This method processes payloads sequentially to avoid any concurrency issues.
         """
-        logger.debug(
+        self.logger.debug(
             f"runtime.py:Sequential CPU batch inference for {len(payloads)} payloads"
         )
 
@@ -632,140 +624,136 @@ class InferenceRuntime:
                 result = await self._cpu_infer(payload)
                 results.append(result)
             except Exception as e:
-                logger.error(f"runtime.py:Sequential inference failed for payload: {e}")
+                self.logger.error(f"runtime.py:Sequential inference failed for payload: {e}")
                 results.append(e)  # Return exception as result
 
         return results
 
-    async def stop(self) -> None:
-        """
-        Stop the inference runtime gracefully.
+    # async def stop(self) -> None:
+    #     """
+    #     Stop the inference runtime gracefully.
 
-        This method ensures proper cleanup of all resources.
-        """
-        if not self._is_started:
-            return
+    #     This method ensures proper cleanup of all resources.
+    #     """
+    #     if not self._is_started:
+    #         return
 
-        logger.info("runtime.py:Stopping InferenceRuntime...")
+    #     self.logger.info("runtime.py:Stopping InferenceRuntime...")
 
-        try:
-            # Stop GPU worker if running
-            if self._gpu_worker:
-                await self._gpu_worker.stop()
-                self._gpu_worker = None
+    #     try:
+    #         # Stop GPU worker if running
+    #         if self._gpu_worker:
+    #             await self._gpu_worker.stop()
+    #             self._gpu_worker = None
 
-            # Shutdown CPU executors
-            self._cpu_executors.shutdown(wait=True)
-
-            # Clean up model pool if in production mode
-            if self._model_pool:
-                await self._model_pool.cleanup()
-                self._model_pool = None
-
-            self._is_started = False
-            logger.info("runtime.py:InferenceRuntime stopped successfully")
-
-        except Exception as e:
-            logger.error(f"runtime.py:Error stopping InferenceRuntime: {e}")
-            raise
-
-    def get_metrics(self) -> Dict[str, Any]:
-        """Get runtime metrics."""
-        uptime = time.time() - self._start_time
-
-        metrics = {
-            "runtime_uptime_seconds": uptime,
-            "total_requests": self._total_requests,
-            "total_gpu_requests": self._total_gpu_requests,
-            "total_cpu_requests": self._total_cpu_requests,
-            "requests_per_second": self._total_requests / uptime if uptime > 0 else 0,
-            "is_started": self._is_started,
-            "use_gpu": self.use_gpu_flag,
-            "device_type": self.device_config.device_type,
-        }
-
-        # Add GPU worker metrics if available
-        if self._gpu_worker:
-            metrics["gpu_worker"] = self._gpu_worker.get_metrics()
-
-        # Add CPU executor metrics
-        metrics["cpu_executors"] = {
-            "max_threads": self._cpu_executors.max_threads,
-            "max_processes": self._cpu_executors.max_processes,
-            "is_shutdown": self._cpu_executors.is_shutdown(),
-        }
-
-        # Add model pool metrics if available
-        if self._model_pool:
-            try:
-                import asyncio
-
-                # Create a task to get pool stats (since get_metrics is sync)
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    # Can't await in sync method, so just note that pool is available
-                    metrics["model_pool"] = {
-                        "enabled": True,
-                        "max_instances_per_type": self.config.model_pool_max_instances,
-                        "stats": "available_via_async_call",
-                    }
-                else:
-                    pool_stats = loop.run_until_complete(
-                        self._model_pool.get_pool_stats()
-                    )
-                    metrics["model_pool"] = {
-                        "enabled": True,
-                        "max_instances_per_type": self.config.model_pool_max_instances,
-                        "stats": pool_stats,
-                    }
-            except Exception:
-                metrics["model_pool"] = {
-                    "enabled": True,
-                    "max_instances_per_type": self.config.model_pool_max_instances,
-                    "stats": "unavailable",
-                }
-        else:
-            metrics["model_pool"] = {
-                "enabled": False,
-                "reason": "debug_mode" if self.config.debug_mode else "disabled",
-            }
-
-        return metrics
-
-    @property
-    def is_started(self) -> bool:
-        """Check if runtime is started."""
-        return self._is_started
-
-    @property
-    def queue_depth(self) -> int:
-        """Get current queue depth (GPU only)."""
-        if self._gpu_worker:
-            return self._gpu_worker.queue_depth
-        return 0
-
-    @property
-    def execution_path(self) -> str:
-        """Get current execution path."""
-        if self.use_gpu_flag and self._gpu_worker:
-            return "gpu"
-        return "cpu"
+    #         # Shutdown CPU executors
+    #         self._cpu_executors.shutdown(wait=True)
 
 
-# Convenience function for easy access
-async def create_runtime(
-    model_loader: Optional[Callable] = None, config: Optional[RuntimeConfig] = None
-) -> InferenceRuntime:
-    """
-    Create and start an inference runtime.
+    #         self._is_started = False
+    #         self.logger.info("runtime.py:InferenceRuntime stopped successfully")
 
-    Args:
-        model_loader: Function that loads and returns the model
-        config: Runtime configuration parameters
+    #     except Exception as e:
+    #         self.logger.error(f"runtime.py:Error stopping InferenceRuntime: {e}")
+    #         raise
 
-    Returns:
-        Started InferenceRuntime instance
-    """
-    runtime = InferenceRuntime(model_loader=model_loader, config=config)
-    await runtime.start()
-    return runtime
+    # def get_metrics(self) -> Dict[str, Any]:
+    #     """Get runtime metrics."""
+    #     uptime = time.time() - self._start_time
+
+    #     metrics = {
+    #         "runtime_uptime_seconds": uptime,
+    #         "total_requests": self._total_requests,
+    #         "total_gpu_requests": self._total_gpu_requests,
+    #         "total_cpu_requests": self._total_cpu_requests,
+    #         "requests_per_second": self._total_requests / uptime if uptime > 0 else 0,
+    #         "is_started": self._is_started,
+    #         "use_gpu": self.use_gpu_flag,
+    #         "device_type": self.device_config.device_type,
+    #     }
+
+    #     # Add GPU worker metrics if available
+    #     if self._gpu_worker:
+    #         metrics["gpu_worker"] = self._gpu_worker.get_metrics()
+
+    #     # Add CPU executor metrics
+    #     metrics["cpu_executors"] = {
+    #         "max_threads": self._cpu_executors.max_threads,
+    #         "max_processes": self._cpu_executors.max_processes,
+    #         "is_shutdown": self._cpu_executors.is_shutdown(),
+    #     }
+
+    #     # Add model pool metrics if available
+    #     if self._model_pool:
+    #         try:
+    #             import asyncio
+
+    #             # Create a task to get pool stats (since get_metrics is sync)
+    #             loop = asyncio.get_event_loop()
+    #             if loop.is_running():
+    #                 # Can't await in sync method, so just note that pool is available
+    #                 metrics["model_pool"] = {
+    #                     "enabled": True,
+    #                     "max_instances_per_type": self.config.model_pool_max_instances,
+    #                     "stats": "available_via_async_call",
+    #                 }
+    #             else:
+    #                 pool_stats = loop.run_until_complete(
+    #                     self._model_pool.get_pool_stats()
+    #                 )
+    #                 metrics["model_pool"] = {
+    #                     "enabled": True,
+    #                     "max_instances_per_type": self.config.model_pool_max_instances,
+    #                     "stats": pool_stats,
+    #                 }
+    #         except Exception:
+    #             metrics["model_pool"] = {
+    #                 "enabled": True,
+    #                 "max_instances_per_type": self.config.model_pool_max_instances,
+    #                 "stats": "unavailable",
+    #             }
+    #     else:
+    #         metrics["model_pool"] = {
+    #             "enabled": False,
+    #             "reason": "debug_mode" if self.config.debug_mode else "disabled",
+    #         }
+
+    #     return metrics
+
+    # @property
+    # def is_started(self) -> bool:
+    #     """Check if runtime is started."""
+    #     return self._is_started
+
+    # @property
+    # def queue_depth(self) -> int:
+    #     """Get current queue depth (GPU only)."""
+    #     if self._gpu_worker:
+    #         return self._gpu_worker.queue_depth
+    #     return 0
+
+    # @property
+    # def execution_path(self) -> str:
+    #     """Get current execution path."""
+    #     if self.use_gpu_flag and self._gpu_worker:
+    #         return "gpu"
+    #     return "cpu"
+
+
+# # Convenience function for easy access
+# async def create_runtime(
+#     model_manager_loader: Optional[Callable] = None, config: Optional[RuntimeConfig] = None
+# ) -> InferenceRuntime:
+#     """
+#     Create and start an inference runtime.
+
+#     Args:
+#         model_loader: Function that loads and returns the model
+#         config: Runtime configuration parameters
+
+#     Returns:
+#         Started InferenceRuntime instance
+#     """
+#     runtime = InferenceRuntime(model_manager_loader=model_manager_loader, config=config)
+#     await runtime.start()
+#     return runtime
