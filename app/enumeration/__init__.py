@@ -1,3 +1,3 @@
-from .enums import WorkerEnums
+from .enums import WorkerEnums, WorkloadEnums
 
-__all__ = ["WorkerEnums"]
+__all__ = ["WorkerEnums", "WorkloadEnums"]

@@ -23,3 +23,7 @@ from enum import Enum
 class WorkerEnums(Enum):
     COORDINATOR = "coordinator"
     ETL_WORKER = "etl_worker"
+    
+class WorkloadEnums(Enum):
+    CPU = "cpu"
+    IO = "io"

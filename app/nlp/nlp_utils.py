@@ -30,6 +30,7 @@ from collections import Counter
 import math
 import numpy as np
 from numpy import array as np_array
+import unicodedata
 import logging
 
 logger = logging.getLogger(__name__)
@@ -924,3 +925,55 @@ class NLPUtils:
                     "max": lambda self: max(x),
                 },
             )
+            
+    
+    @staticmethod
+    def split_text_smart(text: str, max_chars: int = 2000, max_chunks: int = 0) -> list:
+        """
+        Split the text into chunks, as the google translator has a limit of 2000 characters?
+        """
+        logger.info(
+            f"translator.py:[Translation] Splitting text into chunks: {max_chars} characters per chunk"
+        )
+        sentence_endings = re.split(r"(?<=[\.\!\?।؟。！？])\s+", text)
+        chunks = []
+        current_chunk = ""
+
+        for sentence in sentence_endings:
+            sentence = sentence.strip()
+            if not sentence:
+                continue
+            if len(current_chunk) + len(sentence) + 1 <= max_chars:
+                current_chunk += sentence + " "
+            else:
+                if current_chunk:
+                    chunks.append(current_chunk.strip())
+                    if max_chunks > 0 and len(chunks) >= max_chunks:
+                        return chunks
+                    
+                    
+                if len(sentence) > max_chars:
+                    for i in range(0, len(sentence), max_chars):
+                        chunks.append(sentence[i : i + max_chars])
+                        if max_chunks > 0 and len(chunks) >= max_chunks:
+                            return chunks
+                    current_chunk = ""
+                else:
+                    current_chunk = sentence + " "
+        if current_chunk.strip():
+            chunks.append(current_chunk.strip())
+            if max_chunks > 0 and len(chunks) >= max_chunks:
+                return chunks
+        return chunks
+    
+    
+            
+    @staticmethod
+    def clean_text(text: str) -> str:
+        """
+        Clean the text to remove any special characters.
+        """
+        try:
+            return unicodedata.normalize("NFKC", text).strip()
+        except Exception:
+            return text

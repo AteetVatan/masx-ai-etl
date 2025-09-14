@@ -153,6 +153,14 @@ class HDBSCANClusterer(BaseClusterer):
         self._labels = None
 
     # ----------------- public API -----------------
+    
+    def cluster(self, embeddings: np.ndarray) -> List[int]:
+        """
+        Synchronous clustering method for backward compatibility.
+        """
+        import asyncio
+
+        return asyncio.run(self.cluster_async(embeddings))
 
     async def cluster_async(self, embeddings: np.ndarray) -> List[int]:
         """
@@ -187,6 +195,10 @@ class HDBSCANClusterer(BaseClusterer):
 
                     # Use inference runtime for GPU clustering
                     result = await self.inference_runtime.infer(payload)
+                    
+                    
+                    
+                    
 
                     if isinstance(result, Exception):
                         self.logger.error(
@@ -263,13 +275,6 @@ class HDBSCANClusterer(BaseClusterer):
             # Fallback to synchronous CPU clustering
             return self._cluster_cpu_sync(X)
 
-    def cluster(self, embeddings: np.ndarray) -> List[int]:
-        """
-        Synchronous clustering method for backward compatibility.
-        """
-        import asyncio
-
-        return asyncio.run(self.cluster_async(embeddings))
 
     def _cluster_cpu_sync(self, X: np.ndarray) -> List[int]:
         """Synchronous CPU clustering fallback."""
@@ -303,19 +308,11 @@ class HDBSCANClusterer(BaseClusterer):
         try:
             # Create runtime config optimized for clustering
             config = RuntimeConfig(
-                gpu_batch_size=self.settings.gpu_batch_size,
-                gpu_max_delay_ms=self.settings.gpu_max_delay_ms,
-                gpu_queue_size=self.settings.gpu_queue_size,
-                gpu_timeout=self.settings.gpu_timeout,
-                gpu_use_fp16=self.settings.gpu_use_fp16,
-                gpu_enable_warmup=self.settings.gpu_enable_warmup,
-                cpu_max_threads=self.settings.cpu_max_threads,
-                cpu_max_processes=self.settings.cpu_max_processes,
             )
 
             # Create and start inference runtime
             self.inference_runtime = InferenceRuntime(
-                model_loader=self._get_clustering_model_loader, config=config
+                model_manager_loader=self._get_clustering_model_loader, config=config
             )
 
             await self.inference_runtime.start()

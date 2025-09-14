@@ -24,15 +24,14 @@ from app.config import get_service_logger, get_settings
 from app.core.concurrency import InferenceRuntime, RuntimeConfig
 
 
-class VectorizeArticles:
-    """ETL Task: Vectorize NewsArticle objects and store them using VectorDBManager."""
+class VectorizeTask:
+    """ETL Task: Vectorize Feed objects and store them using VectorDBManager."""
 
     def __init__(self, flashpoint_id: str):
         self.__flashpoint_id = flashpoint_id
         self.__db = VectorDBManager()
-        self._logger = get_service_logger("VectorizeArticles")
+        self._logger = get_service_logger("VectorizeTask")
         self.settings = get_settings()
-
         # Initialize inference runtime for embedding generation
         self.inference_runtime: Optional[InferenceRuntime] = None
 
@@ -45,7 +44,7 @@ class VectorizeArticles:
 
     async def run(self, feeds: List[FeedModel]) -> str:
         """
-        Vectorize and store NewsArticles in Chroma vector DB using async inference runtime.
+        Vectorize and store Feeds in Chroma vector DB using async inference runtime.
 
         Uses `.summary` if available, otherwise falls back to `.raw_text`.
 
@@ -77,12 +76,12 @@ class VectorizeArticles:
                 ids.append(str(uuid4()))  # each vector gets a unique ID why?
 
             if not texts:
-                self._logger.info("No valid articles to vectorize.")
+                self._logger.info("No valid feeds to vectorize.")
                 return self.__flashpoint_id
 
             # Embed using inference runtime with micro-batching
             self._logger.info(
-                f"Vectorizing {len(texts)} articles into collection: {self.__flashpoint_id}"
+                f"Vectorizing {len(texts)} feeds into collection: {self.__flashpoint_id}"
             )
 
             # Prepare payloads for batch processing
@@ -104,7 +103,7 @@ class VectorizeArticles:
                     embeddings.append(result)
 
             self._logger.info(
-                f"Inserting {len(texts)} articles into collection: {self.__flashpoint_id}"
+                f"Inserting {len(texts)} feeds into collection: {self.__flashpoint_id}"
             )
             self.__db.insert_documents(
                 collection_name=self.__flashpoint_id,
@@ -115,12 +114,12 @@ class VectorizeArticles:
             )
 
             self._logger.info(
-                f"Vectorized {len(texts)} articles into collection: {self.__flashpoint_id}"
+                f"Vectorized {len(texts)} feeds into collection: {self.__flashpoint_id}"
             )
             return self.__flashpoint_id
 
         except Exception as e:
-            self._logger.error(f"Error vectorizing articles: {e}")
+            self._logger.error(f"Error vectorizing feeds: {e}")
             return self.__flashpoint_id
         finally:
             # Cleanup inference runtime
@@ -132,19 +131,11 @@ class VectorizeArticles:
         try:
             # Create runtime config optimized for embedding generation
             config = RuntimeConfig(
-                gpu_batch_size=self.settings.gpu_batch_size,
-                gpu_max_delay_ms=self.settings.gpu_max_delay_ms,
-                gpu_queue_size=self.settings.gpu_queue_size,
-                gpu_timeout=self.settings.gpu_timeout,
-                gpu_use_fp16=self.settings.gpu_use_fp16,
-                gpu_enable_warmup=self.settings.gpu_enable_warmup,
-                cpu_max_threads=self.settings.cpu_max_threads,
-                cpu_max_processes=self.settings.cpu_max_processes,
             )
 
             # Create and start inference runtime
             self.inference_runtime = InferenceRuntime(
-                model_loader=self._get_embedding_model_loader, config=config
+                model_manager_loader=self._get_embedding_model_loader, config=config
             )
 
             await self.inference_runtime.start()
@@ -157,6 +148,8 @@ class VectorizeArticles:
     def _get_embedding_model_loader(self):
         """Model loader function for the inference runtime."""
         return ModelManager.get_embedding_model()
+    
+    
 
     def run_sync(self, feeds: List[FeedModel]) -> str:
         """

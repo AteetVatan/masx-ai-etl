@@ -628,6 +628,16 @@ class InferenceRuntime:
                 results.append(e)  # Return exception as result
 
         return results
+    
+    # async def stop(self) -> None:
+    #     """
+    #     Stop the inference runtime gracefully.
+    #     """
+    #     if self.model_manager:
+    #         await self.model_manager.release_all_instances()       
+       
+       
+            
 
     # async def stop(self) -> None:
     #     """

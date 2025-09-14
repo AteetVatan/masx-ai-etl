@@ -28,8 +28,9 @@ from app.config import get_service_logger, get_settings
 from app.etl_data.etl_models import FeedModel
 from app.core.models import SummarizationModelManager
 from app.core.concurrency import CPUExecutors
+from app.enumeration import WorkloadEnums
 
-class Summarizer:
+class SummarizerTask:
     """
     Summarizes raw article texts using a BART model (facebook/bart-large-cnn).
     For the prod env:
@@ -41,13 +42,13 @@ class Summarizer:
     transformers
     """
 
-    def __init__(self, feeds: list[FeedModel]):
-        self.feeds = feeds
+    def __init__(self):
         self.logger = get_service_logger("Summarizer")
         self.settings = get_settings()
         # inference runtime for summarization
         self.inference_runtime: Optional[InferenceRuntime] = None
-        self.cpu_executors = CPUExecutors()
+        self.cpu_executors = CPUExecutors(workload=WorkloadEnums.CPU)
+        
         
     def get_summarizer_utils():
         """Lazy import to avoid circular dependency."""
@@ -55,12 +56,12 @@ class Summarizer:
 
         return SummarizerUtils
 
-    async def summarize_all_feeds(self) -> list[FeedModel]:
+    async def summarize_all_feeds(self, feeds: list[FeedModel]) -> list[FeedModel]:
         """
         Translate, compress if needed, and summarize each article using InferenceRuntime with GPU micro-batching.
         """
         try:
-            self.logger.info(f"Summarizer: summarizing {len(self.feeds)} feeds")
+            self.logger.info(f"Summarizer: summarizing {len(feeds)} feeds")
             
             # Initialize inference runtime if not already done
             if not self.inference_runtime:
@@ -72,11 +73,12 @@ class Summarizer:
             summarized_feeds: list[FeedModel] = []
 
             # Process feeds in batches
-            for i in range(0, len(self.feeds), batch_size):
-                batch = self.feeds[i : i + batch_size]
+            for i in range(0, len(feeds), batch_size):
+                batch = feeds[i : i + batch_size]
                 self.logger.info(f"Summarizer: processing batch of {len(batch)} feeds")
                 batch_feeds = await self._process_batch(batch) # parallel execution of the batch
-                summarized_feeds.extend(batch_feeds)
+                summarized_feeds.extend(batch_feeds)               
+                
 
             return summarized_feeds
 
@@ -87,8 +89,9 @@ class Summarizer:
             # Final cleanup -- remove all the models from the pool
             if self.inference_runtime:
                 self.inference_runtime.model_manager.cleanup()
-                await self.inference_runtime.stop()
-               
+                #await self.inference_runtime.stop()
+            if self.cpu_executors:
+                self.cpu_executors.shutdown(wait=True)
                 
 
     async def _initialize_inference_runtime(self):
@@ -118,7 +121,6 @@ class Summarizer:
         """Model loader function for the inference runtime."""
         # Return only the model, not the tuple, since GPUWorker expects a single model        
         return SummarizationModelManager(self.settings)
-
     
 
     async def _process_batch(self, feeds: list[FeedModel]) -> list[FeedModel]:
@@ -131,15 +133,28 @@ class Summarizer:
 
             async def run(feed: FeedModel) -> FeedModel | None:
                 # each task acquires its own instance
-                with summarizer.acquire(destroy_after_use=False) as instance:
+                async with summarizer.acquire(destroy_after_use=False) as instance:
                     try:
-                        result = summarizer_utils._summarizer(
-                            feed.raw_text,
-                            instance.model,
-                            instance.tokenizer,
-                            instance.device,
-                            instance.max_tokens,
+                        # result = summarizer_utils._summarizer(
+                        #     feed.processed_text,
+                        #     instance.model,
+                        #     instance.tokenizer,
+                        #     instance.device,
+                        #     instance.max_tokens,
+                        # )
+                        
+                        result = await self.cpu_executors.run_in_thread(
+                             summarizer_utils._summarizer,  
+                             feed.processed_text, 
+                             instance.model, 
+                             instance.tokenizer, 
+                             instance.device, 
+                             instance.max_tokens
                         )
+                        if result is None:
+                            raise Exception("Summarizer: Error summarizing feed")
+                        
+                        feed.processed_text = result
                         feed.summary = result
                         return feed
                     except Exception as e:
@@ -148,8 +163,8 @@ class Summarizer:
 
             # schedule all feeds in parallel
             tasks = [run(feed) for feed in feeds]
-            results = await asyncio.gather(*tasks, return_exceptions=True)            
-
+            results = await asyncio.gather(*tasks, return_exceptions=True)   
+              
             # filter out None values and exceptions
             summarized_feeds = [
                 feed for feed in results if isinstance(feed, FeedModel)
@@ -162,7 +177,7 @@ class Summarizer:
         
 
     # ─── Generate Questions from Summary ──────────────────────────────────────────────On trial for now
-    def generate_questions_from_summary(self, max_questions: int = 3) -> list:
+    def generate_questions_from_summary(self, feeds: list[FeedModel], max_questions: int = 3) -> list:
         """
         Generate up to 3 concise questions from a given summary using Flan-T5-Large.
         """
@@ -172,7 +187,7 @@ class Summarizer:
         tokenizer = AutoTokenizer.from_pretrained(model_name)
         model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
 
-        for feed in self.feeds:
+        for feed in feeds:
 
             prompt = f"Generate {max_questions} questions based on this summary:\n{feed.summary}"
 

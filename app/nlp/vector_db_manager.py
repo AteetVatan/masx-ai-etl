@@ -20,9 +20,10 @@
 
 from uuid import uuid4
 from typing import List, Optional
-
+import uuid
 from app.config import get_service_logger
 from app.singleton import ChromaClientSingleton
+
 
 
 class VectorDBManager:
@@ -39,6 +40,7 @@ class VectorDBManager:
         metadatas: Optional[List[dict]] = None,
         ids: Optional[List[str]] = None,
         embeddings: Optional[List[List[float]]] = None,
+        batch_size: int = 500,
     ):
         """Insert or upsert documents into a collection."""
         try:
@@ -54,14 +56,21 @@ class VectorDBManager:
 
         # Generate UUIDs if not provided
         if ids is None:
-            ids = [str(uuid4()) for _ in texts]
+            # deterministic IDs (avoid duplicate vectors for same text)
+            ids = [str(uuid.uuid5(uuid.NAMESPACE_URL, t)) for t in texts]
 
         self._logger.info(
             f"vector_db_manager.py:Adding documents to collection: {collection_name}"
         )
-        collection.add(
-            documents=texts, metadatas=metadatas, ids=ids, embeddings=embeddings
-        )
+        #Split into chunks
+        for i in range(0, len(texts), batch_size):
+            collection.add(
+                documents=texts[i:i+batch_size],
+                metadatas=metadatas[i:i+batch_size] if metadatas else None,
+                ids=ids[i:i+batch_size],
+                embeddings=embeddings[i:i+batch_size] if embeddings else None,
+            )
+        self._logger.info(f"Inserted batch {i // batch_size + 1}")
 
     def query_similar(
         self, collection_name: str, query_text: str, top_k: int = 5

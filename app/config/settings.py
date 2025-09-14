@@ -135,12 +135,6 @@ class Settings(BaseSettings):
     model_pool_max_instances: int = Field(
         default=2, description="Maximum number of model instances"
     )
-
-    # WEB_SCRAPER
-    web_scraper_batch_size: int = Field(
-        default=15 if environment == "production" else 5,
-        description="Web scraper batch size (5 for dev, 15 for prod)"
-    )
     
     api_secret_key: str = Field(
         default="change_this_in_production", description="API secret key for security"

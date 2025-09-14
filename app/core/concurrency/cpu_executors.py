@@ -13,6 +13,7 @@ from typing import Optional, Callable, Any, List, TypeVar, Awaitable
 from functools import partial
 import threading
 from app.config import get_settings
+from app.enumeration import WorkloadEnums
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +32,7 @@ class CPUExecutors:
     _instance = None
     _lock = threading.Lock()
 
-    def __new__(cls):
+    def __new__(cls, *args, **kwargs):
         """Singleton pattern to ensure one instance per process."""
         if cls._instance is None:
             with cls._lock:
@@ -39,8 +40,11 @@ class CPUExecutors:
                     cls._instance = super().__new__(cls)
         return cls._instance
 
-    def __init__(self):
-        """Initialize executors only once."""
+    def __init__(self, workload: WorkloadEnums = WorkloadEnums.CPU):
+        """Initialize executors only once."""        
+        # every time the class is initialized, we should recalculate the max_threads
+        self.max_threads = self.calculate_thread_pool_size(workload=workload)        
+        
         if hasattr(self, "_initialized"):
             return
 
@@ -51,13 +55,15 @@ class CPUExecutors:
         self.settings = get_settings()
 
         # Configuration from environment
-        self.max_threads = self.settings.cpu_max_threads
+        #self.max_threads = self.settings.cpu_max_threads
+        #self.max_threads = self.calculate_thread_pool_size(workload=workload)        
         self.max_processes = self.settings.cpu_max_processes
 
         logger.info(
             f"cpu_executors.py:CPUExecutors initialized: max_threads={self.max_threads}, max_processes={self.max_processes}"
         )
-
+        
+    
     @property
     def thread_pool(self) -> ThreadPoolExecutor:
         """Get or create the shared thread pool."""
@@ -184,6 +190,26 @@ class CPUExecutors:
     def is_shutdown(self) -> bool:
         """Check if executors are shutdown."""
         return self._shutdown_event.is_set()
+    
+    def calculate_thread_pool_size(self, workload: WorkloadEnums = WorkloadEnums.IO, cap: int = 200) -> int:
+        """
+        Recommend a safe thread pool size based on workload type.
+
+        Args:
+            workload: "cpu" (CPU-bound) or "io" (I/O-bound).
+            cap: Maximum allowed threads for safety (default 200).
+
+        Returns:
+            int: Recommended thread pool size.
+        """
+        cores = os.cpu_count() or 1
+
+        if workload.value == WorkloadEnums.CPU.value:
+            threads = cores * 2
+        else:  # assume I/O-bound
+            threads = cores * 5
+
+        return min(threads, cap)
 
 
 # Global instance
@@ -214,3 +240,4 @@ async def map_processes(func: Callable[[T], R], items: List[T]) -> List[R]:
 def shutdown_executors(wait: bool = True):
     """Shutdown all executors."""
     cpu_executors.shutdown(wait=wait)
+

@@ -32,6 +32,9 @@ from sentence_transformers import SentenceTransformer
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, GenerationConfig
 import nltk
 from nltk.tokenize import sent_tokenize
+from datetime import datetime, timedelta
+from app.services import ProxyService
+
 
 from app.config import get_service_logger
 
@@ -48,12 +51,15 @@ class ModelManager:
     _translator: GoogleTranslator | None = None
     _device: torch.device | None = None
     _summarization_model_max_tokens: int = 1024
+    _translator_timestamp: datetime | None = None
 
     _summarization_model_name: str = "facebook/bart-large-cnn"
     _embedding_model_name: str = "sentence-transformers/all-mpnet-base-v2"
 
     _embedding_model: SentenceTransformer | None = None
     _embedding_lock = threading.Lock()
+    
+  
 
     _logger = get_service_logger("ModelManager")
 
@@ -169,11 +175,13 @@ class ModelManager:
         return cls._embedding_model
 
     @classmethod
-    def get_translator(cls, lang="en") -> GoogleTranslator:
-        if cls._translator is None:
-            cls.__load_translator(lang)
-        return cls._translator
+    def get_translator(cls, lang="en", proxies=None) -> GoogleTranslator:
+        if not cls._translator or proxies is not None:
+            cls._translator = None
+            cls.__load_translator(lang, proxies)
 
+        return cls._translator
+    
     # ===== LANGUAGE DETECTION =====
     @classmethod
     def detect_language(cls, text: str) -> str:
@@ -184,7 +192,7 @@ class ModelManager:
                 lang = cls.detect_lang_lingua(text)
             return lang.lower()
         except Exception:
-            return cls.detect_lang_fasttext(text).lower()
+            return cls.detect_lang_lingua(text).lower()
 
     @classmethod
     def get_lingua_detector(cls, languages=None):
@@ -260,10 +268,10 @@ class ModelManager:
             # 5) Generation defaults (modern API; avoids overflows)
             # Note: early_stopping is deprecated, will be set per-call with eos_token_id
             cls._gen_cfg = GenerationConfig(
-                num_beams=4,
-                length_penalty=2.0,
-                no_repeat_ngram_size=3,
-                do_sample=False,
+                num_beams=4, # → "Keep 4 best options at each step"
+                length_penalty=2.0, # → "Make the output quite long and detailed"
+                no_repeat_ngram_size=3, # → "Don't repeat any 3-word phrases"
+                do_sample=False, # → "Be deterministic, not random"
             )
 
             # 6) Finalize
@@ -336,9 +344,12 @@ class ModelManager:
             raise RuntimeError(f"Failed to load embedding model: {e}")
 
     @classmethod
-    def __load_translator(cls, lang):
+    def __load_translator(cls, lang , proxies=None):
         try:
-            cls._translator = GoogleTranslator(source="auto", target=lang)
+            if proxies is not None:
+                cls._translator = GoogleTranslator(source="auto", target=lang, proxies=proxies)
+            else:
+                cls._translator = GoogleTranslator(source="auto", target=lang)
         except Exception as e:
             cls._logger.error(f"model_manager.py:Failed to load GoogleTranslator: {e}")
             raise RuntimeError(f"Failed to load GoogleTranslator: {e}")

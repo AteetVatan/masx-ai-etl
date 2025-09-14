@@ -28,6 +28,7 @@ from app.config import get_settings, get_service_logger
 from app.web_scrapers import WebScraperUtils
 from app.core.concurrency import CPUExecutors
 from app.services import ProxyService
+from app.enumeration import WorkloadEnums
 
 
 class NewsContentExtractor:
@@ -35,25 +36,27 @@ class NewsContentExtractor:
     Extracts raw text from article URLs using BeautifulSoup and Crawl4AI as fallback.
     """
 
-    def __init__(self, feeds: list[FeedModel]):
+    def __init__(self):
 
-        # self.news_articles = self.context.pull(DagContextEnum.NEWS_ARTICLES.value)
-        self.feeds = feeds
+        # self.news_articles = self.context.pull(DagContextEnum.NEWS_ARTICLES.value)        
         self.settings = get_settings()
         self.crawl4AIExtractor = Crawl4AIExtractor()
         self.logger = get_service_logger("NewsContentExtractor")
 
         # Initialize CPU executors for async processing
-        self.cpu_executors = CPUExecutors()
-        self.web_scraper_batch_size = self.settings.web_scraper_batch_size
+        self.cpu_executors = CPUExecutors(workload=WorkloadEnums.IO)
+        #self.web_scraper_batch_size = self.settings.web_scraper_batch_size
+        
+        self.web_scraper_batch_size = self.cpu_executors.max_threads
+        
         self.proxy_service = ProxyService()
 
-    async def extract_feeds(self) -> list[FeedModel]:
+    async def extract_feeds(self, feeds: list[FeedModel]) -> list[FeedModel]:
         """
         Extract raw text for each article using proxy-enabled scraping with async concurrency.
         """
         try:
-            if not self.feeds:
+            if not feeds:
                 self.logger.error(
                     "news_content_extractor.py:NewsContentExtractor:No feeds found in context."
                 )
@@ -78,18 +81,19 @@ class NewsContentExtractor:
                 raise ValueError("No valid proxies found in context.")
 
             self.logger.info(
-                f"news_content_extractor.py:NewsContentExtractor:-----Scraping {len(self.feeds)} feeds....Using {len(proxies)} proxies-----"
+                f"news_content_extractor.py:NewsContentExtractor:-----Scraping {len(feeds)} feeds....Using {len(proxies)} proxies-----"
             )
 
             # Process feeds using async CPU executors
             scraped_feeds = []
 
             # Process in batches for efficiency
-            batch_size = self.web_scraper_batch_size
-            for i in range(0, len(self.feeds), batch_size):
-                batch = self.feeds[i : i + batch_size]
+            batch_size = self.cpu_executors.max_threads
+            for i in range(0, len(feeds), batch_size):
+                batch = feeds[i : i + batch_size]
                 batch_results = await self._process_batch(batch, proxies)
-                scraped_feeds.extend([r for r in batch_results if r])
+                scraped_feeds.extend([r for r in batch_results if r])               
+
 
             return scraped_feeds
         except Exception as e:
@@ -98,7 +102,8 @@ class NewsContentExtractor:
             )
             return []
         finally:
-            self.cpu_executors.shutdown(wait=True)
+            if self.cpu_executors:
+                self.cpu_executors.shutdown(wait=True)
 
     async def _process_batch(
         self, feeds: list[FeedModel], proxies: list[str]
@@ -114,7 +119,7 @@ class NewsContentExtractor:
                 )
                 tasks.append(task)
                 
-                
+               
 
             # Execute all tasks concurrently
             results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -128,7 +133,8 @@ class NewsContentExtractor:
                     )
                     continue
 
-                if result and result.raw_text and len(result.raw_text) >= 1500:
+                if result and result.raw_text:
+                    result.processed_text = result.raw_text                
                     processed_feeds.append(result)
 
             return processed_feeds

@@ -79,3 +79,10 @@ xx-ent-wiki-sm @ https://github.com/explosion/spacy-models/releases/download/xx_
 
  # HTTP Client for RunPod API
  aiohttp>=3.9.0
+
+#hf
+huggingface_hub
+hf_xet
+
+#runpod
+runpod>=0.10.0

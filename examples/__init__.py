@@ -16,29 +16,9 @@
 #
 # Contact: ab@masxai.com | MASXAI.com
 
-from pydantic import BaseModel
-from typing import Optional
-from datetime import datetime
+"""
+Examples package for the MASX AI ETL system.
 
-
-class FeedModel(BaseModel):
-    """Model for feed data."""
-
-    id: str
-    flashpoint_id: str
-    url: str
-    title: str
-    seendate: Optional[str] = ""
-    domain: Optional[str] = ""
-    language: Optional[str] = "" # e.g. "en" ISO 639-1
-    sourcecountry: Optional[str] = ""
-    description: Optional[str] = ""
-    raw_text: Optional[str] = ""
-    raw_text_en: Optional[str] = ""
-    compressed_text: Optional[str] = ""
-    processed_text: Optional[str] = ""
-    summary: Optional[str] = ""
-    image: Optional[str] = ""
-    embedding: Optional[list] = None
-    created_at: datetime = None
-    updated_at: datetime = None
+This package contains integration examples and migration guides for the new
+model management system.
+"""

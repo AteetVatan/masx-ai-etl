@@ -28,6 +28,7 @@ from bs4 import BeautifulSoup
 
 from app.config import headers_list, get_settings, get_service_logger
 from app.core.concurrency import CPUExecutors
+from app.enumeration import WorkloadEnums
 
 
 # convert this class to a singleton
@@ -46,7 +47,7 @@ class ProxyManager:
     __logger = get_service_logger("ProxyManager")
 
     # Initialize CPU executors for async processing
-    __cpu_executors = CPUExecutors()
+    __cpu_executors = CPUExecutors(workload=WorkloadEnums.CPU)
 
     @classmethod
     def proxies(cls):
