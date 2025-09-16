@@ -22,7 +22,7 @@ from app.config import get_service_logger, get_settings
 from app.etl_data.etl_models import FeedModel
 from app.core.exceptions import ServiceException
 from app.core.concurrency import InferenceRuntime, RuntimeConfig
-from app.singleton import ModelManager
+from app.services import TranslatorService
 from typing import Optional
 #from app.enumeration.enums import TaskEnums
 from app.nlp import Translator, NLPUtils
@@ -48,6 +48,8 @@ class TranslatorTask:
         self.inference_runtime: Optional[InferenceRuntime] = None
         self._proxy_service = ProxyService()      
         self.cpu_executors = CPUExecutors(workload=WorkloadEnums.CPU)
+        self.translator_service = TranslatorService()
+        
         
 
     async def translate_all_feeds(self, feeds: list[FeedModel]) -> list[FeedModel]:
@@ -81,8 +83,8 @@ class TranslatorTask:
             #feeds_nllb, feeds_google = await self.divide_feeds_nllb_google(feeds_multilingual)
             #for now use all feeds for nllb
             # only error fallbacks to google translate
-            feeds_nllb = []
-            feeds_google = feeds_multilingual
+            feeds_nllb = feeds_multilingual[:1]
+            feeds_google = feeds_multilingual[1:]
 
             result_nllb, result_google = await asyncio.gather(
                 self.translate_all_feeds_nllb(feeds_nllb),
@@ -172,7 +174,7 @@ class TranslatorTask:
                     except Exception as e:
                         #fallback to google translate
                         try:
-                            google_translator = ModelManager.get_translator(lang="en", proxies=None)
+                            google_translator = self.translator_service.get_google_translator(lang="en", proxies=None)
                             result = google_translator.translate(chunk)
                             return (feed_index, feed_id, source_lang, result)
                         except Exception as e:
@@ -320,7 +322,7 @@ class TranslatorTask:
         try:
             
             #proxies = await self._proxy_service.get_proxies()
-            google_translator = ModelManager.get_translator(lang="en", proxies=None)
+            google_translator = self.translator_service.get_google_translator(lang="en", proxies=None)
             
             # split the text into chunks, as the google translator has a limit of 5000 characters?
             self.logger.info(f"translator.py:[Translation] Using Google Translate")
