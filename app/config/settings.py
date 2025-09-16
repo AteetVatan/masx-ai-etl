@@ -26,8 +26,9 @@ handling all environment variables and system configuration with proper validati
 from functools import lru_cache
 from typing import List, Optional
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+import os
 
 
 class Settings(BaseSettings):
@@ -131,7 +132,12 @@ class Settings(BaseSettings):
         default="https://api.runpod.io/v2/rrbf5aifol52jo/run",
         description="RunPod endpoint",
     )
-
+    
+    model_cache_dir: str = Field(
+        default=os.getenv("MODEL_CACHE_DIR", os.getenv("HF_HOME", "./.hf_cache")),
+        description="Model cache directory"
+    ) 
+    
     model_pool_max_instances: int = Field(
         default=2, description="Maximum number of model instances"
     )
@@ -223,6 +229,13 @@ class Settings(BaseSettings):
     test_summarizer: str = Field(default="HDBSCAN", description="Test summarizer")
 
     # Validators
+    
+    # @model_validator(mode="after")
+    # def adjust_cache_dir(self):
+    #     base_dir = os.path.dirname(os.path.abspath(__file__))
+    #     self.model_cache_dir = os.path.join(base_dir, "..", self.model_cache_dir)
+    #     return self
+    
     @field_validator("environment")
     def validate_environment(cls, v: str) -> str:
         """Validate environment setting."""

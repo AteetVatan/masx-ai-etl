@@ -1,6 +1,8 @@
 # ---- Base: CUDA runtime + Ubuntu 22.04 ----
 FROM nvidia/cuda:12.1.1-runtime-ubuntu22.04
 
+
+
 ENV DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC PYTHONUNBUFFERED=1 \
     PYTHONPATH=/app PLAYWRIGHT_BROWSERS_PATH=/ms-playwright PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 \
     CUDA_HOME=/usr/local/cuda PATH=/usr/local/cuda/bin:${PATH} \
@@ -9,6 +11,9 @@ ENV DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC PYTHONUNBUFFERED=1 \
 ENV TRANSFORMERS_VERBOSITY=info
 
 WORKDIR /app
+
+# Hugging Face cache inside container
+ENV HF_HOME=/app/.hf_cache
 
 # ---- System deps ----
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -85,6 +90,20 @@ import aiohttp
 print("aiohttp version:", aiohttp.__version__)
 print("aiohttp available for RunPod API calls")
 PY
+
+# Pre-download models here
+RUN mkdir -p $HF_HOME
+
+RUN micromamba run -n appenv python -c "from sentence_transformers import SentenceTransformer; \
+    SentenceTransformer('sentence-transformers/all-mpnet-base-v2', cache_folder='$HF_HOME')"
+
+RUN micromamba run -n appenv python -c "from transformers import AutoModelForSeq2SeqLM, AutoTokenizer; \
+    AutoModelForSeq2SeqLM.from_pretrained('facebook/bart-large-cnn', cache_dir='$HF_HOME'); \
+    AutoTokenizer.from_pretrained('facebook/bart-large-cnn', cache_dir='$HF_HOME')"
+
+RUN micromamba run -n appenv python -c "from transformers import AutoModelForSeq2SeqLM, AutoTokenizer; \
+    AutoModelForSeq2SeqLM.from_pretrained('facebook/nllb-200-distilled-600M', cache_dir='$HF_HOME'); \
+    AutoTokenizer.from_pretrained('facebook/nllb-200-distilled-600M', cache_dir='$HF_HOME')"
 
 ENTRYPOINT ["/usr/bin/tini","-s","--"]
 CMD ["micromamba","run","-n","appenv","python","-u","/app/handler.py"]
