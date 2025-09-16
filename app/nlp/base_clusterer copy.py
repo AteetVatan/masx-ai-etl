@@ -17,40 +17,23 @@
 # Contact: ab@masxai.com | MASXAI.com
 """Cluster the vectorized documents stored in ChromaDB and generate a concise summary for each cluster."""
 
-from sklearn.cluster import KMeans
-from app.config import get_service_logger
+import hdbscan
 import numpy as np
-from .base_clusterer import BaseClusterer
+from sklearn.cluster import KMeans
+from sklearn.preprocessing import normalize
+from abc import ABC, abstractmethod
+
+from app.config import get_service_logger
 
 
-class KMeansClusterer(BaseClusterer):
+class BaseClusterer(ABC):
     """
-    KMeans clustering strategy.
-    Suitable for uniform-sized, clearly separated clusters.
+    Abstract base class for all clustering strategies.
     """
 
-    def __init__(self, n_clusters: int = None, random_state: int = 42):
-        self.n_clusters = n_clusters
-        self.random_state = random_state
-        self.logger = get_service_logger("KMeansClusterer")
-
+    @abstractmethod
     def cluster(self, embeddings: np.ndarray) -> list[int]:
-        try:
-            if self.n_clusters is None:
-                # Auto-select based on dataset size
-                n_clusters = min(10, max(2, int(np.sqrt(len(embeddings)/2))))
-            else:
-                n_clusters = min(self.n_clusters, len(embeddings))
-                
-            model = KMeans(n_clusters=n_clusters, random_state=self.random_state)
-            labels = model.fit_predict(embeddings)
-
-            # Convert numpy array to Python list for consistency
-            if hasattr(labels, "tolist"):
-                return labels.tolist()
-            else:
-                return list(labels)
-
-        except Exception as e:
-            self.logger.error(f"kmeans_clusterer.py:Error: {e}")
-            raise e
+        """
+        Given a list of embeddings, return cluster labels.
+        """
+        pass

@@ -73,6 +73,7 @@ class SummarizerTask:
             summarized_feeds: list[FeedModel] = []
 
             # Process feeds in batches
+            self.logger.info(f"Summarizer: processing {len(feeds)} feeds in batches of {batch_size}")
             for i in range(0, len(feeds), batch_size):
                 batch = feeds[i : i + batch_size]
                 self.logger.info(f"Summarizer: processing batch of {len(batch)} feeds")

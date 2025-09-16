@@ -160,63 +160,77 @@ class ETLPipeline:
             feeds = flashpoint.feeds
             # return True
 
-            feeds = feeds[:5]
-
-
-
+            #feeds = feeds[:5]
             start_time = time.time()
             
-            # load summarized feeds from file
-            self.logger.info(
-                "etl_pipeline.py:ETLPipeline:Running NewsContentExtractor..."
-            )            
-            
-            extractor = NewsContentExtractor()
-            processed_feeds = await extractor.extract_feeds(feeds)            
-            news_content_extractor_time = time.time() - start_time
-            self.logger.info(f"etl_pipeline.py:ETLPipeline:NewsContentExtractor time: {news_content_extractor_time} seconds")
-            
+            if True:
 
-            self.logger.info(
-                f"*****************etl_pipeline.py:ETLPipeline:scraped_feeds length: {len(processed_feeds)} out of {len(feeds)}*****************"
-            )
-            
-            processed_feeds = processed_feeds[:3]
-            #scraped_feeds = scraped_feeds[:2]
-            
-            #after scraping compress if needed
-            #if total_tokens > 2 * max_tokens or lang != "en":
-            
-            
-            language_detector_time = time.time()
-            # Set the language for the compressed feeds
-            language_detector = LanguageDetectorTask()
-            processed_feeds = await language_detector.set_language_for_all_feeds(processed_feeds)
-            language_detector_time = time.time() - language_detector_time
-            self.logger.info(f"etl_pipeline.py:ETLPipeline:LanguageDetector time: {language_detector_time} seconds")
-            
-            
-            compressor_time = time.time()
-            compressor = CompressorTask()
-            processed_feeds = await compressor.compress_all_feeds(processed_feeds)
-            compressor_time = time.time() - compressor_time
-            self.logger.info(f"etl_pipeline.py:ETLPipeline:Compressor time: {compressor_time} seconds")            
+                
+                
+                # load summarized feeds from file
+                self.logger.info(
+                    "etl_pipeline.py:ETLPipeline:Running NewsContentExtractor..."
+                )            
+                
+                extractor = NewsContentExtractor()
+                processed_feeds = await extractor.extract_feeds(feeds)            
+                news_content_extractor_time = time.time() - start_time
+                self.logger.info(f"etl_pipeline.py:ETLPipeline:NewsContentExtractor time: {news_content_extractor_time} seconds")
+                
 
+                self.logger.info(
+                    f"*****************etl_pipeline.py:ETLPipeline:scraped_feeds length: {len(processed_feeds)} out of {len(feeds)}*****************"
+                )                
+                
+                language_detector_time = time.time()
+                # Set the language for the compressed feeds
+                language_detector = LanguageDetectorTask()
+                processed_feeds = await language_detector.set_language_for_all_feeds(processed_feeds)
+                language_detector_time = time.time() - language_detector_time
+                self.logger.info(f"etl_pipeline.py:ETLPipeline:LanguageDetector time: {language_detector_time} seconds")
+                
+                
+                compressor_time = time.time()
+                compressor = CompressorTask()
+                processed_feeds = await compressor.compress_all_feeds(processed_feeds)
+                compressor_time = time.time() - compressor_time
+                self.logger.info(f"etl_pipeline.py:ETLPipeline:Compressor time: {compressor_time} seconds")            
+
+                
+                translator_time = time.time()
+                # Translate the compressed feeds
+                translator = TranslatorTask()
+                processed_feeds = await translator.translate_all_feeds(processed_feeds)
+                translator_time = time.time() - translator_time
+                self.logger.info(f"etl_pipeline.py:ETLPipeline:Translator time: {translator_time} seconds")
+                
+                #summarize the processed feeds
+                summarizer_time = time.time()
+                self.logger.info("etl_pipeline.py:ETLPipeline:Running Summarizer...")
+                summarizer = SummarizerTask()
+                processed_feeds = await summarizer.summarize_all_feeds(processed_feeds)
+                summarizer_time = time.time() - summarizer_time
+                self.logger.info(f"etl_pipeline.py:ETLPipeline:Summarizer time: {summarizer_time} seconds")
             
-            translator_time = time.time()
-            # Translate the compressed feeds
-            translator = TranslatorTask()
-            processed_feeds = await translator.translate_all_feeds(processed_feeds)
-            translator_time = time.time() - translator_time
-            self.logger.info(f"etl_pipeline.py:ETLPipeline:Translator time: {translator_time} seconds")
             
-            #summarize the processed feeds
-            summarizer_time = time.time()
-            self.logger.info("etl_pipeline.py:ETLPipeline:Running Summarizer...")
-            summarizer = SummarizerTask()
-            processed_feeds = await summarizer.summarize_all_feeds(processed_feeds)
-            summarizer_time = time.time() - summarizer_time
-            self.logger.info(f"etl_pipeline.py:ETLPipeline:Summarizer time: {summarizer_time} seconds")
+                #### Here store the summarize processed_feeds as json file
+                store_time = time.time()
+                self.logger.info("etl_pipeline.py:ETLPipeline:Storing summarized feeds to JSON file...")
+                stored_file_path = self._store_summarized_feeds(processed_feeds, flashpoint_id)
+                store_time = time.time() - store_time
+                self.logger.info(f"etl_pipeline.py:ETLPipeline:Store time: {store_time} seconds")
+                
+            #### then read the json file to create the processed_feeds again 
+            load_time = time.time()
+            self.logger.info("etl_pipeline.py:ETLPipeline:Loading summarized feeds from JSON file...")
+            processed_feeds = self._load_summarized_feeds(flashpoint_id)
+            load_time = time.time() - load_time
+            self.logger.info(f"etl_pipeline.py:ETLPipeline:Load time: {load_time} seconds")
+            
+            if not processed_feeds:
+                self.logger.error("etl_pipeline.py:ETLPipeline:Failed to load summarized feeds from JSON file")
+                raise ValueError("Failed to load summarized feeds from JSON file")
+                        
             
             #summarize the processed feeds
             # summarizer_finalizer_time = time.time()
@@ -257,7 +271,7 @@ class ETLPipeline:
                 n_clusters = round(
                     sqrt(feed_count / 2)
                 )  # min(3, feed_count)  # safe default
-                clusterer = KMeansClusterer(n_clusters=n_clusters)
+                clusterer = KMeansClusterer()
             else:
                 self.logger.info(
                     f"Dataset size ({feed_count} articles) — using HDBSCAN clustering"
@@ -335,11 +349,14 @@ class ETLPipeline:
             )
 
     def _load_summarized_feeds(self, flashpoint_id: str):
+        """Load summarized feeds from JSON file for the given flashpoint."""
         from app.etl_data.etl_models.feed_model import FeedModel
         import json
         from pathlib import Path
+        from datetime import datetime
 
-        path = Path("debug_data/summarized_feed.json")
+        # Create flashpoint-specific file path
+        path = Path(f"debug_data/summarized_feeds_{flashpoint_id}_{self.date}.json")
 
         # Best-first: UTF-8; fallback to UTF-8 with BOM; final fallback replaces bad bytes
         def load_json_textsafe(path: Path):
@@ -353,13 +370,37 @@ class ETLPipeline:
             with path.open("r", encoding="utf-8", errors="replace") as f:
                 return json.load(f)
 
+        def convert_datetime_strings(feed_data: dict) -> dict:
+            """Convert ISO datetime strings back to datetime objects."""
+            for field in ['created_at', 'updated_at']:
+                if field in feed_data and feed_data[field] and isinstance(feed_data[field], str):
+                    try:
+                        feed_data[field] = datetime.fromisoformat(feed_data[field])
+                    except (ValueError, TypeError):
+                        # If conversion fails, keep as string or set to None
+                        feed_data[field] = None
+            return feed_data
+
+        if not path.exists():
+            self.logger.warning(f"etl_pipeline.py:ETLPipeline:No summarized feeds file found at {path}")
+            return []
+
         summarized_feeds_json = load_json_textsafe(path)
+        
+        # Convert datetime strings back to datetime objects
+        for feed_data in summarized_feeds_json:
+            convert_datetime_strings(feed_data)
+        
         summarized_feeds = [FeedModel(**feed) for feed in summarized_feeds_json]
+        self.logger.info(f"etl_pipeline.py:ETLPipeline:Loaded {len(summarized_feeds)} summarized feeds from {path}")
         return summarized_feeds
 
-    def _store_summarized_feeds(self, summarized_feeds: list[dict]):
+    def _store_summarized_feeds(self, summarized_feeds: list, flashpoint_id: str):
+        """Store summarized feeds as JSON file for the given flashpoint."""
         import json
         import re
+        from pathlib import Path
+        from datetime import datetime
 
         def clean_text(val):
             if isinstance(val, str):
@@ -372,7 +413,25 @@ class ETLPipeline:
                 return [clean_text(v) for v in val]
             elif isinstance(val, dict):
                 return {k: clean_text(v) for k, v in val.items()}
+            elif isinstance(val, datetime):
+                # Convert datetime to ISO format string
+                return val.isoformat()
             return val
 
+        # Create debug_data directory if it doesn't exist
+        debug_dir = Path("debug_data")
+        debug_dir.mkdir(exist_ok=True)
+        
+        # Create flashpoint-specific file path
+        file_path = debug_dir / f"summarized_feeds_{flashpoint_id}_{self.date}.json"
+        
+        # Clean and serialize the feeds
         cleaned_feeds = [clean_text(feed.dict()) for feed in summarized_feeds]
         json_str = json.dumps(cleaned_feeds, ensure_ascii=False, indent=4)
+        
+        # Write to file
+        with open(file_path, 'w', encoding='utf-8') as f:
+            f.write(json_str)
+        
+        self.logger.info(f"etl_pipeline.py:ETLPipeline:Stored {len(summarized_feeds)} summarized feeds to {file_path}")
+        return str(file_path)

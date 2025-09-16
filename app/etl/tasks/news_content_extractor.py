@@ -89,6 +89,7 @@ class NewsContentExtractor:
 
             # Process in batches for efficiency
             batch_size = self.cpu_executors.max_threads
+            self.logger.info(f"news_content_extractor.py:NewsContentExtractor:-----Processing {len(feeds)} feeds in batches of {batch_size}-----")
             for i in range(0, len(feeds), batch_size):
                 batch = feeds[i : i + batch_size]
                 batch_results = await self._process_batch(batch, proxies)

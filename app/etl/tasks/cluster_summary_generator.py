@@ -22,9 +22,18 @@ import numpy as np
 from tqdm import tqdm
 from app.nlp import BaseClusterer
 from app.singleton import ModelManager, ChromaClientSingleton
-from typing import Tuple
+from typing import Tuple, List
 import torch
+import asyncio
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from app.core.concurrency import CPUExecutors
+from app.enumeration import WorkloadEnums
+from app.core.concurrency import InferenceRuntime
+from app.core.concurrency import RuntimeConfig
+from app.core.models import SummarizationModelManager
+from app.etl_data.etl_models import ClusterModel
+from app.config import get_service_logger
+from app.config import get_settings
 
 
 class ClusterSummaryGenerator:
@@ -42,17 +51,21 @@ class ClusterSummaryGenerator:
 
     """
 
-    def __init__(self, collection_name: str, clustering_strategy: BaseClusterer):
+    def __init__(self, flashpoint_id: str, clustering_strategy: BaseClusterer):
+        self.settings = get_settings()
         self.client = ChromaClientSingleton.get_client()
         self.collection = ChromaClientSingleton.get_collection_if_exists(
-            collection_name
+            flashpoint_id
         )
         self.clusterer = clustering_strategy
 
         # Initialize logger
-        from app.config import get_service_logger
+        
 
         self.logger = get_service_logger("ClusterSummaryGenerator")
+        self.inference_runtime: InferenceRuntime = None
+        self.cpu_executors = CPUExecutors(workload=WorkloadEnums.CPU)
+        self.flashpoint_id = flashpoint_id
 
     async def generate(self) -> list[dict]:
         """
@@ -74,11 +87,19 @@ class ClusterSummaryGenerator:
 
             print(f"Clustering {len(documents)} articles...")
             cluster_labels = await self._cluster_embeddings(embeddings)
+            
+            
+            
+            # now generate cluster summaries         
+            
 
             print("Generating cluster summaries...")
-            return self._generate_cluster_summaries(
-                documents, metadatas, cluster_labels
+            result: list[ClusterModel] = await self._generate_cluster_summaries(
+                self.flashpoint_id, documents, metadatas, cluster_labels
             )
+            
+            return result
+            
         except Exception as e:
             self.logger.error(
                 f"cluster_summary_generator.py:ClusterSummaryGenerator:Error generating cluster summaries: {e}"
@@ -100,10 +121,23 @@ class ClusterSummaryGenerator:
             )
             raise e
 
-    def _generate_cluster_summaries_KMean(
-        self, documents: list[str], metadatas: list[dict], labels: list[int]
-    ) -> list[dict]:
+        
+    
+    async def _generate_cluster_summaries(
+        self, flashpoint_id: str, documents: list[str], metadatas: list[dict], labels: list[int]
+    ) -> list[ClusterModel]:
         try:
+            
+                
+            # Initialize inference runtime if not already done
+            if not self.inference_runtime:
+                self.logger.info("Summarizer: initializing inference runtime")
+                await self._initialize_inference_runtime()
+
+            summarizer: SummarizationModelManager = self.inference_runtime.model_manager
+            batch_size = summarizer.pool_size
+
+            # Group docs by cluster label
             grouped_docs = defaultdict(list)
             grouped_meta = defaultdict(list)
 
@@ -113,78 +147,89 @@ class ClusterSummaryGenerator:
                 grouped_docs[label].append(doc)
                 grouped_meta[label].append(meta)
 
-            model, tokenizer, device = ModelManager.get_summarization_model()
+            cluster_ids = list(grouped_docs.keys())
+            results: List[ClusterModel] = []
+
+            # Process clusters in batches
+            for i in range(0, len(cluster_ids), batch_size):
+                batch_ids = cluster_ids[i : i + batch_size]
+                self.logger.info(f"Summarizer: processing batch of {len(batch_ids)} clusters")
+
+                # Gather cluster data for this batch
+                batch_clusters = []
+                for cluster_id in batch_ids:
+                    texts = grouped_docs[cluster_id]
+                    meta = grouped_meta[cluster_id]
+                    if len(texts) < 2:
+                        continue  # Skip trivial clusters
+                    batch_clusters.append((cluster_id, texts, meta))
+
             results = []
-
-            for cluster_id in tqdm(grouped_docs, desc="Summarizing Clusters"):
-                texts = grouped_docs[cluster_id]
-                meta = grouped_meta[cluster_id]
-
-                if len(texts) < 2:
-                    continue  # Skip trivial clusters
-
-                joined = " ".join(texts)[:2048]  # Char-safe truncation
-                input_ids = tokenizer.encode(
-                    joined, return_tensors="pt", truncation=True
-                ).to(device)
-                summary_ids = model.generate(input_ids, max_length=150, min_length=30)
-                summary = tokenizer.decode(summary_ids[0], skip_special_tokens=True)
-
-                top_domains = [
-                    d
-                    for d, _ in Counter(
-                        m.get("domain", "unknown") for m in meta
-                    ).most_common(3)
-                ]
-                langs = sorted(set(m.get("language", "unknown") for m in meta))
-                urls = [m.get("url") for m in meta if m.get("url")]
-                sample_urls = urls[:3]
-
-                results.append(
-                    {
-                        "cluster_id": cluster_id,
-                        "summary": summary,
-                        "article_count": len(texts),
-                        "top_domains": top_domains,
-                        "languages": langs,
-                        "sample_urls": sample_urls,
-                    }
-                )
-
-                return results
+            results.append(await self._process_batch(flashpoint_id, batch_clusters))
+          
+                
+            return results              
+  
+                
+                
+                
         except Exception as e:
             self.logger.error(
                 f"cluster_summary_generator.py:ClusterSummaryGenerator:Error generating cluster summaries: {e}"
             )
             raise e
 
-    def _generate_cluster_summaries(
-        self, documents: list[str], metadatas: list[dict], labels: list[int]
-    ) -> list[dict]:
-        try:
-            grouped_docs = defaultdict(list)
-            grouped_meta = defaultdict(list)
-
-            for doc, meta, label in zip(documents, metadatas, labels):
-                if label == -1:
-                    continue  # Noise in HDBSCAN
-                grouped_docs[label].append(doc)
-                grouped_meta[label].append(meta)
-
-            model, tokenizer, device = ModelManager.get_summarization_model()
-            results = []
-
-            for cluster_id in tqdm(grouped_docs, desc="Summarizing Clusters"):
-                texts = grouped_docs[cluster_id]
-                meta = grouped_meta[cluster_id]
-                if len(texts) < 2:
-                    continue  # Skip trivial clusters
-
-                res = self._generate_group_summaries(
-                    cluster_id, texts, meta, model, tokenizer, device
-                )
-                results.append(res)
+    async def _process_batch(
+        self, flashpoint_id: str, batch_clusters : list[tuple[int, list[str], list[dict]]]
+    ) -> list[ClusterModel]:
+        try:          
+             #(cluster_id, texts, meta)            
+            summarizer: SummarizationModelManager = self.inference_runtime.model_manager            
+            # cluster in batches of model pool 
+            batch_size = summarizer.pool_size
+        
+            async def run(flashpoint_id: str, cluster_id: int, texts: list[str], meta: list[dict]) -> ClusterModel | None:
+                # each task acquires its own instance
+                async with summarizer.acquire(destroy_after_use=False) as instance:
+                    try:                        
+                        result = await self.cpu_executors.run_in_thread(
+                                self._generate_group_summaries,  
+                                flashpoint_id,
+                                cluster_id, 
+                                texts, 
+                                meta, 
+                                instance.model, 
+                                instance.tokenizer, 
+                                instance.device
+                        )
+                        if result is None:
+                            raise Exception("Summarizer: Error summarizing cluster")
+                        
+                      
+                      
+                #         params = (
+                #     str(flashpoint_id),
+                #     int(cluster["cluster_id"]),
+                #     cluster["summary"],
+                #     int(cluster["article_count"]),
+                #     json.dumps(cluster.get("top_domains", [])),
+                #     json.dumps(cluster.get("languages", [])),
+                #     json.dumps(cluster.get("urls", [])),
+                #     json.dumps(cluster.get("images", [])),
+                # )
+                        
+                        return result
+                    except Exception as e:
+                        self.logger.error(f"Summarizer: Error summarizing cluster: {e}")
+                        return None
+        
+            tasks = [run(flashpoint_id, cluster_id, texts, meta) for cluster_id, texts, meta in batch_clusters]
+           
+            results = await asyncio.gather(*tasks, return_exceptions=True)
             return results
+        
+        
+        
         except Exception as e:
             self.logger.error(
                 f"cluster_summary_generator.py:ClusterSummaryGenerator:Error generating cluster summaries: {e}"
@@ -192,7 +237,7 @@ class ClusterSummaryGenerator:
             raise e
 
     def _generate_group_summaries(
-        self, cluster_id, texts, meta, model, tokenizer, device
+        self, flashpoint_id, cluster_id, texts, meta, model, tokenizer, device
     ) -> list[dict]:
         try:
 
@@ -219,6 +264,9 @@ class ClusterSummaryGenerator:
                     m.get("domain", "unknown") for m in meta
                 ).most_common(3)
             ]
+            all_domains = sorted(set(m.get("domain", "unknown") for m in meta))
+       
+            
             langs = sorted(set(m.get("language", "unknown") for m in meta))
             urls = [m.get("url") for m in meta if m.get("url")]
             images = [
@@ -226,16 +274,31 @@ class ClusterSummaryGenerator:
                 for m in meta
                 if m.get("image") and m.get("image") != "unknown"
             ]
-            result = {
-                "cluster_id": cluster_id,
-                "summary": summary,
-                "article_count": len(texts),
-                "top_domains": top_domains,
-                "languages": langs,
-                "urls": urls,
-                "images": images,
-            }
-            return result
+            
+            cluster_model = ClusterModel(                
+                flashpoint_id=flashpoint_id,
+                cluster_id=cluster_id,
+                summary=summary,
+                article_count=len(texts),
+                top_domains=top_domains,
+                all_domains=all_domains,
+                languages=langs,
+                urls=urls,
+                images=images,
+            )
+            
+            
+            # result = {
+            #     "cluster_id": cluster_id,
+            #     "summary": summary,
+            #     "article_count": len(texts),
+            #     "top_domains": top_domains,
+            #     "all_domains": all_domains,
+            #     "languages": langs,
+            #     "urls": urls,
+            #     "images": images,
+            # }
+            return cluster_model
         except Exception as e:
             self.logger.error(
                 f"cluster_summary_generator.py:ClusterSummaryGenerator:Error generating cluster summaries: {e}"
@@ -416,3 +479,28 @@ class ClusterSummaryGenerator:
         pool = int(final_new_tokens * 0.35)
         per = max(60, min(220, pool // n_chunks))
         return per
+    
+    async def _initialize_inference_runtime(self) -> InferenceRuntime:
+        """Initialize the inference runtime for summarization."""
+        try:
+            # Create runtime config optimized for summarization
+            config = RuntimeConfig()            
+            
+        
+            # Create and start inference runtime
+            self.inference_runtime = InferenceRuntime(
+                model_manager_loader=lambda: SummarizationModelManager(self.settings), config=config
+            )
+
+            await self.inference_runtime.start()
+            self.logger.info(
+                "cluster_summary_generator.py:ClusterSummaryGenerator:Inference runtime initialized for summarization"
+            )
+            
+            return self.inference_runtime
+
+        except Exception as e:
+            self.logger.error(
+                f"cluster_summary_generator.py:ClusterSummaryGenerator:Failed to initialize inference runtime: {e}"
+            )
+            raise

@@ -29,20 +29,14 @@ class KMeansClusterer(BaseClusterer):
     Suitable for uniform-sized, clearly separated clusters.
     """
 
-    def __init__(self, n_clusters: int = None, random_state: int = 42):
+    def __init__(self, n_clusters: int = 10, random_state: int = 42):
         self.n_clusters = n_clusters
         self.random_state = random_state
         self.logger = get_service_logger("KMeansClusterer")
 
     def cluster(self, embeddings: np.ndarray) -> list[int]:
         try:
-            if self.n_clusters is None:
-                # Auto-select based on dataset size
-                n_clusters = min(10, max(2, int(np.sqrt(len(embeddings)/2))))
-            else:
-                n_clusters = min(self.n_clusters, len(embeddings))
-                
-            model = KMeans(n_clusters=n_clusters, random_state=self.random_state)
+            model = KMeans(n_clusters=self.n_clusters, random_state=self.random_state)
             labels = model.fit_predict(embeddings)
 
             # Convert numpy array to Python list for consistency
