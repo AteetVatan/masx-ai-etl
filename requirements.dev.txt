@@ -63,7 +63,8 @@ langid>=1.1.6
 lingua-language-detector>=1.1.0
 
 # Vector Database
-chromadb==1.0.13
+#chromadb==1.0.13
+chromadb==1.0.21
 
 # Retry and Backoff Logic
 tenacity==9.1.2
