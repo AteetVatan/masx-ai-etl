@@ -23,7 +23,6 @@ from typing import Optional
 from app.core.exceptions import ServiceException
 from app.core.concurrency import InferenceRuntime, RuntimeConfig
 from app.nlp import Translator, NLPUtils
-from app.singleton import ModelManager
 from app.config import get_service_logger, get_settings
 from app.etl_data.etl_models import FeedModel
 from app.core.models import SummarizationModelManager

@@ -19,7 +19,6 @@
 
 import logging
 import asyncio
-from app.singleton import ModelManager
 from app.etl_data.etl_models import FeedModel
 
 
