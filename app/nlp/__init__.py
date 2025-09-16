@@ -9,6 +9,7 @@ from .base_clusterer import BaseClusterer
 from .kmeans_clusterer import KMeansClusterer
 from .hdbscan_clusterer import HDBSCANClusterer
 from .translator import Translator
+from .language_utils import LanguageUtils
 
 __all__ = [
     "Translator",
@@ -18,4 +19,5 @@ __all__ = [
     "KMeansClusterer",
     "HDBSCANClusterer",
     "Translator",
+    "LanguageUtils",
 ]

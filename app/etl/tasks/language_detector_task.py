@@ -22,7 +22,7 @@ from app.config import get_service_logger, get_settings
 from app.etl_data.etl_models import FeedModel
 from app.core.exceptions import ServiceException
 from app.core.concurrency import InferenceRuntime, RuntimeConfig
-from app.singleton import ModelManager
+from app.nlp import LanguageUtils
 from typing import Optional
 
 from app.core.concurrency import CPUExecutors
@@ -64,7 +64,7 @@ class LanguageDetectorTask:
             try:
                 chunck = NLPUtils.split_text_smart(txt, 500, 1)
                 txt = NLPUtils.clean_text(chunck[0])
-                lang = ModelManager.detect_language(txt)
+                lang = LanguageUtils.detect_language(txt)
                 return lang
                
             except Exception as e:
