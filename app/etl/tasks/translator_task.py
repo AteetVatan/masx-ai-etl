@@ -26,7 +26,7 @@ from app.services import TranslatorService
 from typing import Optional
 #from app.enumeration.enums import TaskEnums
 from app.nlp import Translator, NLPUtils
-from app.core.models import TranslatorModelManager
+from app.core.model import TranslatorModelManager
 from app.core.concurrency import CPUExecutors
 from app.enumeration import WorkloadEnums
 from app.constants import ISO_TO_NLLB_MERGED

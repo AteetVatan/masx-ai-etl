@@ -21,7 +21,7 @@ from app.nlp import VectorDBManager
 from app.etl_data.etl_models.feed_model import FeedModel
 from app.config import get_service_logger, get_settings
 from app.core.concurrency import InferenceRuntime, RuntimeConfig
-from app.core.models import VectorEmbeddingModelManager
+from app.core.model import VectorEmbeddingModelManager
 from app.core.concurrency import CPUExecutors
 from app.enumeration import WorkloadEnums
 

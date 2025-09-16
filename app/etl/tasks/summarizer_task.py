@@ -25,7 +25,7 @@ from app.core.concurrency import InferenceRuntime, RuntimeConfig
 from app.nlp import Translator, NLPUtils
 from app.config import get_service_logger, get_settings
 from app.etl_data.etl_models import FeedModel
-from app.core.models import SummarizationModelManager
+from app.core.model import SummarizationModelManager
 from app.core.concurrency import CPUExecutors
 from app.enumeration import WorkloadEnums
 

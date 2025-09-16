@@ -30,7 +30,7 @@ import torch
 from unittest.mock import Mock, patch, MagicMock
 from typing import Any, Dict
 
-from app.core.models import (
+from app.core.model import (
     AbstractModel,
     ModelInstance,
     ModelPool_sync,
@@ -427,8 +427,8 @@ class TestSummarizationModelManager:
         assert manager.model_type == "summarization"
         assert manager._get_model_vram_estimate() == 2 * 1024**3
     
-    @patch('app.core.models.summarization_model_manager.AutoModelForSeq2SeqLM')
-    @patch('app.core.models.summarization_model_manager.AutoTokenizer')
+    @patch('app.core.model.summarization_model_manager.AutoModelForSeq2SeqLM')
+    @patch('app.core.model.summarization_model_manager.AutoTokenizer')
     def test_load_model(self, mock_tokenizer, mock_model):
         """Test model loading."""
         settings = MockSettings()
@@ -446,7 +446,7 @@ class TestSummarizationModelManager:
                 assert model == mock_model_instance
                 mock_model.from_pretrained.assert_called_once()
     
-    @patch('app.core.models.summarization_model_manager.AutoTokenizer')
+    @patch('app.core.model.summarization_model_manager.AutoTokenizer')
     def test_load_tokenizer(self, mock_tokenizer):
         """Test tokenizer loading."""
         settings = MockSettings()
@@ -475,7 +475,7 @@ class TestEmbeddingModelManager:
         assert manager.model_type == "embedding"
         assert manager._get_model_vram_estimate() == 1 * 1024**3
     
-    @patch('app.core.models.embedding_model_manager.SentenceTransformer')
+    @patch('app.core.model.embedding_model_manager.SentenceTransformer')
     def test_load_model(self, mock_transformer):
         """Test model loading."""
         settings = MockSettings()

@@ -28,7 +28,7 @@ from transformers import pipeline, AutoTokenizer, AutoModelForSeq2SeqLM
 from app.config import get_settings, get_service_logger
 
 
-class NLLBTranslatorSingleton:
+class NLLBTranslatorSingleton_old:
     """
     Singleton class for loading and serving the NLLB-200 multilingual translation model.
     Supports efficient reuse across threads, agents, or pipelines using InferenceRuntime.
@@ -40,7 +40,7 @@ class NLLBTranslatorSingleton:
     def __new__(cls):
         with cls._lock:
             if cls._instance is None:
-                cls._instance = super(NLLBTranslatorSingleton, cls).__new__(cls)
+                cls._instance = super(NLLBTranslatorSingleton_old, cls).__new__(cls)
                 cls._instance._initialized = False
             return cls._instance
 

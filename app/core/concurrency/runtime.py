@@ -35,7 +35,7 @@ from .device import use_gpu, get_device_config
 #from .gpu_worker import GPUWorker, GPUConfig
 from .model_pool import get_model_pool
 from app.config import get_settings, get_service_logger
-from app.core.models import AbstractModel
+from app.core.model import AbstractModel
 
 # from app.nlp import Translator, NLPUtils
 

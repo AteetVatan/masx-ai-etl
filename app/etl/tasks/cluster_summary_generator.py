@@ -30,7 +30,7 @@ from app.core.concurrency import CPUExecutors
 from app.enumeration import WorkloadEnums
 from app.core.concurrency import InferenceRuntime
 from app.core.concurrency import RuntimeConfig
-from app.core.models import SummarizationModelManager
+from app.core.model import SummarizationModelManager
 from app.etl_data.etl_models import ClusterModel
 from app.config import get_service_logger
 from app.config import get_settings

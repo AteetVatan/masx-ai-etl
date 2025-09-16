@@ -26,7 +26,7 @@ from typing import Optional, Callable, List
 
 from app.config import get_service_logger, get_settings
 from .base_clusterer import BaseClusterer
-from app.singleton import ModelManager
+from app.core.concurrency import get_torch_device
 
 import numpy as np
 
@@ -118,7 +118,7 @@ class HDBSCANClusterer(BaseClusterer):
         self.cluster_selection_method = cluster_selection_method
 
         self.settings = get_settings()
-        self.device_provider = ModelManager.get_device()
+        self.device_provider = get_torch_device()
         self.use_umap = bool(use_umap)
         self.umap_n_components = int(umap_n_components)
         self.umap_n_neighbors = int(umap_n_neighbors)

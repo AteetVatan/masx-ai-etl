@@ -127,7 +127,7 @@ def get_device_config() -> DeviceConfig:
     return config
 
 
-def get_torch_device() -> "torch.device":
+def get_torch_device() -> torch.device:
     """
     Get PyTorch device object based on current configuration.
 
