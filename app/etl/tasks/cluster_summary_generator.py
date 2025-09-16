@@ -21,7 +21,7 @@ from collections import defaultdict, Counter
 import numpy as np
 from tqdm import tqdm
 from app.nlp import BaseClusterer
-from app.singleton import ModelManager, ChromaClientSingleton
+from app.singleton import ChromaClientSingleton
 from typing import Tuple, List
 import torch
 import asyncio

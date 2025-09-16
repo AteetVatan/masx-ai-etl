@@ -17,7 +17,6 @@
 # Contact: ab@masxai.com | MASXAI.com
 
 import asyncio
-from app.singleton import ModelManager
 from app.nlp import NLPUtils
 from app.config import get_service_logger, get_settings
 from app.core.concurrency import CPUExecutors
@@ -90,8 +89,8 @@ class CompressorTask:
         try:
             raw_text = feed.processed_text
             # Calculate tokens
-            total_tokens = len(self.tokenizer.tokenize(raw_text))
-            lang = ModelManager.detect_language(raw_text)
+            total_tokens = len(self.tokenizer.tokenize(raw_text))            
+            lang = feed.language
             
             if total_tokens > 2 * self.max_tokens or lang != "en":             
                 # Extract entities
