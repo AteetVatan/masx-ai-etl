@@ -111,7 +111,6 @@ class SummarizerFinalizerUtils:
             no_repeat_ngram_size=3,
             repetition_penalty=1.05,
             do_sample=False,
-            early_stopping=True,
         )
 
     @staticmethod
@@ -174,7 +173,7 @@ class SummarizerFinalizerUtils:
 
         # Encode small prompt (summary is short already)
         enc = tokenizer(prompt, max_length=480, truncation=True, padding=True, return_tensors="pt").to(device)
-        gc = GenerationConfig(num_beams=1, do_sample=False, early_stopping=True)
+        gc = GenerationConfig(num_beams=1, do_sample=False)
         setattr(gc, "max_new_tokens", 180)
         setattr(gc, "min_new_tokens", 40)
 
