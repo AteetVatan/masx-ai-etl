@@ -23,11 +23,9 @@ This module contains the Model class, which is a singleton class that loads and 
 import os
 import threading
 
-import langid
+
 import torch
 
-from deep_translator import GoogleTranslator
-from lingua import LanguageDetectorBuilder
 from sentence_transformers import SentenceTransformer
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, GenerationConfig
 import nltk
@@ -48,10 +46,8 @@ class ModelManager:
 
     _summarization_model: AutoModelForSeq2SeqLM | None = None
     _summarization_tokenizer: AutoTokenizer | None = None
-    _translator: GoogleTranslator | None = None
     _device: torch.device | None = None
     _summarization_model_max_tokens: int = 1024
-    _translator_timestamp: datetime | None = None
 
     _summarization_model_name: str = "facebook/bart-large-cnn"
     _embedding_model_name: str = "sentence-transformers/all-mpnet-base-v2"
@@ -174,52 +170,6 @@ class ModelManager:
                     cls.__load_embedding_model()
         return cls._embedding_model
 
-    @classmethod
-    def get_translator(cls, lang="en", proxies=None) -> GoogleTranslator:
-        if not cls._translator or proxies is not None:
-            cls._translator = None
-            cls.__load_translator(lang, proxies)
-
-        return cls._translator
-    
-    # ===== LANGUAGE DETECTION =====
-    @classmethod
-    def detect_language(cls, text: str) -> str:
-        """Detect language using langid, fallback to lingua or fasttext."""
-        try:
-            lang, confidence = cls.detect_lang_langid(text)
-            if confidence < 0.99:
-                lang = cls.detect_lang_lingua(text)
-            return lang.lower()
-        except Exception:
-            return cls.detect_lang_lingua(text).lower()
-
-    @classmethod
-    def get_lingua_detector(cls, languages=None):
-        builder = (
-            LanguageDetectorBuilder.from_all_languages()  # or .from_languages(...subset...) if you want
-        )
-        return builder.build()
-
-    @classmethod
-    def detect_lang_lingua(cls, text: str):
-        lang = cls.get_lingua_detector().detect_language_of(text)
-        return lang.iso_code_639_1.name if lang else None
-
-    @classmethod
-    def detect_lang_langid(cls, text: str, langs=None):
-        identifier = cls.get_langid_identifier(langs=langs)
-        lang, prob = identifier.classify(text)
-        return lang, prob
-
-    @classmethod
-    def get_langid_identifier(cls, langs=None, norm_probs=True):
-        identifier = langid.langid.LanguageIdentifier.from_modelstring(
-            langid.langid.model, norm_probs=norm_probs
-        )
-        if langs:
-            identifier.set_languages(langs)
-        return identifier
 
     # ===== INTERNAL LOADERS =====
 
@@ -343,13 +293,4 @@ class ModelManager:
             cls._logger.error(f"model_manager.py:Failed to load embedding model: {e}")
             raise RuntimeError(f"Failed to load embedding model: {e}")
 
-    @classmethod
-    def __load_translator(cls, lang , proxies=None):
-        try:
-            if proxies is not None:
-                cls._translator = GoogleTranslator(source="auto", target=lang, proxies=proxies)
-            else:
-                cls._translator = GoogleTranslator(source="auto", target=lang)
-        except Exception as e:
-            cls._logger.error(f"model_manager.py:Failed to load GoogleTranslator: {e}")
-            raise RuntimeError(f"Failed to load GoogleTranslator: {e}")
+
