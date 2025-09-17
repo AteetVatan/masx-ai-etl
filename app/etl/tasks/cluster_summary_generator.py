@@ -67,7 +67,7 @@ class ClusterSummaryGenerator:
         self.cpu_executors = CPUExecutors(workload=WorkloadEnums.CPU)
         self.flashpoint_id = flashpoint_id
 
-    async def generate(self) -> list[dict]:
+    async def generate(self) -> list[ClusterModel]:
         """
         The collection is a ChromaDB collection.
         The collection has the following fields:

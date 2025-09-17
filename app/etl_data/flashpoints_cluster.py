@@ -27,7 +27,7 @@ from tenacity import (
     retry_if_exception_type,
 )
 
-from app.etl_data.etl_models import FlashpointModel, FeedModel
+from app.etl_data.etl_models import FlashpointModel, FeedModel, ClusterModel
 from app.db import DBOperations
 from app.config import get_db_logger
 from app.core.exceptions import DatabaseException
@@ -137,7 +137,7 @@ class FlashpointsCluster:
     def db_cluster_operations(
         self,
         flashpoint_id: str,
-        clusters: List[Dict[str, Any]],
+        clusters: List[ClusterModel],
         date: Optional[datetime] = None,
     ):
         """
@@ -156,7 +156,7 @@ class FlashpointsCluster:
     def insert_cluster_summaries_sync(
         self,
         flashpoint_id: str,
-        clusters: List[Dict[str, Any]],
+        clusters: List[ClusterModel],
         date: Optional[datetime] = None,
     ):
         """
@@ -178,14 +178,24 @@ class FlashpointsCluster:
             for cluster in clusters:
                 params = (
                     str(flashpoint_id),
-                    int(cluster["cluster_id"]),
-                    cluster["summary"],
-                    int(cluster["article_count"]),
-                    json.dumps(cluster.get("top_domains", [])),
-                    json.dumps(cluster.get("languages", [])),
-                    json.dumps(cluster.get("urls", [])),
-                    json.dumps(cluster.get("images", [])),
+                    int(cluster.cluster_id),
+                    cluster.summary,
+                    int(cluster.article_count),
+                    json.dumps(cluster.top_domains),
+                    json.dumps(cluster.languages),
+                    json.dumps(cluster.urls),
+                    json.dumps(cluster.images),
                 )
+                # params = (
+                #     str(flashpoint_id),
+                #     int(cluster["cluster_id"]),
+                #     cluster["summary"],
+                #     int(cluster["article_count"]),
+                #     json.dumps(cluster.get("top_domains", [])),
+                #     json.dumps(cluster.get("languages", [])),
+                #     json.dumps(cluster.get("urls", [])),
+                #     json.dumps(cluster.get("images", [])),
+                # )
                 batch_queries.append((insert_query, params))
 
             # Execute batch insert
