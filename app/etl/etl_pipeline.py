@@ -34,13 +34,14 @@ from app.etl.tasks import (
 from app.nlp import HDBSCANClusterer, KMeansClusterer
 from app.config import get_settings
 from app.etl_data import Flashpoints, FlashpointsCluster
-from app.etl_data.etl_models import FlashpointModel
+from app.etl_data.etl_models import FlashpointModel, ClusterModel
 from app.config import get_service_logger
 from app.core.concurrency import RunPodServerlessManager
 from app.enumeration import WorkerEnums
 from app.etl.tasks import CompressorTask
 from app.etl.tasks import TranslatorTask
 from app.etl.tasks import LanguageDetectorTask
+from app.etl.etl_pipeline_debug import ETLPipelineDebug
 
 
 class ETLPipeline:
@@ -73,17 +74,18 @@ class ETLPipeline:
         trigger: str = WorkerEnums.COORDINATOR.value,
         flashpoints_ids: List[str] = None,
     ):
-        try:         
+        try:   
             
             
             self.logger.info(
                 f"etl_pipeline.py:ETLPipeline:**********trigger: {trigger}**********"
             )
-            # initialize singletons
+            
+            
             # make them execute parallely and do not wait for them to complete
             if trigger == WorkerEnums.COORDINATOR.value:  # or self.settings.debug:
                 self.logger.info(f"etl_pipeline.py:ETLPipeline:Coordinator trigger")
-                # db table init will happen oly with coordinator
+                # db table init will happen oly with coordinator                
                 self.db_flashpoints_cluster = FlashpointsCluster(self.date)
                 self.db_flashpoints_cluster.db_cluster_init_sync(self.date)
                 flashpoints = self.get_flashpoints(date=self.date)
@@ -153,21 +155,20 @@ class ETLPipeline:
             raise e
 
     async def run_etl_pipeline(self, flashpoint: FlashpointModel):
-        try:
-            # Optimize batch sizes for per-flashpoint worker isolation
-            #self._optimize_batch_sizes_for_worker(flashpoint)            
+        try:                     
             flashpoint_id = flashpoint.id
             feeds = flashpoint.feeds
-            # return True
-
-            #feeds = feeds[:5]
-            start_time = time.time()
             
-            if True:
-
+            if self.settings.debug:
+                feeds = feeds[:5]
+            
                 
+            start_time = time.time()            
+            if True:               
                 
                 # load summarized feeds from file
+                self.logger.info(f"\n\n=============================NewsContentExtractor=====================================\n\n")                
+                
                 self.logger.info(
                     "etl_pipeline.py:ETLPipeline:Running NewsContentExtractor..."
                 )            
@@ -180,7 +181,11 @@ class ETLPipeline:
 
                 self.logger.info(
                     f"*****************etl_pipeline.py:ETLPipeline:scraped_feeds length: {len(processed_feeds)} out of {len(feeds)}*****************"
-                )                
+                )
+                
+                self.logger.info(f"\n\n==================================================================\n\n")  
+                
+                self.logger.info(f"\n\n=============================LanguageDetectorTask=====================================\n\n")              
                 
                 language_detector_time = time.time()
                 # Set the language for the compressed feeds
@@ -189,14 +194,18 @@ class ETLPipeline:
                 language_detector_time = time.time() - language_detector_time
                 self.logger.info(f"etl_pipeline.py:ETLPipeline:LanguageDetector time: {language_detector_time} seconds")
                 
+                self.logger.info(f"\n\n==================================================================\n\n")
                 
+                self.logger.info(f"\n\n=============================CompressorTask=====================================\n\n")              
                 compressor_time = time.time()
                 compressor = CompressorTask()
                 processed_feeds = await compressor.compress_all_feeds(processed_feeds)
                 compressor_time = time.time() - compressor_time
                 self.logger.info(f"etl_pipeline.py:ETLPipeline:Compressor time: {compressor_time} seconds")            
 
+                self.logger.info(f"\n\n==================================================================\n\n")
                 
+                self.logger.info(f"\n\n=============================TranslatorTask=====================================\n\n")
                 translator_time = time.time()
                 # Translate the compressed feeds
                 translator = TranslatorTask()
@@ -204,28 +213,34 @@ class ETLPipeline:
                 translator_time = time.time() - translator_time
                 self.logger.info(f"etl_pipeline.py:ETLPipeline:Translator time: {translator_time} seconds")
                 
+                self.logger.info(f"\n\n==================================================================\n\n")
                 #summarize the processed feeds
+                self.logger.info(f"\n\n=============================SummarizerTask=====================================\n\n")
                 summarizer_time = time.time()
                 self.logger.info("etl_pipeline.py:ETLPipeline:Running Summarizer...")
                 summarizer = SummarizerTask()
                 processed_feeds = await summarizer.summarize_all_feeds(processed_feeds)
                 summarizer_time = time.time() - summarizer_time
                 self.logger.info(f"etl_pipeline.py:ETLPipeline:Summarizer time: {summarizer_time} seconds")
-            
-            
-                #### Here store the summarize processed_feeds as json file
-                store_time = time.time()
-                self.logger.info("etl_pipeline.py:ETLPipeline:Storing summarized feeds to JSON file...")
-                stored_file_path = self._store_summarized_feeds(processed_feeds, flashpoint_id)
-                store_time = time.time() - store_time
-                self.logger.info(f"etl_pipeline.py:ETLPipeline:Store time: {store_time} seconds")
                 
+                self.logger.info(f"\n\n==================================================================\n\n")
+            
+            
+                if self.settings.debug:
+                    #### Here store the summarize processed_feeds as json file                
+                    store_time = time.time()
+                    self.logger.info("etl_pipeline.py:ETLPipeline:Storing summarized feeds to JSON file...")
+                    stored_file_path = ETLPipelineDebug.store_summarized_feeds(processed_feeds, flashpoint_id, self.date)
+                    store_time = time.time() - store_time
+                    self.logger.info(f"etl_pipeline.py:ETLPipeline:Store time: {store_time} seconds")
+                    
             #### then read the json file to create the processed_feeds again 
-            load_time = time.time()
-            self.logger.info("etl_pipeline.py:ETLPipeline:Loading summarized feeds from JSON file...")
-            processed_feeds = self._load_summarized_feeds(flashpoint_id)
-            load_time = time.time() - load_time
-            self.logger.info(f"etl_pipeline.py:ETLPipeline:Load time: {load_time} seconds")
+            if self.settings.debug:
+                load_time = time.time()
+                self.logger.info("etl_pipeline.py:ETLPipeline:Loading summarized feeds from JSON file...")
+                processed_feeds = ETLPipelineDebug.load_summarized_feeds(flashpoint_id, self.date)
+                load_time = time.time() - load_time
+                self.logger.info(f"etl_pipeline.py:ETLPipeline:Load time: {load_time} seconds")
             
             if not processed_feeds:
                 self.logger.error("etl_pipeline.py:ETLPipeline:Failed to load summarized feeds from JSON file")
@@ -254,6 +269,7 @@ class ETLPipeline:
             #         f"etl_pipeline.py:ETLPipeline:**************************************************************************"
             #     )
             
+            self.logger.info(f"\n\n=============================VectorizeTask=====================================\n\n")
             vectorize_time = time.time()
             self.logger.info("etl_pipeline.py:ETLPipeline:Running VectorizeArticles...")
             vectorizer = VectorizeTask(flashpoint_id)
@@ -261,6 +277,11 @@ class ETLPipeline:
             vectorized_collection_name = await vectorizer.run(processed_feeds)
             vectorize_time = time.time() - vectorize_time
             self.logger.info(f"etl_pipeline.py:ETLPipeline:VectorizeTask time: {vectorize_time} seconds")
+            self.logger.info(f"\n\n==================================================================\n\n")
+            
+            self.logger.info(f"\n\n=============================ClusterSummaryGenerator=====================================\n\n")
+            
+            
             self.logger.info("Running ClusterSummaryGenerator...")
             feed_count = len(processed_feeds)
 
@@ -282,7 +303,8 @@ class ETLPipeline:
                 flashpoint_id, clusterer
             )
             cluster_summaries = await cluster_summary_generator.generate()
-
+            
+            
             # If HDBSCAN returns all noise
             if len(cluster_summaries) == 0:
                 self.logger.info(
@@ -296,21 +318,30 @@ class ETLPipeline:
                 cluster_summary_generator = ClusterSummaryGenerator(
                     flashpoint_id, clusterer
                 )
-                cluster_summaries = await cluster_summary_generator.generate()
+                cluster_summaries: list[ClusterModel] = await cluster_summary_generator.generate()
 
             self.logger.info(
                 f" number of cluster summaries for flashpoint {flashpoint_id}: {len(cluster_summaries)}"
             )
+            self.logger.info(f"\n\n==================================================================\n\n")
 
+            self.logger.info(f"\n\n=============================db_cluster_operations=====================================\n\n")
+            
             self.logger.info("Running db_cluster_operations...")
             # Use the synchronous version to avoid async issues
+            db_cluster_operations_time = time.time()
+            self.db_flashpoints_cluster = FlashpointsCluster(self.date)
             self.db_flashpoints_cluster.db_cluster_operations(
                 flashpoint_id, cluster_summaries, self.date
             )
-
+            db_cluster_operations_time = time.time() - db_cluster_operations_time
+            self.logger.info(f"etl_pipeline.py:ETLPipeline:db_cluster_operations time: {db_cluster_operations_time} seconds")
+            self.logger.info(f"\n\n==================================================================\n\n")
+            
             # get the time now
             end_time = time.time()
             self.logger.info(f"Time taken: {end_time - start_time} seconds")
+            self.logger.info(f"\n\n==================================================================\n\n")
         except Exception as e:
             self.logger.error(f"etl_pipeline.py:ETLPipeline:Error: {e}")
             raise e
@@ -321,117 +352,5 @@ class ETLPipeline:
     
     def _clean_flashpoints(self, flashpoints: list[FlashpointModel]):
         # clean the flashpoints
-        return [x for x in flashpoints if x.feeds is not None and len(x.feeds) > 0]
-    
-    def _optimize_batch_sizes_for_worker(self, flashpoint: FlashpointModel):
-        """
-        Optimize batch sizes for per-flashpoint worker isolation.
-        Each worker gets dedicated RTX A4500 + 12 vCPUs + 31-62GB RAM.
-        """
-        if not self.settings.flashpoint_worker_enabled:
-            return
-        
-        feed_count = len(flashpoint.feeds) if flashpoint.feeds else 0
-        
-        # Log worker optimization
-        self.logger.info(
-            f"etl_pipeline.py:ETLPipeline:Optimizing batch sizes for flashpoint worker: "
-            f"Flashpoint ID: {flashpoint.id}, Feeds: {feed_count}, "
-            f"RTX A4500 + 12 vCPUs + {self.settings.max_memory_usage * 100:.0f}% RAM utilization"
-        )
-        
-        # Apply per-flashpoint worker batch multiplier
-        if self.settings.is_production:
-            self.logger.info(
-                f"etl_pipeline.py:ETLPipeline:Per-flashpoint worker optimization enabled: "
-                f"Batch multiplier: {self.settings.flashpoint_worker_batch_multiplier}x, "
-                f"Max feeds per worker: {self.settings.flashpoint_worker_max_feeds}"
-            )
-
-    def _load_summarized_feeds(self, flashpoint_id: str):
-        """Load summarized feeds from JSON file for the given flashpoint."""
-        from app.etl_data.etl_models.feed_model import FeedModel
-        import json
-        from pathlib import Path
-        from datetime import datetime
-
-        # Create flashpoint-specific file path
-        path = Path(f"debug_data/summarized_feeds_{flashpoint_id}_{self.date}.json")
-
-        # Best-first: UTF-8; fallback to UTF-8 with BOM; final fallback replaces bad bytes
-        def load_json_textsafe(path: Path):
-            for enc in ("utf-8", "utf-8-sig"):
-                try:
-                    with path.open("r", encoding=enc) as f:
-                        return json.load(f)
-                except UnicodeDecodeError:
-                    continue
-            # last resort: don't crash; replace undecodable bytes
-            with path.open("r", encoding="utf-8", errors="replace") as f:
-                return json.load(f)
-
-        def convert_datetime_strings(feed_data: dict) -> dict:
-            """Convert ISO datetime strings back to datetime objects."""
-            for field in ['created_at', 'updated_at']:
-                if field in feed_data and feed_data[field] and isinstance(feed_data[field], str):
-                    try:
-                        feed_data[field] = datetime.fromisoformat(feed_data[field])
-                    except (ValueError, TypeError):
-                        # If conversion fails, keep as string or set to None
-                        feed_data[field] = None
-            return feed_data
-
-        if not path.exists():
-            self.logger.warning(f"etl_pipeline.py:ETLPipeline:No summarized feeds file found at {path}")
-            return []
-
-        summarized_feeds_json = load_json_textsafe(path)
-        
-        # Convert datetime strings back to datetime objects
-        for feed_data in summarized_feeds_json:
-            convert_datetime_strings(feed_data)
-        
-        summarized_feeds = [FeedModel(**feed) for feed in summarized_feeds_json]
-        self.logger.info(f"etl_pipeline.py:ETLPipeline:Loaded {len(summarized_feeds)} summarized feeds from {path}")
-        return summarized_feeds
-
-    def _store_summarized_feeds(self, summarized_feeds: list, flashpoint_id: str):
-        """Store summarized feeds as JSON file for the given flashpoint."""
-        import json
-        import re
-        from pathlib import Path
-        from datetime import datetime
-
-        def clean_text(val):
-            if isinstance(val, str):
-                # Remove newlines and tabs
-                val = val.replace("\n", " ").replace("\r", " ").replace("\t", " ")
-                # Collapse multiple spaces into one
-                val = re.sub(r"\s+", " ", val).strip()
-                return val
-            elif isinstance(val, list):
-                return [clean_text(v) for v in val]
-            elif isinstance(val, dict):
-                return {k: clean_text(v) for k, v in val.items()}
-            elif isinstance(val, datetime):
-                # Convert datetime to ISO format string
-                return val.isoformat()
-            return val
-
-        # Create debug_data directory if it doesn't exist
-        debug_dir = Path("debug_data")
-        debug_dir.mkdir(exist_ok=True)
-        
-        # Create flashpoint-specific file path
-        file_path = debug_dir / f"summarized_feeds_{flashpoint_id}_{self.date}.json"
-        
-        # Clean and serialize the feeds
-        cleaned_feeds = [clean_text(feed.dict()) for feed in summarized_feeds]
-        json_str = json.dumps(cleaned_feeds, ensure_ascii=False, indent=4)
-        
-        # Write to file
-        with open(file_path, 'w', encoding='utf-8') as f:
-            f.write(json_str)
-        
-        self.logger.info(f"etl_pipeline.py:ETLPipeline:Stored {len(summarized_feeds)} summarized feeds to {file_path}")
-        return str(file_path)
+        return [x for x in flashpoints if x.feeds is not None and len(x.feeds) > 0]   
+   
