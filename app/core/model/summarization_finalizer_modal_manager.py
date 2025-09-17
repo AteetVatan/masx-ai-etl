@@ -75,7 +75,6 @@ class SummarizationFinalizerModelManager(AbstractModel[AutoModelForSeq2SeqLM]):
         """
         return 1 * 1024**3  # ~1GB
 
-    
     def _preferred_dtype(self) -> torch.dtype:
         """
         Prefer BF16 on Ampere+ if available, else FP16 on CUDA, else FP32.
@@ -153,7 +152,7 @@ class SummarizationFinalizerModelManager(AbstractModel[AutoModelForSeq2SeqLM]):
         if self._gen_config is None:
             self._gen_config = GenerationConfig(
                 num_beams=4,
-                length_penalty=1.1,       # slightly favors concise text
+                length_penalty=1.1,  # slightly favors concise text
                 no_repeat_ngram_size=3,
                 repetition_penalty=1.05,  # light touch for T5
                 do_sample=False,
@@ -176,9 +175,7 @@ class SummarizationFinalizerModelManager(AbstractModel[AutoModelForSeq2SeqLM]):
         )
 
     def summarize_text(
-        self,
-        text: str,
-        instance: Optional[ModelInstance[AutoModelForSeq2SeqLM]] = None
+        self, text: str, instance: Optional[ModelInstance[AutoModelForSeq2SeqLM]] = None
     ) -> str:
         """
         Summarize/clean text using FLAN-T5-Base with an instruction prompt.
@@ -192,9 +189,7 @@ class SummarizationFinalizerModelManager(AbstractModel[AutoModelForSeq2SeqLM]):
             return self._perform_summarization(text, instance)
 
     def _perform_summarization(
-        self,
-        text: str,
-        instance: ModelInstance[AutoModelForSeq2SeqLM]
+        self, text: str, instance: ModelInstance[AutoModelForSeq2SeqLM]
     ) -> str:
         """FLAN-T5 generation with instruction prompt + dynamic lengths."""
         try:

@@ -28,6 +28,7 @@ from app.core.model import SummarizationFinalizerModelManager
 from app.core.concurrency import CPUExecutors
 from app.enumeration import WorkloadEnums
 
+
 class SummarizerFinalizerTask:
     """
     Summarizes raw article texts using a FLAN-T5-Base model (google/flan-t5-base).
@@ -39,35 +40,42 @@ class SummarizerFinalizerTask:
         # inference runtime for summarization
         self.inference_runtime: Optional[InferenceRuntime] = None
         self.cpu_executors = CPUExecutors(workload=WorkloadEnums.CPU)
-        
-        
+
     def get_summarizer_finalizer_utils():
         """Lazy import to avoid circular dependency."""
         from app.etl.tasks import SummarizerFinalizerUtils
 
         return SummarizerFinalizerUtils
 
-    async def summarize_all_feeds_finalizer(self, feeds: list[FeedModel]) -> list[FeedModel]:
+    async def summarize_all_feeds_finalizer(
+        self, feeds: list[FeedModel]
+    ) -> list[FeedModel]:
         """
         Translate, compress if needed, and summarize each article using InferenceRuntime with GPU micro-batching.
         """
         try:
             self.logger.info(f"SummarizerFinalizer: summarizing {len(feeds)} feeds")
-            
+
             # Initialize inference runtime if not already done
             if not self.inference_runtime:
                 self.logger.info("SummarizerFinalizer: initializing inference runtime")
                 await self._initialize_inference_runtime()
 
-            finalizer: SummarizationFinalizerModelManager = self.inference_runtime.model_manager
+            finalizer: SummarizationFinalizerModelManager = (
+                self.inference_runtime.model_manager
+            )
             batch_size = finalizer.pool_size
             finalized_feeds: list[FeedModel] = []
 
             # Process feeds in batches
             for i in range(0, len(feeds), batch_size):
                 batch = feeds[i : i + batch_size]
-                self.logger.info(f"SummarizerFinalizer: processing batch of {len(batch)} feeds")
-                batch_feeds = await self._process_batch(batch) # parallel execution of the batch
+                self.logger.info(
+                    f"SummarizerFinalizer: processing batch of {len(batch)} feeds"
+                )
+                batch_feeds = await self._process_batch(
+                    batch
+                )  # parallel execution of the batch
                 finalized_feeds.extend(batch_feeds)
 
             return finalized_feeds
@@ -79,17 +87,15 @@ class SummarizerFinalizerTask:
             # Final cleanup -- remove all the models from the pool
             if self.inference_runtime:
                 self.inference_runtime.model_manager.cleanup()
-                #await self.inference_runtime.stop()
+                # await self.inference_runtime.stop()
             if self.cpu_executors:
                 self.cpu_executors.shutdown(wait=True)
-                
 
     async def _initialize_inference_runtime(self):
         """Initialize the inference runtime for summarization."""
         try:
             # Create runtime config optimized for summarization
-            config = RuntimeConfig(
-            )
+            config = RuntimeConfig()
 
             # Create and start inference runtime
             self.inference_runtime = InferenceRuntime(
@@ -109,17 +115,19 @@ class SummarizerFinalizerTask:
 
     def _get_finalizer_model_manager(self):
         """Model loader function for the inference runtime."""
-        # Return only the model, not the tuple, since GPUWorker expects a single model        
+        # Return only the model, not the tuple, since GPUWorker expects a single model
         return SummarizationFinalizerModelManager(self.settings)
-    
 
     async def _process_batch(self, feeds: list[FeedModel]) -> list[FeedModel]:
         """Process a batch of feeds using the inference runtime with CPI/GPU micro-batching."""
         try:
             from app.etl.tasks import SummarizerFinalizerUtils
+
             summarizer_utils = SummarizerFinalizerUtils()
-           
-            finalizer: SummarizationFinalizerModelManager = self.inference_runtime.model_manager
+
+            finalizer: SummarizationFinalizerModelManager = (
+                self.inference_runtime.model_manager
+            )
 
             async def run(feed: FeedModel) -> FeedModel | None:
                 # each task acquires its own instance
@@ -132,35 +140,37 @@ class SummarizerFinalizerTask:
                         #     instance.device,
                         #     instance.max_tokens,
                         # )
-                        
+
                         result = await self.cpu_executors.run_in_thread(
-                             summarizer_utils._summarizer_finalizer,  
-                             feed.processed_text, 
-                             instance.model, 
-                             instance.tokenizer, 
-                             instance.device, 
-                             instance.max_tokens
+                            summarizer_utils._summarizer_finalizer,
+                            feed.processed_text,
+                            instance.model,
+                            instance.tokenizer,
+                            instance.device,
+                            instance.max_tokens,
                         )
                         if result is None:
-                            raise Exception("SummarizerFinalizer: Error summarizing feed")
-                        
+                            raise Exception(
+                                "SummarizerFinalizer: Error summarizing feed"
+                            )
+
                         feed.processed_text = result
                         feed.summary = result
                         return feed
                     except Exception as e:
-                        self.logger.error(f"SummarizerFinalizer: Error summarizing feed: {e}")
+                        self.logger.error(
+                            f"SummarizerFinalizer: Error summarizing feed: {e}"
+                        )
                         return None
 
             # schedule all feeds in parallel
             tasks = [run(feed) for feed in feeds]
-            results = await asyncio.gather(*tasks, return_exceptions=True)   
-              
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+
             # filter out None values and exceptions
-            summarized_feeds = [
-                feed for feed in results if isinstance(feed, FeedModel)
-            ]
+            summarized_feeds = [feed for feed in results if isinstance(feed, FeedModel)]
             return summarized_feeds
 
         except Exception as e:
             self.logger.error(f"SummarizerFinalizer: Batch processing failed: {e}")
-            return [] 
+            return []

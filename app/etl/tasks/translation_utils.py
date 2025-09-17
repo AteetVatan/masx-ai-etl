@@ -1,45 +1,50 @@
-
 from __future__ import annotations
 from dataclasses import dataclass
 from math import ceil
 from typing import Callable, Iterable, List, Tuple, TypeVar
 import heapq
 
-T = TypeVar("T")  # Your Feed model (e.g., FeedModel). We store only references, not text copies.
+T = TypeVar(
+    "T"
+)  # Your Feed model (e.g., FeedModel). We store only references, not text copies.
 
 # ---------------------------
 # Configs (tune with your telemetry)
 # ---------------------------
 
+
 @dataclass
 class GoogleConfig:
-    max_chars: int = 4800              # stay safely below the 5000 hard limit
-    alpha_ms: float = 120.0            # fixed overhead per Google request (TLS, network)
-    beta_ms_per_char: float = 0.010    # per-char time (measure!)
+    max_chars: int = 4800  # stay safely below the 5000 hard limit
+    alpha_ms: float = 120.0  # fixed overhead per Google request (TLS, network)
+    beta_ms_per_char: float = 0.010  # per-char time (measure!)
+
 
 @dataclass
 class NLLBConfig:
     max_chars: int = 512
-    workers: int = 4                   # number of GPU instances
-    per_worker_concurrency: int = 2    # streams/micro-batches per GPU
-    alpha_ms: float = 6.0              # fixed overhead per NLLB chunk
-    beta_ms_per_char: float = 0.030    # per-char time (measure!)
-    
-    
+    workers: int = 4  # number of GPU instances
+    per_worker_concurrency: int = 2  # streams/micro-batches per GPU
+    alpha_ms: float = 6.0  # fixed overhead per NLLB chunk
+    beta_ms_per_char: float = 0.030  # per-char time (measure!)
 
 
 class TranslationUtils:
-    
-    
+
     @staticmethod
     def get_default_google_config() -> GoogleConfig:
         return GoogleConfig(max_chars=4800, alpha_ms=120, beta_ms_per_char=0.010)
-    
+
     @staticmethod
     def get_defaultnllb_config() -> NLLBConfig:
-        return NLLBConfig(max_chars=512, workers=4, per_worker_concurrency=2, alpha_ms=6, beta_ms_per_char=0.030)
-    
-    
+        return NLLBConfig(
+            max_chars=512,
+            workers=4,
+            per_worker_concurrency=2,
+            alpha_ms=6,
+            beta_ms_per_char=0.030,
+        )
+
     # ---------------------------
     # Service-time models
     # ---------------------------
@@ -50,7 +55,6 @@ class TranslationUtils:
         """
         chunks = ceil(L / g.max_chars)
         return chunks * g.alpha_ms + L * g.beta_ms_per_char
-
 
     @staticmethod
     def nllb_service_time_ms(L: int, n: NLLBConfig) -> float:
@@ -65,13 +69,13 @@ class TranslationUtils:
     # ---------------------------
 
     def split_feeds_for_translation_single_google(
-            feeds: Iterable[T],
-            text_getter: Callable[[T], str],
-            gcfg: GoogleConfig,
-            ncfg: NLLBConfig,
-            hard_cutover_len: int | None = None,
-            bias_google_ms: float = 0.0,
-        ) -> Tuple[List[T], List[T]]:
+        feeds: Iterable[T],
+        text_getter: Callable[[T], str],
+        gcfg: GoogleConfig,
+        ncfg: NLLBConfig,
+        hard_cutover_len: int | None = None,
+        bias_google_ms: float = 0.0,
+    ) -> Tuple[List[T], List[T]]:
         """
         Returns (feeds_nllb, feeds_google)
         - Google is single-threaded (web scraping) → 1 queue with 'g_backlog_ms'

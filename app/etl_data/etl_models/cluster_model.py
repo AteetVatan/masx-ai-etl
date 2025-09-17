@@ -1,4 +1,3 @@
-
 # ┌───────────────────────────────────────────────────────────────┐
 # │  Copyright (c) 2025 Ateet Vatan Bahmani                       │
 # │  Project: MASX AI – Strategic Agentic AI System               │
@@ -19,8 +18,10 @@
 
 from pydantic import BaseModel
 
+
 class ClusterModel(BaseModel):
     """Model for feed data."""
+
     flashpoint_id: str
     cluster_id: int
     summary: str

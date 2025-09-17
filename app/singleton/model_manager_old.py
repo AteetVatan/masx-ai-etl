@@ -54,8 +54,6 @@ class ModelManager_old:
 
     _embedding_model: SentenceTransformer | None = None
     _embedding_lock = threading.Lock()
-    
-  
 
     _logger = get_service_logger("ModelManager")
 
@@ -131,7 +129,7 @@ class ModelManager_old:
     #         try:
     #             nltk.download("punkt", quiet=True)
     #             nltk.download("punkt_tab", quiet=True)
-                
+
     #             cls._logger.info("NLTK models downloaded successfully")
     #         except Exception as e:
     #             cls._logger.error(f"Failed to download NLTK models: {e}")
@@ -170,7 +168,6 @@ class ModelManager_old:
                     cls.__load_embedding_model()
         return cls._embedding_model
 
-
     # ===== INTERNAL LOADERS =====
     @classmethod
     def __load_embedding_model(cls):
@@ -189,5 +186,3 @@ class ModelManager_old:
         except Exception as e:
             cls._logger.error(f"model_manager.py:Failed to load embedding model: {e}")
             raise RuntimeError(f"Failed to load embedding model: {e}")
-
-

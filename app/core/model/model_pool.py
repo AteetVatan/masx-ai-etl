@@ -25,6 +25,7 @@ from .model_Instance import ModelInstance
 
 T = TypeVar("T")
 
+
 class ModelPool(Generic[T]):
     """
     Async model pool with bounded capacity.
@@ -74,8 +75,8 @@ class ModelPool(Generic[T]):
         except Exception as e:
             self.logger.error(f"Error acquiring {self.model_type} instance: {e}")
             raise e
-        
-    #method to release all instances
+
+    # method to release all instances
     async def release_all(self) -> None:
         """
         Release all model instances back to the pool.
@@ -83,8 +84,7 @@ class ModelPool(Generic[T]):
         async with self._lock:
             for instance in self._in_use:
                 await self.release(instance)
-                
-                
+
     async def release(self, instance: ModelInstance[T], destroy: bool = False) -> None:
         """
         Release or destroy an instance asynchronously.

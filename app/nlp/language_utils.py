@@ -20,7 +20,7 @@ from lingua import LanguageDetectorBuilder
 import langid
 
 
-class LanguageUtils:    
+class LanguageUtils:
     @staticmethod
     def detect_language(text: str) -> str:
         """Detect language using langid, fallback to lingua or fasttext."""

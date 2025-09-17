@@ -33,9 +33,9 @@ class SummarizerFinalizerUtils:
     @staticmethod
     def _summarizer_finalizer(
         text: str,
-        model,            # AutoModelForSeq2SeqLM (google/flan-t5-base)
-        tokenizer,        # matching AutoTokenizer
-        device,           # torch.device
+        model,  # AutoModelForSeq2SeqLM (google/flan-t5-base)
+        tokenizer,  # matching AutoTokenizer
+        device,  # torch.device
         max_tokens: int,  # desired OUTPUT budget for summary
     ) -> Dict[str, Any]:
         """
@@ -48,7 +48,16 @@ class SummarizerFinalizerUtils:
             }
         """
         if not text or not text.strip():
-            return {"summary": "", "meta": {}, "debug": {"input_tokens": 0, "prompt_tokens": 0, "output_tokens": 0, "truncated": False}}
+            return {
+                "summary": "",
+                "meta": {},
+                "debug": {
+                    "input_tokens": 0,
+                    "prompt_tokens": 0,
+                    "output_tokens": 0,
+                    "truncated": False,
+                },
+            }
 
         cleaned = SummarizerFinalizerUtils._preclean_text(text)
         prompt = SummarizerFinalizerUtils._build_instruction_prompt(cleaned)
@@ -59,16 +68,28 @@ class SummarizerFinalizerUtils:
             model_max = 512
         input_cap = min(480, model_max - 24)
 
-        enc = tokenizer(prompt, max_length=input_cap, truncation=True, padding=True, return_tensors="pt").to(device)
+        enc = tokenizer(
+            prompt,
+            max_length=input_cap,
+            truncation=True,
+            padding=True,
+            return_tensors="pt",
+        ).to(device)
         input_tokens = int(enc.input_ids.shape[1])
         # crude truncation flag
-        truncated = tokenizer(prompt, truncation=True, max_length=input_cap, return_tensors="pt").input_ids.shape[1] < \
-                    tokenizer(prompt, return_tensors="pt").input_ids.shape[1]
+        truncated = (
+            tokenizer(
+                prompt, truncation=True, max_length=input_cap, return_tensors="pt"
+            ).input_ids.shape[1]
+            < tokenizer(prompt, return_tensors="pt").input_ids.shape[1]
+        )
 
         # Deterministic generation
         gc = SummarizerFinalizerUtils._generation_config()
-        #check this part
-        safe_max_out = max(80, min(180, max_tokens if isinstance(max_tokens, int) else 160))
+        # check this part
+        safe_max_out = max(
+            80, min(180, max_tokens if isinstance(max_tokens, int) else 160)
+        )
         safe_min_out = min(64, max(0, safe_max_out // 3))
         setattr(gc, "max_new_tokens", safe_max_out)
         setattr(gc, "min_new_tokens", safe_min_out)
@@ -80,14 +101,20 @@ class SummarizerFinalizerUtils:
         summary = SummarizerFinalizerUtils._postclean_summary(summary)
 
         # Output token count (approx)
-        out_ids = tokenizer(summary, return_tensors="pt", add_special_tokens=False).input_ids
+        out_ids = tokenizer(
+            summary, return_tensors="pt", add_special_tokens=False
+        ).input_ids
         output_tokens = int(out_ids.shape[1])
 
         # ---------- NEWS META (LLM JSON + heuristics fallback) ----------
-        news_meta = SummarizerFinalizerUtils._extract_news_meta(summary, model, tokenizer, device)
+        news_meta = SummarizerFinalizerUtils._extract_news_meta(
+            summary, model, tokenizer, device
+        )
 
         # Add a stable signature for dedup/cluster keys
-        news_meta["signature_sha1"] = hashlib.sha1(summary.lower().encode("utf-8")).hexdigest()
+        news_meta["signature_sha1"] = hashlib.sha1(
+            summary.lower().encode("utf-8")
+        ).hexdigest()
         news_meta["length_chars"] = len(summary)
 
         return {
@@ -172,7 +199,9 @@ class SummarizerFinalizerUtils:
         )
 
         # Encode small prompt (summary is short already)
-        enc = tokenizer(prompt, max_length=480, truncation=True, padding=True, return_tensors="pt").to(device)
+        enc = tokenizer(
+            prompt, max_length=480, truncation=True, padding=True, return_tensors="pt"
+        ).to(device)
         gc = GenerationConfig(num_beams=1, do_sample=False)
         setattr(gc, "max_new_tokens", 180)
         setattr(gc, "min_new_tokens", 40)
@@ -227,14 +256,14 @@ class SummarizerFinalizerUtils:
             "is_politics_central": bool(meta.get("is_politics_central", False)),
             "entities": {
                 "people": list(dict.fromkeys([str(x).strip() for x in people]))[:10],
-                "orgs":   list(dict.fromkeys([str(x).strip() for x in orgs]))[:10],
+                "orgs": list(dict.fromkeys([str(x).strip() for x in orgs]))[:10],
                 "places": list(dict.fromkeys([str(x).strip() for x in places]))[:10],
             },
             "event_date": meta.get("event_date") or None,
             "geo": {
                 "country": geo.get("country") or None,
-                "region":  geo.get("region") or None,
-                "city":    geo.get("city") or None,
+                "region": geo.get("region") or None,
+                "city": geo.get("city") or None,
             },
         }
         return norm
@@ -245,29 +274,64 @@ class SummarizerFinalizerUtils:
         text = summary.lower()
 
         domain_map = {
-            "politics": ["president", "election", "parliament", "minister", "congress", "bolsonaro", "trump", "moraes"],
-            "business": ["market", "startup", "acquisition", "merger", "ipo", "revenue", "profit"],
-            "tech":     ["ai", "software", "chip", "semiconductor", "cyber", "app", "cloud"],
-            "culture":  ["exhibit", "museum", "festival", "art", "fashion", "show"],
-            "sports":   ["match", "cup", "league", "tournament", "goal"],
-            "science":  ["research", "study", "scientist", "lab", "space"],
-            "health":   ["hospital", "vaccine", "virus", "health", "disease"],
-            "environment": ["amazon", "climate", "emissions", "deforestation", "wildfire"],
-            "world":    [ "conflict", "border", "diplomatic"],
-            "local":    ["mayor", "city council", "municipal"],
+            "politics": [
+                "president",
+                "election",
+                "parliament",
+                "minister",
+                "congress",
+                "bolsonaro",
+                "trump",
+                "moraes",
+            ],
+            "business": [
+                "market",
+                "startup",
+                "acquisition",
+                "merger",
+                "ipo",
+                "revenue",
+                "profit",
+            ],
+            "tech": [
+                "ai",
+                "software",
+                "chip",
+                "semiconductor",
+                "cyber",
+                "app",
+                "cloud",
+            ],
+            "culture": ["exhibit", "museum", "festival", "art", "fashion", "show"],
+            "sports": ["match", "cup", "league", "tournament", "goal"],
+            "science": ["research", "study", "scientist", "lab", "space"],
+            "health": ["hospital", "vaccine", "virus", "health", "disease"],
+            "environment": [
+                "amazon",
+                "climate",
+                "emissions",
+                "deforestation",
+                "wildfire",
+            ],
+            "world": ["conflict", "border", "diplomatic"],
+            "local": ["mayor", "city council", "municipal"],
         }
         domain_scores = {k: 0 for k in domain_map}
         for k, kws in domain_map.items():
             for w in kws:
                 if w in text:
                     domain_scores[k] += 1
-        domain = max(domain_scores, key=domain_scores.get) if any(domain_scores.values()) else "world"
+        domain = (
+            max(domain_scores, key=domain_scores.get)
+            if any(domain_scores.values())
+            else "world"
+        )
 
         is_politics_central = domain == "politics"
 
         # crude entity pulls
         people = re.findall(r"\b([A-Z][a-z]+ [A-Z][a-z]+)\b", summary)  # First Last
-        orgs = re.findall(r"\b([A-Z]{2,}(?: [A-Z]{2,})*)\b", summary)    # ALLCAPS blocks
+        orgs = re.findall(r"\b([A-Z]{2,}(?: [A-Z]{2,})*)\b", summary)  # ALLCAPS blocks
         places = re.findall(r"\b([A-Z][a-z]+(?:,\s*[A-Z][a-z]+)?)\b", summary)
 
         topics = list(dict.fromkeys(re.findall(r"\b[a-z]{4,}\b", text)))[:6]
@@ -278,7 +342,7 @@ class SummarizerFinalizerUtils:
             "is_politics_central": is_politics_central,
             "entities": {
                 "people": list(dict.fromkeys(people))[:10],
-                "orgs":   list(dict.fromkeys(orgs))[:10],
+                "orgs": list(dict.fromkeys(orgs))[:10],
                 "places": list(dict.fromkeys(places))[:10],
             },
             "event_date": None,

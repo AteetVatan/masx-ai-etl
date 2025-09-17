@@ -30,7 +30,7 @@ class FeedModel(BaseModel):
     title: str
     seendate: Optional[str] = ""
     domain: Optional[str] = ""
-    language: Optional[str] = "" # e.g. "en" ISO 639-1
+    language: Optional[str] = ""  # e.g. "en" ISO 639-1
     sourcecountry: Optional[str] = ""
     description: Optional[str] = ""
     raw_text: Optional[str] = ""

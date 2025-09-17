@@ -925,8 +925,7 @@ class NLPUtils:
                     "max": lambda self: max(x),
                 },
             )
-            
-    
+
     @staticmethod
     def split_text_smart(text: str, max_chars: int = 2000, max_chunks: int = 0) -> list:
         """
@@ -950,8 +949,7 @@ class NLPUtils:
                     chunks.append(current_chunk.strip())
                     if max_chunks > 0 and len(chunks) >= max_chunks:
                         return chunks
-                    
-                    
+
                 if len(sentence) > max_chars:
                     for i in range(0, len(sentence), max_chars):
                         chunks.append(sentence[i : i + max_chars])
@@ -965,9 +963,7 @@ class NLPUtils:
             if max_chunks > 0 and len(chunks) >= max_chunks:
                 return chunks
         return chunks
-    
-    
-            
+
     @staticmethod
     def clean_text(text: str) -> str:
         """

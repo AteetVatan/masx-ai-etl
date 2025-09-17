@@ -39,25 +39,23 @@ class SummarizerUtils:
         from app.nlp import Translator
 
         return Translator
-    
+
     @staticmethod
     def _summarizer(text: str, model, tokenizer, device, max_tokens) -> dict:
         SummarizerUtils.logger.info(
             f"summarizer_utils.py:_summarizer called with payload"
-        )     
-        
-        
+        )
+
         nlp_utils = SummarizerUtils.get_nlp_utils()
         Translator = SummarizerUtils.get_translator()
 
         # before translating compress if token > 1024
         # calculate the total number of tokens in the raw_text
         total_tokens = len(tokenizer.tokenize(text))
-       
-            
+
         # if total_tokens is less than max_tokens, then summarize directly
         # check and debug this part
-        
+
         if total_tokens < max_tokens:
             summaries = [text]
             result = SummarizerUtils._final_summary(
@@ -123,10 +121,9 @@ class SummarizerUtils:
         #     SummarizerUtils.logger.error(
         #         f"runtime.py:Quality gates failed for {e}"
         #     )
-        #final_summary = "\n\n".join(chunk_summaries)       
+        # final_summary = "\n\n".join(chunk_summaries)
         return result
 
-   
     @staticmethod
     def _final_summary(model, tokenizer, device, chunk_summaries, max_tokens) -> dict:
         """

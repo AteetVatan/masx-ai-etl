@@ -25,7 +25,6 @@ from app.config import get_service_logger
 from app.singleton import ChromaClientSingleton
 
 
-
 class VectorDBManager:
     """High-level interface for vector DB operations (currently Chroma)."""
 
@@ -62,13 +61,13 @@ class VectorDBManager:
         self._logger.info(
             f"vector_db_manager.py:Adding documents to collection: {collection_name}"
         )
-        #Split into chunks
+        # Split into chunks
         for i in range(0, len(texts), batch_size):
             collection.add(
-                documents=texts[i:i+batch_size],
-                metadatas=metadatas[i:i+batch_size] if metadatas else None,
-                ids=ids[i:i+batch_size],
-                embeddings=embeddings[i:i+batch_size] if embeddings else None,
+                documents=texts[i : i + batch_size],
+                metadatas=metadatas[i : i + batch_size] if metadatas else None,
+                ids=ids[i : i + batch_size],
+                embeddings=embeddings[i : i + batch_size] if embeddings else None,
             )
         self._logger.info(f"Inserted batch {i // batch_size + 1}")
 

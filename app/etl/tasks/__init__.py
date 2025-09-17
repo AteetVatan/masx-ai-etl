@@ -22,7 +22,7 @@ __all__ = [
     "SummarizerUtils",
     "SummarizerFinalizerUtils",
     "CompressorTask",
-    "TranslatorTask",   
+    "TranslatorTask",
     "LanguageDetectorTask",
     "TranslationUtils",
 ]

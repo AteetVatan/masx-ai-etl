@@ -136,7 +136,7 @@ class HDBSCANClusterer(BaseClusterer):
 
         # Resolve device consistently with your Torch logic
         self.device = self._resolve_device()
-        
+
         # Override device detection for testing
         if self.force_cpu:
             self._gpu_enabled = False
@@ -171,7 +171,7 @@ class HDBSCANClusterer(BaseClusterer):
         self._cpu_model = None
 
     # ----------------- public API -----------------
-    
+
     def cluster(self, embeddings: np.ndarray) -> List[int]:
         """
         Synchronous clustering method for backward compatibility.
@@ -195,7 +195,7 @@ class HDBSCANClusterer(BaseClusterer):
                     Z = self._reduce_gpu(X) if (self.use_umap and _HAS_GPU_STACK) else X
                     labels = self._cluster_gpu(Z)
                     self._labels = labels
-                    
+
                     self.logger.info(
                         f"hdbscan_clusterer.py:[GPU] HDBSCAN done. n={len(labels)}"
                     )
@@ -213,7 +213,7 @@ class HDBSCANClusterer(BaseClusterer):
             Z = self._reduce_cpu(X) if (self.use_umap and _HAS_CPU_UMAP) else X
             labels = self._cluster_cpu(Z)
             self._labels = labels
-            
+
             mode = "CPU (debug)" if self._debug else "CPU (fallback)"
             self.logger.info(
                 f"hdbscan_clusterer.py:[{mode}] HDBSCAN done. n={len(labels)}"
@@ -226,8 +226,6 @@ class HDBSCANClusterer(BaseClusterer):
                 exc_info=True,
             )
             raise
-
-
 
     def _cluster_cpu_sync(self, X: np.ndarray) -> List[int]:
         """Synchronous CPU clustering fallback."""
@@ -255,7 +253,6 @@ class HDBSCANClusterer(BaseClusterer):
                 exc_info=True,
             )
             raise
-
 
     # Optional consumers
     @property
@@ -362,8 +359,10 @@ class HDBSCANClusterer(BaseClusterer):
     # ---------- GPU path ----------
     def _reduce_gpu(self, X: np.ndarray) -> np.ndarray:
         if not _HAS_GPU_STACK or cp is None or cuUMAP is None:
-            raise RuntimeError("GPU UMAP not available. Install RAPIDS/cuML for GPU support.")
-        
+            raise RuntimeError(
+                "GPU UMAP not available. Install RAPIDS/cuML for GPU support."
+            )
+
         Xg = cp.asarray(X)
         reducer = cuUMAP(
             n_components=self.umap_n_components,
@@ -378,8 +377,10 @@ class HDBSCANClusterer(BaseClusterer):
 
     def _cluster_gpu(self, Z: np.ndarray) -> np.ndarray:
         if not _HAS_GPU_STACK or cp is None or cuHDBSCAN is None:
-            raise RuntimeError("GPU HDBSCAN not available. Install RAPIDS/cuML for GPU support.")
-        
+            raise RuntimeError(
+                "GPU HDBSCAN not available. Install RAPIDS/cuML for GPU support."
+            )
+
         Zg = cp.asarray(Z)
         csm = (
             "leaf"
@@ -396,4 +397,3 @@ class HDBSCANClusterer(BaseClusterer):
         )
         labels = model.fit_predict(Zg).astype(cp.int32)
         return cp.asnumpy(labels)
-

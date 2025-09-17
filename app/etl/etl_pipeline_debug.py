@@ -19,7 +19,7 @@
 
 class ETLPipelineDebug:
     """ETLPipelineDebug class for loading and storing summarized feeds from JSON file for the given flashpoint."""
-    
+
     @staticmethod
     def load_summarized_feeds(flashpoint_id: str, date: str):
         """Load summarized feeds from JSON file for the given flashpoint."""
@@ -45,8 +45,12 @@ class ETLPipelineDebug:
 
         def convert_datetime_strings(feed_data: dict) -> dict:
             """Convert ISO datetime strings back to datetime objects."""
-            for field in ['created_at', 'updated_at']:
-                if field in feed_data and feed_data[field] and isinstance(feed_data[field], str):
+            for field in ["created_at", "updated_at"]:
+                if (
+                    field in feed_data
+                    and feed_data[field]
+                    and isinstance(feed_data[field], str)
+                ):
                     try:
                         feed_data[field] = datetime.fromisoformat(feed_data[field])
                     except (ValueError, TypeError):
@@ -54,15 +58,15 @@ class ETLPipelineDebug:
                         feed_data[field] = None
             return feed_data
 
-        if not path.exists():           
+        if not path.exists():
             return []
 
         summarized_feeds_json = load_json_textsafe(path)
-        
+
         # Convert datetime strings back to datetime objects
         for feed_data in summarized_feeds_json:
             convert_datetime_strings(feed_data)
-        
+
         summarized_feeds = [FeedModel(**feed) for feed in summarized_feeds_json]
         return summarized_feeds
 
@@ -93,16 +97,16 @@ class ETLPipelineDebug:
         # Create debug_data directory if it doesn't exist
         debug_dir = Path("debug_data")
         debug_dir.mkdir(exist_ok=True)
-        
+
         # Create flashpoint-specific file path
         file_path = debug_dir / f"summarized_feeds_{flashpoint_id}_{date}.json"
-        
+
         # Clean and serialize the feeds
         cleaned_feeds = [clean_text(feed.dict()) for feed in summarized_feeds]
         json_str = json.dumps(cleaned_feeds, ensure_ascii=False, indent=4)
-        
+
         # Write to file
-        with open(file_path, 'w', encoding='utf-8') as f:
+        with open(file_path, "w", encoding="utf-8") as f:
             f.write(json_str)
-        
+
         return str(file_path)

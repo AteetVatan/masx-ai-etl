@@ -66,13 +66,18 @@ class Settings(BaseSettings):
     masx_force_gpu: bool = Field(default=False, description="Force GPU usage")
 
     # PROXY SETTINGS
-    proxy_base: str = Field(default="https://masxaiproxyservice-production.up.railway.app", description="Proxy base URL")
-    proxy_post_start_service: str = Field(default="/api/v1/start-refresh", description="Proxy post start service")
-    proxy_get_proxies: str = Field(default="/api/v1/proxies", description="Proxy get proxies")
+    proxy_base: str = Field(
+        default="https://masxaiproxyservice-production.up.railway.app",
+        description="Proxy base URL",
+    )
+    proxy_post_start_service: str = Field(
+        default="/api/v1/start-refresh", description="Proxy post start service"
+    )
+    proxy_get_proxies: str = Field(
+        default="/api/v1/proxies", description="Proxy get proxies"
+    )
     proxy_api_key: str = Field(default="", description="Proxy API key")
-    
-        
-    
+
     proxy_webpage: str = Field(
         default="https://free-proxy-list.net/", description="Proxy webpage"
     )
@@ -132,16 +137,16 @@ class Settings(BaseSettings):
         default="https://api.runpod.io/v2/rrbf5aifol52jo/run",
         description="RunPod endpoint",
     )
-    
+
     model_cache_dir: str = Field(
         default=os.getenv("MODEL_CACHE_DIR", os.getenv("HF_HOME", "./.hf_cache")),
-        description="Model cache directory"
-    ) 
-    
+        description="Model cache directory",
+    )
+
     model_pool_max_instances: int = Field(
         default=2, description="Maximum number of model instances"
     )
-    
+
     api_secret_key: str = Field(
         default="change_this_in_production", description="API secret key for security"
     )
@@ -164,32 +169,51 @@ class Settings(BaseSettings):
 
     # Concurrency Configuration
 
-    
-    
     # Multi-GPU Configuration for RTX A4500 + RTX 2000 series
-    gpu_primary_device_id: int = Field(default=0, description="Primary GPU device ID (RTX A4500)")
-    gpu_secondary_device_ids: List[int] = Field(default=[1, 2], description="Secondary GPU device IDs (RTX 2000 series)")
-    gpu_primary_batch_size: int = Field(default=48, description="Primary GPU batch size (RTX A4500 - 20GB VRAM) for per-flashpoint worker")
-    gpu_secondary_batch_size: int = Field(default=24, description="Secondary GPU batch size (RTX 2000 series - 4-8GB VRAM) for per-flashpoint worker")
-    gpu_enable_multi_gpu: bool = Field(default=True, description="Enable multi-GPU processing")
-    
+    gpu_primary_device_id: int = Field(
+        default=0, description="Primary GPU device ID (RTX A4500)"
+    )
+    gpu_secondary_device_ids: List[int] = Field(
+        default=[1, 2], description="Secondary GPU device IDs (RTX 2000 series)"
+    )
+    gpu_primary_batch_size: int = Field(
+        default=48,
+        description="Primary GPU batch size (RTX A4500 - 20GB VRAM) for per-flashpoint worker",
+    )
+    gpu_secondary_batch_size: int = Field(
+        default=24,
+        description="Secondary GPU batch size (RTX 2000 series - 4-8GB VRAM) for per-flashpoint worker",
+    )
+    gpu_enable_multi_gpu: bool = Field(
+        default=True, description="Enable multi-GPU processing"
+    )
+
     # Flashpoint Worker Optimization (per-flashpoint resource allocation)
-    flashpoint_worker_enabled: bool = Field(default=True, description="Enable per-flashpoint worker optimization")
+    flashpoint_worker_enabled: bool = Field(
+        default=True, description="Enable per-flashpoint worker optimization"
+    )
     flashpoint_worker_max_feeds: int = Field(
-        default=1000, description="Maximum feeds per flashpoint worker (RTX A4500 + 12 vCPUs)"
+        default=1000,
+        description="Maximum feeds per flashpoint worker (RTX A4500 + 12 vCPUs)",
     )
     flashpoint_worker_batch_multiplier: float = Field(
-        default=2.0, description="Batch size multiplier for per-flashpoint worker isolation (2x larger batches)"
+        default=2.0,
+        description="Batch size multiplier for per-flashpoint worker isolation (2x larger batches)",
     )
-    
-    # CPU settings    
-    cpu_max_threads: int = Field(default=12, description="Maximum CPU threads (optimized for 12 vCPUs per flashpoint worker)")
-    cpu_max_processes: int = Field(default=8, description="Maximum CPU processes (optimized for 12 vCPUs per flashpoint worker)")
-    
-    
+
+    # CPU settings
+    cpu_max_threads: int = Field(
+        default=12,
+        description="Maximum CPU threads (optimized for 12 vCPUs per flashpoint worker)",
+    )
+    cpu_max_processes: int = Field(
+        default=8,
+        description="Maximum CPU processes (optimized for 12 vCPUs per flashpoint worker)",
+    )
+
     cpu_batch_size: int = Field(
         default=16 if environment == "production" else 2,
-        description="CPU batch size for inference (2 for dev, 16 for prod - optimized for 12 vCPUs per flashpoint worker)"
+        description="CPU batch size for inference (2 for dev, 16 for prod - optimized for 12 vCPUs per flashpoint worker)",
     )
 
     # Security Configuration
@@ -229,13 +253,13 @@ class Settings(BaseSettings):
     test_summarizer: str = Field(default="HDBSCAN", description="Test summarizer")
 
     # Validators
-    
+
     # @model_validator(mode="after")
     # def adjust_cache_dir(self):
     #     base_dir = os.path.dirname(os.path.abspath(__file__))
     #     self.model_cache_dir = os.path.join(base_dir, "..", self.model_cache_dir)
     #     return self
-    
+
     @field_validator("environment")
     def validate_environment(cls, v: str) -> str:
         """Validate environment setting."""

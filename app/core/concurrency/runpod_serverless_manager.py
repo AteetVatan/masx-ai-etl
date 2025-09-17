@@ -88,7 +88,7 @@ class RunPodServerlessManager:
 
         # Initialize worker bins
         chunks: List[List["FlashpointModel"]] = [[] for _ in range(num_workers)]
-        
+
         # Simple round-robin distribution: 1 flashpoint per worker
         for i, flashpoint in enumerate(flashpoints):
             worker_index = i % num_workers
@@ -99,7 +99,7 @@ class RunPodServerlessManager:
             f"runpod_serverless_manager.py:RunPodServerlessManager:Distributed {len(flashpoints)} flashpoints "
             f"across {num_workers} workers (1 per worker)"
         )
-        
+
         for i, chunk in enumerate(chunks, start=1):
             if chunk:
                 self.logger.info(
@@ -144,7 +144,9 @@ class RunPodServerlessManager:
                     f"runpod_serverless_manager.py:RunPodServerlessManager:**********Launching chunk {i + 1} to RunPod Serverless worker (fire and forget)***********"
                 )
                 # Fire and forget - don't wait for completion
-                asyncio.create_task(self._send_to_worker_instance(i + 1, chunk, date, cleanup))
+                asyncio.create_task(
+                    self._send_to_worker_instance(i + 1, chunk, date, cleanup)
+                )
                 launched_workers += 1
 
         if launched_workers > 0:
@@ -152,7 +154,13 @@ class RunPodServerlessManager:
                 f"runpod_serverless_manager.py:RunPodServerlessManager:Launched {launched_workers} RunPod Serverless workers (fire and forget mode)"
             )
             # Return immediately - workers will process independently
-            return [{"status": "workers_launched", "count": launched_workers, "mode": "fire_and_forget"}]
+            return [
+                {
+                    "status": "workers_launched",
+                    "count": launched_workers,
+                    "mode": "fire_and_forget",
+                }
+            ]
 
         return []
 
@@ -288,6 +296,10 @@ class RunPodServerlessManager:
             "num_workers": self.num_workers,
             "runpod_api_key_configured": bool(self.runpod_api_key),
             "runpod_endpoint_configured": bool(self.runpod_endpoint),
-            "mode": "multi_worker_fire_forget" if self.num_workers > 1 else "single_worker",
-            "execution_strategy": "fire_and_forget" if self.num_workers > 1 else "local_processing",
+            "mode": (
+                "multi_worker_fire_forget" if self.num_workers > 1 else "single_worker"
+            ),
+            "execution_strategy": (
+                "fire_and_forget" if self.num_workers > 1 else "local_processing"
+            ),
         }

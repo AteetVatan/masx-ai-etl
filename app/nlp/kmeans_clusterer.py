@@ -38,10 +38,10 @@ class KMeansClusterer(BaseClusterer):
         try:
             if self.n_clusters is None:
                 # Auto-select based on dataset size
-                n_clusters = min(10, max(2, int(np.sqrt(len(embeddings)/2))))
+                n_clusters = min(10, max(2, int(np.sqrt(len(embeddings) / 2))))
             else:
                 n_clusters = min(self.n_clusters, len(embeddings))
-                
+
             model = KMeans(n_clusters=n_clusters, random_state=self.random_state)
             labels = model.fit_predict(embeddings)
 

@@ -54,13 +54,10 @@ class ClusterSummaryGenerator:
     def __init__(self, flashpoint_id: str, clustering_strategy: BaseClusterer):
         self.settings = get_settings()
         self.client = ChromaClientSingleton.get_client()
-        self.collection = ChromaClientSingleton.get_collection_if_exists(
-            flashpoint_id
-        )
+        self.collection = ChromaClientSingleton.get_collection_if_exists(flashpoint_id)
         self.clusterer = clustering_strategy
 
         # Initialize logger
-        
 
         self.logger = get_service_logger("ClusterSummaryGenerator")
         self.inference_runtime: InferenceRuntime = None
@@ -87,19 +84,16 @@ class ClusterSummaryGenerator:
 
             print(f"Clustering {len(documents)} articles...")
             cluster_labels = await self._cluster_embeddings(embeddings)
-            
-            
-            
-            # now generate cluster summaries         
-            
+
+            # now generate cluster summaries
 
             print("Generating cluster summaries...")
             result: list[ClusterModel] = await self._generate_cluster_summaries(
                 self.flashpoint_id, documents, metadatas, cluster_labels
             )
-            
+
             return result
-            
+
         except Exception as e:
             self.logger.error(
                 f"cluster_summary_generator.py:ClusterSummaryGenerator:Error generating cluster summaries: {e}"
@@ -121,14 +115,15 @@ class ClusterSummaryGenerator:
             )
             raise e
 
-        
-    
     async def _generate_cluster_summaries(
-        self, flashpoint_id: str, documents: list[str], metadatas: list[dict], labels: list[int]
+        self,
+        flashpoint_id: str,
+        documents: list[str],
+        metadatas: list[dict],
+        labels: list[int],
     ) -> list[ClusterModel]:
         try:
-            
-                
+
             # Initialize inference runtime if not already done
             if not self.inference_runtime:
                 self.logger.info("Summarizer: initializing inference runtime")
@@ -153,7 +148,9 @@ class ClusterSummaryGenerator:
             # Process clusters in batches
             for i in range(0, len(cluster_ids), batch_size):
                 batch_ids = cluster_ids[i : i + batch_size]
-                self.logger.info(f"Summarizer: processing batch of {len(batch_ids)} clusters")
+                self.logger.info(
+                    f"Summarizer: processing batch of {len(batch_ids)} clusters"
+                )
 
                 # Gather cluster data for this batch
                 batch_clusters = []
@@ -166,13 +163,9 @@ class ClusterSummaryGenerator:
 
             results = []
             results.extend(await self._process_batch(flashpoint_id, batch_clusters))
-          
-                
-            return results              
-  
-                
-                
-                
+
+            return results
+
         except Exception as e:
             self.logger.error(
                 f"cluster_summary_generator.py:ClusterSummaryGenerator:Error generating cluster summaries: {e}"
@@ -180,56 +173,59 @@ class ClusterSummaryGenerator:
             raise e
 
     async def _process_batch(
-        self, flashpoint_id: str, batch_clusters : list[tuple[int, list[str], list[dict]]]
+        self,
+        flashpoint_id: str,
+        batch_clusters: list[tuple[int, list[str], list[dict]]],
     ) -> list[ClusterModel]:
-        try:          
-             #(cluster_id, texts, meta)            
-            summarizer: SummarizationModelManager = self.inference_runtime.model_manager            
-            # cluster in batches of model pool 
+        try:
+            # (cluster_id, texts, meta)
+            summarizer: SummarizationModelManager = self.inference_runtime.model_manager
+            # cluster in batches of model pool
             batch_size = summarizer.pool_size
-        
-            async def run(flashpoint_id: str, cluster_id: int, texts: list[str], meta: list[dict]) -> ClusterModel | None:
+
+            async def run(
+                flashpoint_id: str, cluster_id: int, texts: list[str], meta: list[dict]
+            ) -> ClusterModel | None:
                 # each task acquires its own instance
                 async with summarizer.acquire(destroy_after_use=False) as instance:
-                    try:                        
+                    try:
                         result = await self.cpu_executors.run_in_thread(
-                                self._generate_group_summaries,  
-                                flashpoint_id,
-                                cluster_id, 
-                                texts, 
-                                meta, 
-                                instance.model, 
-                                instance.tokenizer, 
-                                instance.device
+                            self._generate_group_summaries,
+                            flashpoint_id,
+                            cluster_id,
+                            texts,
+                            meta,
+                            instance.model,
+                            instance.tokenizer,
+                            instance.device,
                         )
                         if result is None:
                             raise Exception("Summarizer: Error summarizing cluster")
-                        
-                      
-                      
-                #         params = (
-                #     str(flashpoint_id),
-                #     int(cluster["cluster_id"]),
-                #     cluster["summary"],
-                #     int(cluster["article_count"]),
-                #     json.dumps(cluster.get("top_domains", [])),
-                #     json.dumps(cluster.get("languages", [])),
-                #     json.dumps(cluster.get("urls", [])),
-                #     json.dumps(cluster.get("images", [])),
-                # )
-                        
+
+                        #         params = (
+                        #     str(flashpoint_id),
+                        #     int(cluster["cluster_id"]),
+                        #     cluster["summary"],
+                        #     int(cluster["article_count"]),
+                        #     json.dumps(cluster.get("top_domains", [])),
+                        #     json.dumps(cluster.get("languages", [])),
+                        #     json.dumps(cluster.get("urls", [])),
+                        #     json.dumps(cluster.get("images", [])),
+                        # )
+
                         return result
                     except Exception as e:
                         self.logger.error(f"Summarizer: Error summarizing cluster: {e}")
                         return None
-        
-            tasks = [run(flashpoint_id, cluster_id, texts, meta) for cluster_id, texts, meta in batch_clusters]
-           
+
+            tasks = [
+                run(flashpoint_id, cluster_id, texts, meta)
+                for cluster_id, texts, meta in batch_clusters
+            ]
+
             results = await asyncio.gather(*tasks, return_exceptions=True)
             return results
-        
-        
-        
+
         except Exception as e:
             self.logger.error(
                 f"cluster_summary_generator.py:ClusterSummaryGenerator:Error generating cluster summaries: {e}"
@@ -265,8 +261,7 @@ class ClusterSummaryGenerator:
                 ).most_common(3)
             ]
             all_domains = sorted(set(m.get("domain", "unknown") for m in meta))
-       
-            
+
             langs = sorted(set(m.get("language", "unknown") for m in meta))
             urls = [m.get("url") for m in meta if m.get("url")]
             images = [
@@ -274,8 +269,8 @@ class ClusterSummaryGenerator:
                 for m in meta
                 if m.get("image") and m.get("image") != "unknown"
             ]
-            
-            cluster_model = ClusterModel(                
+
+            cluster_model = ClusterModel(
                 flashpoint_id=flashpoint_id,
                 cluster_id=cluster_id,
                 summary=summary,
@@ -286,8 +281,7 @@ class ClusterSummaryGenerator:
                 urls=urls,
                 images=images,
             )
-            
-            
+
             # result = {
             #     "cluster_id": cluster_id,
             #     "summary": summary,
@@ -315,14 +309,16 @@ class ClusterSummaryGenerator:
             # If it fits, single pass with long target
             final_target = self._choose_final_new_tokens(total_tokens, dec_cap)
             if total_tokens <= src_cap:
-                            return self._summ_text(
-                model,
-                tokenizer,
-                device,
-                joined,
-                src_cap,
-                self._gen_args_long(final_target, max(80, final_target // 7), tokenizer),
-            )
+                return self._summ_text(
+                    model,
+                    tokenizer,
+                    device,
+                    joined,
+                    src_cap,
+                    self._gen_args_long(
+                        final_target, max(80, final_target // 7), tokenizer
+                    ),
+                )
 
             # Otherwise: pack by docs → per-chunk → reduce
             # src_cap - 100 --> encoder’s safe capacity + Reserves 100 tokens for special tokens or extra safety margin.
@@ -350,7 +346,9 @@ class ClusterSummaryGenerator:
                 device,
                 combined,
                 src_cap,
-                self._gen_args_long(final_target, max(80, final_target // 7), tokenizer),
+                self._gen_args_long(
+                    final_target, max(80, final_target // 7), tokenizer
+                ),
             )
         except Exception as e:
             self.logger.error(
@@ -479,24 +477,24 @@ class ClusterSummaryGenerator:
         pool = int(final_new_tokens * 0.35)
         per = max(60, min(220, pool // n_chunks))
         return per
-    
+
     async def _initialize_inference_runtime(self) -> InferenceRuntime:
         """Initialize the inference runtime for summarization."""
         try:
             # Create runtime config optimized for summarization
-            config = RuntimeConfig()            
-            
-        
+            config = RuntimeConfig()
+
             # Create and start inference runtime
             self.inference_runtime = InferenceRuntime(
-                model_manager_loader=lambda: SummarizationModelManager(self.settings), config=config
+                model_manager_loader=lambda: SummarizationModelManager(self.settings),
+                config=config,
             )
 
             await self.inference_runtime.start()
             self.logger.info(
                 "cluster_summary_generator.py:ClusterSummaryGenerator:Inference runtime initialized for summarization"
             )
-            
+
             return self.inference_runtime
 
         except Exception as e:

@@ -35,7 +35,7 @@ from .translator_model_manager import TranslatorModelManager
 
 __all__ = [
     "AbstractModel",
-    "ModelInstance", 
+    "ModelInstance",
     "ModelPool_sync",
     "SummarizationModelManager",
     "SummarizationFinalizerModelManager",

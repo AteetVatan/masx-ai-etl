@@ -31,8 +31,9 @@ from typing import List, TypeVar, Optional, Dict, Any, Union, Callable
 from dataclasses import dataclass
 
 from .device import use_gpu, get_device_config
-#from .cpu_executors import CPUExecutors
-#from .gpu_worker import GPUWorker, GPUConfig
+
+# from .cpu_executors import CPUExecutors
+# from .gpu_worker import GPUWorker, GPUConfig
 from .model_pool import get_model_pool
 from app.config import get_settings, get_service_logger
 from app.core.model import AbstractModel
@@ -47,6 +48,7 @@ R = TypeVar("R")
 @dataclass
 class RuntimeConfig:
     """Runtime configuration parameters."""
+
     settings = get_settings()
     # Model Pool settings (for production mode)
     model_pool_max_instances: int = settings.model_pool_max_instances
@@ -100,8 +102,8 @@ class InferenceRuntime:
         self.use_gpu_flag = use_gpu()
 
         # Execution components
-        #self._gpu_worker: Optional[GPUWorker] = None
-        #self._cpu_executors = CPUExecutors()
+        # self._gpu_worker: Optional[GPUWorker] = None
+        # self._cpu_executors = CPUExecutors()
 
         # Model pool for production mode
         # self._model_pool = None
@@ -116,7 +118,6 @@ class InferenceRuntime:
         self._total_requests = 0
         self._total_gpu_requests = 0
         self._total_cpu_requests = 0
-        
 
         mode = "Debug" if self.config.debug_mode else "Production"
         # pool_info = (
@@ -145,10 +146,9 @@ class InferenceRuntime:
             #     await self._start_gpu_worker()
             # else:
             #     self.logger.info("runtime.py:Using CPU execution path")
-                
-            self.model_manager = self.model_manager_loader()   
+
+            self.model_manager = self.model_manager_loader()
             self.model_manager.initialize()
-                
 
             self._is_started = True
             self.logger.info("runtime.py:InferenceRuntime started successfully")
@@ -157,12 +157,9 @@ class InferenceRuntime:
             self.logger.error(f"runtime.py:Failed to start InferenceRuntime: {e}")
             raise
 
-
-
     # async def stop(self) -> None:
     #     """
     #     Stop the inference runtime gracefully.
     #     """
     #     if self.model_manager:
-    #         await self.model_manager.release_all_instances()       
-       
+    #         await self.model_manager.release_all_instances()

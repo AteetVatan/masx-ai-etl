@@ -41,10 +41,10 @@ class CPUExecutors:
         return cls._instance
 
     def __init__(self, workload: WorkloadEnums = WorkloadEnums.CPU):
-        """Initialize executors only once."""        
+        """Initialize executors only once."""
         # every time the class is initialized, we should recalculate the max_threads
-        self.max_threads = self.calculate_thread_pool_size(workload=workload)        
-        
+        self.max_threads = self.calculate_thread_pool_size(workload=workload)
+
         if hasattr(self, "_initialized"):
             return
 
@@ -55,15 +55,14 @@ class CPUExecutors:
         self.settings = get_settings()
 
         # Configuration from environment
-        #self.max_threads = self.settings.cpu_max_threads
-        #self.max_threads = self.calculate_thread_pool_size(workload=workload)        
+        # self.max_threads = self.settings.cpu_max_threads
+        # self.max_threads = self.calculate_thread_pool_size(workload=workload)
         self.max_processes = self.settings.cpu_max_processes
 
         logger.info(
             f"cpu_executors.py:CPUExecutors initialized: max_threads={self.max_threads}, max_processes={self.max_processes}"
         )
-        
-    
+
     @property
     def thread_pool(self) -> ThreadPoolExecutor:
         """Get or create the shared thread pool."""
@@ -190,8 +189,10 @@ class CPUExecutors:
     def is_shutdown(self) -> bool:
         """Check if executors are shutdown."""
         return self._shutdown_event.is_set()
-    
-    def calculate_thread_pool_size(self, workload: WorkloadEnums = WorkloadEnums.IO, cap: int = 200) -> int:
+
+    def calculate_thread_pool_size(
+        self, workload: WorkloadEnums = WorkloadEnums.IO, cap: int = 200
+    ) -> int:
         """
         Recommend a safe thread pool size based on workload type.
 
@@ -240,4 +241,3 @@ async def map_processes(func: Callable[[T], R], items: List[T]) -> List[R]:
 def shutdown_executors(wait: bool = True):
     """Shutdown all executors."""
     cpu_executors.shutdown(wait=wait)
-

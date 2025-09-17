@@ -38,17 +38,17 @@ class NewsContentExtractor:
 
     def __init__(self):
 
-        # self.news_articles = self.context.pull(DagContextEnum.NEWS_ARTICLES.value)        
+        # self.news_articles = self.context.pull(DagContextEnum.NEWS_ARTICLES.value)
         self.settings = get_settings()
         self.crawl4AIExtractor = Crawl4AIExtractor()
         self.logger = get_service_logger("NewsContentExtractor")
 
         # Initialize CPU executors for async processing
         self.cpu_executors = CPUExecutors(workload=WorkloadEnums.IO)
-        #self.web_scraper_batch_size = self.settings.web_scraper_batch_size
-        
+        # self.web_scraper_batch_size = self.settings.web_scraper_batch_size
+
         self.web_scraper_batch_size = self.cpu_executors.max_threads
-        
+
         self.proxy_service = ProxyService()
 
     async def extract_feeds(self, feeds: list[FeedModel]) -> list[FeedModel]:
@@ -65,11 +65,10 @@ class NewsContentExtractor:
             self.logger.info(
                 f"news_content_extractor.py:NewsContentExtractor:---- ProxyManager initiated ----"
             )
-            #proxies = await ProxyManager.proxies_async()
-            
+            # proxies = await ProxyManager.proxies_async()
+
             proxies = await self.proxy_service.get_proxies()
-            
-            
+
             self.logger.info(
                 f"news_content_extractor.py:NewsContentExtractor:---- {len(proxies)} proxies found ----"
             )
@@ -89,12 +88,13 @@ class NewsContentExtractor:
 
             # Process in batches for efficiency
             batch_size = self.cpu_executors.max_threads
-            self.logger.info(f"news_content_extractor.py:NewsContentExtractor:-----Processing {len(feeds)} feeds in batches of {batch_size}-----")
+            self.logger.info(
+                f"news_content_extractor.py:NewsContentExtractor:-----Processing {len(feeds)} feeds in batches of {batch_size}-----"
+            )
             for i in range(0, len(feeds), batch_size):
                 batch = feeds[i : i + batch_size]
                 batch_results = await self._process_batch(batch, proxies)
-                scraped_feeds.extend([r for r in batch_results if r])               
-
+                scraped_feeds.extend([r for r in batch_results if r])
 
             return scraped_feeds
         except Exception as e:
@@ -119,8 +119,6 @@ class NewsContentExtractor:
                     self.__scrape_multilang_feeds, feed, proxy
                 )
                 tasks.append(task)
-                
-               
 
             # Execute all tasks concurrently
             results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -135,7 +133,7 @@ class NewsContentExtractor:
                     continue
 
                 if result and result.raw_text:
-                    result.processed_text = result.raw_text                
+                    result.processed_text = result.raw_text
                     processed_feeds.append(result)
 
             return processed_feeds
@@ -279,8 +277,6 @@ def __scrape_multilang_feeds_debug(url: str, proxy: str):
     except Exception as e:
         print(f"[Error] Failed to scrape {url}: {e}", exc_info=True)
         return None
-
-
 
 
 # if __name__ == "__main__":

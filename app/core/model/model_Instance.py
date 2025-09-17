@@ -21,13 +21,13 @@ from typing import Any, Optional, TypeVar, Generic
 import torch
 
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 @dataclass
 class ModelInstance(Generic[T]):
     """Container for a model instance with metadata."""
-    
+
     model: T
     tokenizer: Optional[Any] = None
     device: Optional[torch.device] = None
@@ -36,19 +36,19 @@ class ModelInstance(Generic[T]):
     created_at: float = 0.0
     vram_usage_bytes: int = 0
     max_tokens: int = 0
-    
+
     # Hash & equality by identity (so it can live in a set)
     def __hash__(self) -> int:
         return id(self)
 
     def __eq__(self, other: object) -> bool:
         return self is other
-    
+
     def destroy(self) -> None:
         """Clean up model resources."""
-        if hasattr(self.model, 'cpu'):
+        if hasattr(self.model, "cpu"):
             self.model.cpu()
-        if hasattr(self.model, 'delete'):
+        if hasattr(self.model, "delete"):
             self.model.delete()
         del self.model
         if self.tokenizer:

@@ -24,16 +24,17 @@ from app.config import get_service_logger
 
 from .model_Instance import ModelInstance
 
-T = TypeVar('T')
+T = TypeVar("T")
+
 
 class ModelPool_sync(Generic[T]):
     """
     Thread-safe model pool with limited instances and memory management.
-    
+
     Provides controlled concurrency without memory explosion by managing
     a limited number of model instances per type.
     """
-    
+
     def __init__(self, max_instances: int, model_type: str):
         self.max_instances = max_instances
         self.model_type = model_type
@@ -41,17 +42,17 @@ class ModelPool_sync(Generic[T]):
         self.in_use: List[ModelInstance[T]] = []
         self.lock = threading.Lock()
         self.logger = get_service_logger(f"ModelPool-{model_type}")
-        
+
     def acquire(self, timeout: Optional[float] = None) -> ModelInstance[T]:
         """
         Acquire a model instance from the pool.
-        
+
         Args:
             timeout: Maximum time to wait for an instance (None = block forever)
-            
+
         Returns:
             ModelInstance ready for use
-            
+
         Raises:
             TimeoutError: If timeout is exceeded
         """
@@ -64,11 +65,11 @@ class ModelPool_sync(Generic[T]):
             return instance
         except Empty:
             raise TimeoutError(f"Timeout waiting for {self.model_type} instance")
-    
+
     def release(self, instance: ModelInstance[T], destroy: bool = False) -> None:
         """
         Release a model instance back to the pool or destroy it.
-        
+
         Args:
             instance: The instance to release
             destroy: If True, destroy the instance instead of returning to pool
@@ -77,26 +78,30 @@ class ModelPool_sync(Generic[T]):
             if instance in self.in_use:
                 self.in_use.remove(instance)
                 instance.in_use = False
-                
+
                 if destroy:
                     instance.destroy()
                     self.logger.debug(f"Destroyed {self.model_type} instance")
                 else:
                     try:
                         self.available.put_nowait(instance)
-                        self.logger.debug(f"Released {self.model_type} instance to pool")
+                        self.logger.debug(
+                            f"Released {self.model_type} instance to pool"
+                        )
                     except:
                         # Pool is full, destroy the instance
                         instance.destroy()
-                        self.logger.debug(f"Pool full, destroyed {self.model_type} instance")
-    
+                        self.logger.debug(
+                            f"Pool full, destroyed {self.model_type} instance"
+                        )
+
     def add_instance(self, instance: ModelInstance[T]) -> bool:
         """
         Add a new instance to the pool.
-        
+
         Args:
             instance: The instance to add
-            
+
         Returns:
             True if added, False if pool is full
         """
@@ -106,7 +111,7 @@ class ModelPool_sync(Generic[T]):
             return True
         except:
             return False
-    
+
     def get_stats(self) -> Dict[str, int]:
         """Get pool statistics."""
         with self.lock:
@@ -114,16 +119,16 @@ class ModelPool_sync(Generic[T]):
                 "available": self.available.qsize(),
                 "in_use": len(self.in_use),
                 "total": self.available.qsize() + len(self.in_use),
-                "max_instances": self.max_instances
+                "max_instances": self.max_instances,
             }
-    
+
     def shrink_pool(self, target_size: int) -> int:
         """
         Shrink the pool to target size by destroying excess instances.
-        
+
         Args:
             target_size: Desired pool size
-            
+
         Returns:
             Number of instances destroyed
         """
@@ -136,7 +141,7 @@ class ModelPool_sync(Generic[T]):
                     destroyed += 1
                 except Empty:
                     break
-        
+
         if destroyed > 0:
             self.logger.info(f"Shrunk {self.model_type} pool by {destroyed} instances")
         return destroyed
