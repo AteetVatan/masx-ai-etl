@@ -165,7 +165,7 @@ class ClusterSummaryGenerator:
                     batch_clusters.append((cluster_id, texts, meta))
 
             results = []
-            results.append(await self._process_batch(flashpoint_id, batch_clusters))
+            results.extend(await self._process_batch(flashpoint_id, batch_clusters))
           
                 
             return results              
