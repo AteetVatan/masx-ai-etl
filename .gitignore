@@ -133,6 +133,7 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 
+
 # -------------------------
 # AI/ML & Transformers
 # -------------------------
@@ -391,6 +392,7 @@ pyproject.toml.bak
 mock_data/output/
 test_outputs/
 debug_outputs/
+debug_data/
 performance_logs/
 
 # Temporary files
