@@ -30,7 +30,6 @@ from .model_pool import ModelPool
 from .model_Instance import ModelInstance
 from .summarization_model_manager import SummarizationModelManager
 from .summarization_finalizer_modal_manager import SummarizationFinalizerModelManager
-from .embedding_model_manager import EmbeddingModelManager
 from .vector_embedding_model_manager import VectorEmbeddingModelManager
 from .translator_model_manager import TranslatorModelManager
 
@@ -40,7 +39,6 @@ __all__ = [
     "ModelPool_sync",
     "SummarizationModelManager",
     "SummarizationFinalizerModelManager",
-    "EmbeddingModelManager",
     "VectorEmbeddingModelManager",
     "TranslatorModelManager",
 ]
