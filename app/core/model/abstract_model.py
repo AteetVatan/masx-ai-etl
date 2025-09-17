@@ -35,6 +35,7 @@ from .model_pool import ModelPool
 from .model_Instance import ModelInstance
 
 
+
 from app.config import get_service_logger, get_settings
 
 T = TypeVar('T')
@@ -49,6 +50,7 @@ class AbstractModel(ABC, Generic[T]):
     
     def __init__(self, settings: Optional[Any] = None):
         self.settings = settings or get_settings()
+        self.model_cache_dir = self.settings.model_cache_dir
         self.logger = get_service_logger(self.__class__.__name__)
         self._pool: Optional[ModelPool[T]] = None
         self._pool_size: int = 0
