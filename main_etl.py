@@ -46,20 +46,18 @@ async def run_etl_pipeline(
     logger.info(f"main_etl.py:run_etl_pipeline called")
     if cleanup:
         ChromaClientSingleton.cleanup_chroma()
-        
+
     if trigger == WorkerEnums.COORDINATOR.value:
         proxy_service = ProxyService()
         await proxy_service.ping_start_proxy()
-        
-    trigger = WorkerEnums.ETL_WORKER.value
-    date = "2025-07-01"
-    flashpoints_ids = ["70ef3f5a-3dbd-4b9a-8eb5-1b971a37fbc0"]    
-        
-        
+
+    # trigger = WorkerEnums.ETL_WORKER.value
+    # date = "2025-07-01"
+    # flashpoints_ids = ["70ef3f5a-3dbd-4b9a-8eb5-1b971a37fbc0"]
+
     # trigger = WorkerEnums.ETL_WORKER.value
     # date = "2025-07-02"
-    # flashpoints_ids = ["d8547bcf-4cc9-4168-bb36-fccd517fbef9"]       
-        
+    # flashpoints_ids = ["d8547bcf-4cc9-4168-bb36-fccd517fbef9"]
 
     etl_pipeline = ETLPipeline(date)
     await etl_pipeline.run_all_etl_pipelines(
