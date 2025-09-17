@@ -139,7 +139,7 @@ class FlashpointsCluster:
         flashpoint_id: str,
         clusters: List[ClusterModel],
         date: Optional[datetime] = None,
-    ):
+    ) -> bool:
         """
         Synchronous method to create the daily cluster table and insert cluster summaries.
         """
@@ -158,7 +158,7 @@ class FlashpointsCluster:
         flashpoint_id: str,
         clusters: List[ClusterModel],
         date: Optional[datetime] = None,
-    ):
+    ) -> bool:
         """
         Insert multiple cluster summaries into the daily table (synchronous).
         """
