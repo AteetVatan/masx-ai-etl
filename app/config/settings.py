@@ -137,9 +137,17 @@ class Settings(BaseSettings):
         default="https://api.runpod.io/v2/rrbf5aifol52jo/run",
         description="RunPod endpoint",
     )
-
+    
+    cache_dir: str = Field(
+        default=os.getenv("CACHE_DIR", "/runpod-volume/masx-space"),
+        description="Base cache directory (from Docker ENV or default)",
+    )
+    
     model_cache_dir: str = Field(
-        default=os.getenv("MODEL_CACHE_DIR", os.getenv("HF_HOME", "./.hf_cache")),
+        default_factory=lambda: os.path.join(
+            os.getenv("MODEL_CACHE_DIR", os.getenv("CACHE_DIR", "/runpod-volume/masx-space")),
+            "models"
+        ),
         description="Model cache directory",
     )
 

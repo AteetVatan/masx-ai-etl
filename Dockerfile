@@ -12,9 +12,6 @@ ENV TRANSFORMERS_VERBOSITY=info
 
 WORKDIR /app
 
-# Hugging Face cache inside container
-ENV HF_HOME=/app/.hf_cache
-
 # ---- System deps ----
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl ca-certificates git tini build-essential pkg-config \
@@ -91,21 +88,27 @@ print("aiohttp version:", aiohttp.__version__)
 print("aiohttp available for RunPod API calls")
 PY
 
+
+#  RunPod persistent volume
+ENV CACHE_DIR=/runpod-volume/masx-space
+
+
 # Pre-download models here
-RUN mkdir -p $HF_HOME
+# RUN mkdir -p $HF_HOME
 
-RUN micromamba run -n appenv python -c "from sentence_transformers import SentenceTransformer; \
-    SentenceTransformer('sentence-transformers/all-mpnet-base-v2', cache_folder='$HF_HOME')"
+# RUN micromamba run -n appenv python -c "from sentence_transformers import SentenceTransformer; \
+#     SentenceTransformer('sentence-transformers/all-mpnet-base-v2', cache_folder='$HF_HOME')"
 
-RUN micromamba run -n appenv python -c "from transformers import AutoModelForSeq2SeqLM, AutoTokenizer; \
-    AutoModelForSeq2SeqLM.from_pretrained('facebook/bart-large-cnn', cache_dir='$HF_HOME'); \
-    AutoTokenizer.from_pretrained('facebook/bart-large-cnn', cache_dir='$HF_HOME')"
+# RUN micromamba run -n appenv python -c "from transformers import AutoModelForSeq2SeqLM, AutoTokenizer; \
+#     AutoModelForSeq2SeqLM.from_pretrained('facebook/bart-large-cnn', cache_dir='$HF_HOME'); \
+#     AutoTokenizer.from_pretrained('facebook/bart-large-cnn', cache_dir='$HF_HOME')"
 
-RUN micromamba run -n appenv python -c "from transformers import AutoModelForSeq2SeqLM, AutoTokenizer; \
-    AutoModelForSeq2SeqLM.from_pretrained('facebook/nllb-200-distilled-600M', cache_dir='$HF_HOME'); \
-    AutoTokenizer.from_pretrained('facebook/nllb-200-distilled-600M', cache_dir='$HF_HOME')"
+# RUN micromamba run -n appenv python -c "from transformers import AutoModelForSeq2SeqLM, AutoTokenizer; \
+#     AutoModelForSeq2SeqLM.from_pretrained('facebook/nllb-200-distilled-600M', cache_dir='$HF_HOME'); \
+#     AutoTokenizer.from_pretrained('facebook/nllb-200-distilled-600M', cache_dir='$HF_HOME')"
 
 ENTRYPOINT ["/usr/bin/tini","-s","--"]
-CMD ["micromamba","run","-n","appenv","python","-u","/app/handler.py"]
+#CMD ["micromamba","run","-n","appenv","python","-u","/app/handler.py"]
+CMD ["/app/entrypoint.sh"]
 
 #CMD ["python","-u","/app/handler.py"]
