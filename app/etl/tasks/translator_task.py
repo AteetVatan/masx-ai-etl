@@ -54,18 +54,22 @@ class TranslatorTask:
 
     async def translate_all_feeds(self, feeds: list[FeedModel]) -> list[FeedModel]:
         try:
+            
+            # get feeds which are not in english
+            feeds_multilingual = await self._get_feeds_multilingual(feeds)
+            self.logger.info(f"TranslatorTask:translate_all_feeds {len(feeds_multilingual)} feeds")
+            if len(feeds_multilingual) == 0:
+                return feeds
+            
+            
             # Initialize inference runtime if not already done
             if not self.inference_runtime:
                 self.logger.info(
                     f"TranslatorTask:Initializing inference runtime"
                 )
                 #await self.concurrency_utils.initialize_inference_runtime()
-                await self._initialize_inference_runtime()
-            
-            
-            
-             # get feeds which are not in english
-            feeds_multilingual = await self._get_feeds_multilingual(feeds)
+                await self._initialize_inference_runtime()            
+           
             # seperate the feeds with language in NLLB Model Supported Languages (ISO_TO_NLLB_MERGED)
             # other wise use google translate
             #feeds_nllb = [feed for feed in feeds_multilingual if feed.language in ISO_TO_NLLB_MERGED]
@@ -73,18 +77,22 @@ class TranslatorTask:
 
             
             # Shorts → GPU (NLLB).
-            # Longs → Google Translate.
-            
-            
-            if len(feeds_multilingual) == 0:
-                return feeds
-            
+            # Longs → Google Translate.           
             
             #feeds_nllb, feeds_google = await self.divide_feeds_nllb_google(feeds_multilingual)
             #for now use all feeds for nllb
             # only error fallbacks to google translate
-            feeds_nllb = feeds_multilingual[:1]
-            feeds_google = feeds_multilingual[1:]
+            
+            feeds_nllb = []
+            feeds_google = []
+            
+            if self.settings.debug:
+                feeds_nllb = feeds_nllb[:1]
+                feeds_google = feeds_google[1:]
+            else:
+                #by default use all feeds for nllb
+                feeds_nllb = feeds_multilingual            
+            
 
             result_nllb, result_google = await asyncio.gather(
                 self.translate_all_feeds_nllb(feeds_nllb),
