@@ -183,9 +183,9 @@ class ETLPipeline:
                     f"*****************etl_pipeline.py:ETLPipeline:scraped_feeds length: {len(processed_feeds)} out of {len(feeds)}*****************"
                 )
                 
-                self.logger.info(f"\n\n==================================================================\n\n")  
+                self.logger.info(f"\n\n=====================================================================================\n\n")  
                 
-                self.logger.info(f"\n\n=============================LanguageDetectorTask=====================================\n\n")              
+                self.logger.info(f"\n\n=============================LanguageDetectorTask====================================\n\n")              
                 
                 language_detector_time = time.time()
                 # Set the language for the compressed feeds
@@ -194,18 +194,18 @@ class ETLPipeline:
                 language_detector_time = time.time() - language_detector_time
                 self.logger.info(f"etl_pipeline.py:ETLPipeline:LanguageDetector time: {language_detector_time} seconds")
                 
-                self.logger.info(f"\n\n==================================================================\n\n")
+                self.logger.info(f"\n\n=====================================================================================\n\n")
                 
-                self.logger.info(f"\n\n=============================CompressorTask=====================================\n\n")              
+                self.logger.info(f"\n\n=============================CompressorTask==========================================\n\n")              
                 compressor_time = time.time()
                 compressor = CompressorTask()
                 processed_feeds = await compressor.compress_all_feeds(processed_feeds)
                 compressor_time = time.time() - compressor_time
                 self.logger.info(f"etl_pipeline.py:ETLPipeline:Compressor time: {compressor_time} seconds")            
 
-                self.logger.info(f"\n\n==================================================================\n\n")
+                self.logger.info(f"\n\n=====================================================================================\n\n")
                 
-                self.logger.info(f"\n\n=============================TranslatorTask=====================================\n\n")
+                self.logger.info(f"\n\n=============================TranslatorTask==========================================\n\n")
                 translator_time = time.time()
                 # Translate the compressed feeds
                 translator = TranslatorTask()
@@ -213,9 +213,9 @@ class ETLPipeline:
                 translator_time = time.time() - translator_time
                 self.logger.info(f"etl_pipeline.py:ETLPipeline:Translator time: {translator_time} seconds")
                 
-                self.logger.info(f"\n\n==================================================================\n\n")
+                self.logger.info(f"\n\n=====================================================================================\n\n")
                 #summarize the processed feeds
-                self.logger.info(f"\n\n=============================SummarizerTask=====================================\n\n")
+                self.logger.info(f"\n\n=============================SummarizerTask==========================================\n\n")
                 summarizer_time = time.time()
                 self.logger.info("etl_pipeline.py:ETLPipeline:Running Summarizer...")
                 summarizer = SummarizerTask()
@@ -223,7 +223,7 @@ class ETLPipeline:
                 summarizer_time = time.time() - summarizer_time
                 self.logger.info(f"etl_pipeline.py:ETLPipeline:Summarizer time: {summarizer_time} seconds")
                 
-                self.logger.info(f"\n\n==================================================================\n\n")
+                self.logger.info(f"\n\n=====================================================================================\n\n")
             
             
                 if self.settings.debug:
@@ -269,7 +269,7 @@ class ETLPipeline:
             #         f"etl_pipeline.py:ETLPipeline:**************************************************************************"
             #     )
             
-            self.logger.info(f"\n\n=============================VectorizeTask=====================================\n\n")
+            self.logger.info(f"\n\n=============================VectorizeTask==========================================\n\n")
             vectorize_time = time.time()
             self.logger.info("etl_pipeline.py:ETLPipeline:Running VectorizeArticles...")
             vectorizer = VectorizeTask(flashpoint_id)
@@ -277,9 +277,9 @@ class ETLPipeline:
             vectorized_collection_name = await vectorizer.run(processed_feeds)
             vectorize_time = time.time() - vectorize_time
             self.logger.info(f"etl_pipeline.py:ETLPipeline:VectorizeTask time: {vectorize_time} seconds")
-            self.logger.info(f"\n\n==================================================================\n\n")
+            self.logger.info(f"\n\n=====================================================================================\n\n")
             
-            self.logger.info(f"\n\n=============================ClusterSummaryGenerator=====================================\n\n")
+            self.logger.info(f"\n\n=============================ClusterSummaryGenerator=================================\n\n")
             
             
             self.logger.info("Running ClusterSummaryGenerator...")
@@ -323,9 +323,9 @@ class ETLPipeline:
             self.logger.info(
                 f" number of cluster summaries for flashpoint {flashpoint_id}: {len(cluster_summaries)}"
             )
-            self.logger.info(f"\n\n==================================================================\n\n")
+            self.logger.info(f"\n\n============================================================================================\n\n")
 
-            self.logger.info(f"\n\n=============================db_cluster_operations=====================================\n\n")
+            self.logger.info(f"\n\n=============================db_cluster_operations==========================================\n\n")
             
             self.logger.info("Running db_cluster_operations...")
             # Use the synchronous version to avoid async issues
@@ -336,17 +336,18 @@ class ETLPipeline:
             )
             db_cluster_operations_time = time.time() - db_cluster_operations_time
             self.logger.info(f"etl_pipeline.py:ETLPipeline:db_cluster_operations time: {db_cluster_operations_time} seconds")
-            self.logger.info(f"\n\n==================================================================\n\n")
+            self.logger.info(f"\n\n============================================================================================\n\n")
             
             # get the time now
             end_time = time.time()
             self.logger.info(f"Time taken: {end_time - start_time} seconds")
-            self.logger.info(f"\n\n==================================================================\n\n")
+            self.logger.info(f"\n\n============================================================================================\n\n")
         except Exception as e:
             self.logger.error(f"etl_pipeline.py:ETLPipeline:Error: {e}")
             raise e
         finally:
-            self.db_flashpoints_cluster.close()
+            if self.db_flashpoints_cluster:
+                self.db_flashpoints_cluster.close()
             self.logger.info("ETL Pipeline completed")
 
     

@@ -67,7 +67,7 @@ class ETLPipelineDebug:
         return summarized_feeds
 
     @staticmethod
-    def _store_summarized_feeds(summarized_feeds: list, flashpoint_id: str, date: str):
+    def store_summarized_feeds(summarized_feeds: list, flashpoint_id: str, date: str):
         """Store summarized feeds as JSON file for the given flashpoint."""
         import json
         import re
