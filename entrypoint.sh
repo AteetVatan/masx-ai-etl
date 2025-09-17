@@ -1,14 +1,14 @@
 #!/bin/bash
 set -e
 
-MODEL_CACHE_DIR="/runpod-volume/masx-space/models"
+MODEL_CACHE_DIR="${CACHE_DIR}/models"
 
 echo "Checking model cache in $MODEL_CACHE_DIR"
 if [ ! -d "$MODEL_CACHE_DIR/models--facebook--bart-large-cnn" ]; then
-    echo " Preloading Hugging Face models..."
+    echo "Preloading Hugging Face models..."
     micromamba run -n appenv python /app/init_models.py
 else
-    echo " Models already cached"
+    echo "Models already cached"
 fi
 
 # Start your app

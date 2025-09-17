@@ -107,6 +107,9 @@ ENV CACHE_DIR=/runpod-volume/masx-space
 #     AutoModelForSeq2SeqLM.from_pretrained('facebook/nllb-200-distilled-600M', cache_dir='$HF_HOME'); \
 #     AutoTokenizer.from_pretrained('facebook/nllb-200-distilled-600M', cache_dir='$HF_HOME')"
 
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
 ENTRYPOINT ["/usr/bin/tini","-s","--"]
 #CMD ["micromamba","run","-n","appenv","python","-u","/app/handler.py"]
 CMD ["/app/entrypoint.sh"]
