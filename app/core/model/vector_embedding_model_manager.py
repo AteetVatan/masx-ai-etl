@@ -126,8 +126,7 @@ class VectorEmbeddingModelManager(AbstractModel[SentenceTransformer]):
     
     def _get_model_cache_dir(self) -> str:
         """Get the model cache directory."""
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        return os.path.join(base_dir, ".." ".hf_cache")
+        return self.model_cache_dir
     
     def encode_texts(
         self, 

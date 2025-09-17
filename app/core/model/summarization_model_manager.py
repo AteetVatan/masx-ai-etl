@@ -131,9 +131,8 @@ class SummarizationModelManager(AbstractModel[AutoModelForSeq2SeqLM]):
             raise RuntimeError(f"Failed to load tokenizer: {e}")
     
     def _get_model_cache_dir(self) -> str:
-        """Get the model cache directory."""
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        return os.path.join(base_dir, "..", ".hf_cache")
+        """Get the model cache directory."""        
+        return self.model_cache_dir
 
     def get_generation_config(self) -> GenerationConfig:
         """Get the generation configuration for summarization."""
