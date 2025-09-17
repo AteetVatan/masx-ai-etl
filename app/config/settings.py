@@ -283,6 +283,16 @@ class Settings(BaseSettings):
         if v.upper() not in valid_levels:
             raise ValueError(f"Log level must be one of: {valid_levels}")
         return v.upper()
+    
+    # ───────────────────────────────────────────────
+    # Automatically ensure cache directories exist
+    # ───────────────────────────────────────────────
+    @model_validator(mode="after")
+    def ensure_directories_exist(self) -> "Settings":
+        os.makedirs(self.cache_dir, exist_ok=True)
+        os.makedirs(self.model_cache_dir, exist_ok=True)
+       
+        return self
 
     # Computed Properties
     @property
