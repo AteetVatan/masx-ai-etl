@@ -162,12 +162,14 @@ class RunPodServerlessManager:
                     f"runpod_serverless_manager.py:RunPodServerlessManager:**********Launching chunk {i + 1} to RunPod Serverless worker (fire and forget)***********"
                 )
                 # Fire and forget - don't wait for completion
-                asyncio.ensure_future(
+                asyncio.create_task(
                     self._send_to_worker_instance(i + 1, chunk, date, cleanup)
                 )
                 launched_workers += 1
-                
-        await asyncio.sleep(0.1)
+        
+        # the application ends before fire and forget even loop is executed so added await
+        # await must be quick because of the cost        
+        await asyncio.sleep(self.num_workers * 0.2) #for sure all workers are launched
 
         if launched_workers > 0:
             self.logger.info(

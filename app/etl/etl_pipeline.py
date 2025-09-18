@@ -163,10 +163,6 @@ class ETLPipeline:
             self.logger.info(f"\n\n====================================================================================================\n\n")
             self.logger.info(f"etl_pipeline.py:ETLPipeline:ETL Worker trigger - flashpoints ids: {flashpoint.id}")
             self.logger.info(f"\n\n====================================================================================================\n\n")
-            return
-            
-            
-            
             
             flashpoint_id = flashpoint.id
             feeds = flashpoint.feeds
