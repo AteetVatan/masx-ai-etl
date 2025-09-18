@@ -73,11 +73,15 @@ async def handler(job: Dict[str, Any]):
     payload = job.get("input") or {}
     trigger = str(payload.get("trigger", WorkerEnums.COORDINATOR.value))
     flashpoints_ids = payload.get("flashpoints", None)
+    dummy_identifier = payload.get("dummy_identifier", None)
+    
+    if dummy_identifier:
+        logger.info(f"handler.py:handler:*******************dummy_identifier: {dummy_identifier}*******************")
 
+    logger.info(f"\n\n====================================handler.py:handler=================================================\n\n")
+    
     logger.info(f"handler.py:handler:**********trigger: {trigger}**********")
-    logger.info(
-        f"handler.py:handler:**********flashpoints_ids: {flashpoints_ids}**********"
-    )
+    logger.info(f"handler.py:handler:**********flashpoints_ids: {flashpoints_ids}**********")
 
     try:
         # Warm requests used by CI/Actions to pre-pull image/models

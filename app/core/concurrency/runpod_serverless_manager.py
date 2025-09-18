@@ -90,6 +90,16 @@ class RunPodServerlessManager:
         chunks: List[List["FlashpointModel"]] = [[] for _ in range(num_workers)]
 
         # Simple round-robin distribution: 1 flashpoint per worker
+        
+
+        #########################################################
+        # for now we are not using the round-robin distribution
+        # one flashpoint per worker
+        num_workers = len(flashpoints) 
+        
+        #########################################################
+        
+        
         for i, flashpoint in enumerate(flashpoints):
             worker_index = i % num_workers
             chunks[worker_index].append(flashpoint)

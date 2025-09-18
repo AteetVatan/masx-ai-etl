@@ -75,19 +75,21 @@ class ETLPipeline:
         flashpoints_ids: List[str] = None,
     ):
         try:
+            self.logger.info(f"\n\n=====================================================================================\n\n")
 
             self.logger.info(
-                f"etl_pipeline.py:ETLPipeline:**********trigger: {trigger}**********"
+                f"etl_pipeline.py:ETLPipeline:*******************trigger: {trigger}*******************"
             )
 
             # make them execute parallely and do not wait for them to complete
             if trigger == WorkerEnums.COORDINATOR.value:  # or self.settings.debug:
-                self.logger.info(f"etl_pipeline.py:ETLPipeline:Coordinator trigger")
+                self.logger.info(f"etl_pipeline.py:ETLPipeline:Coordinator trigger - extracting flashpoints and feeds")
                 # db table init will happen oly with coordinator
                 self.db_flashpoints_cluster = FlashpointsCluster(self.date)
                 self.db_flashpoints_cluster.db_cluster_init_sync(self.date)
                 flashpoints = self.get_flashpoints(date=self.date)
                 flashpoints = self._clean_flashpoints(flashpoints)
+                self.logger.info(f"etl_pipeline.py:ETLPipeline:Coordinator trigger - extracting flashpoints and feeds - length: {len(flashpoints)} completed")
             elif (
                 trigger == WorkerEnums.ETL_WORKER.value and flashpoints_ids is not None
             ):
@@ -124,10 +126,14 @@ class ETLPipeline:
                 self.logger.info(
                     f"etl_pipeline.py:ETLPipeline:For Coordinator -  ALL flashpoints ids"
                 )
-                worker_manager = RunPodServerlessManager(self.settings.runpod_workers)
+                worker_manager = RunPodServerlessManager(self.settings.runpod_workers)                
+                
+                
+                self.logger.info(f"\n\n=====================================================================================\n\n")
                 self.logger.info(
                     f"etl_pipeline.py:ETLPipeline:Using {self.settings.runpod_workers} RunPod Serverless workers"
-                )
+                )              
+                
                 results = await worker_manager.distribute_to_workers(
                     flashpoints, date=self.date, cleanup=True
                 )
@@ -154,6 +160,14 @@ class ETLPipeline:
 
     async def run_etl_pipeline(self, flashpoint: FlashpointModel):
         try:
+            self.logger.info(f"\n\n====================================================================================================\n\n")
+            self.logger.info(f"etl_pipeline.py:ETLPipeline:ETL Worker trigger - flashpoints ids: {flashpoint.id}")
+            self.logger.info(f"\n\n====================================================================================================\n\n")
+            return
+            
+            
+            
+            
             flashpoint_id = flashpoint.id
             feeds = flashpoint.feeds
 
