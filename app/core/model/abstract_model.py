@@ -88,6 +88,7 @@ class AbstractModel(ABC, Generic[T]):
     def get_device(self) -> torch.device:
         """Get the appropriate device (GPU/CPU) for this model."""
         if self._device is None:
+            self.logger.info(f"Getting device type for {self.model_name}")
             try:
                 from app.core.concurrency.device import get_torch_device
 
