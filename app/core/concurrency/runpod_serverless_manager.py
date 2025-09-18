@@ -91,6 +91,7 @@ class RunPodServerlessManager:
         # for now we are not using the round-robin distribution
         # one flashpoint per worker
         num_workers = len(flashpoints) 
+        self.num_workers = num_workers
         
         #########################################################
 
@@ -153,16 +154,20 @@ class RunPodServerlessManager:
         launched_workers = 0
         
         
+      
+        
         for i, chunk in enumerate(worker_chunks):
             if chunk:
                 self.logger.info(
                     f"runpod_serverless_manager.py:RunPodServerlessManager:**********Launching chunk {i + 1} to RunPod Serverless worker (fire and forget)***********"
                 )
                 # Fire and forget - don't wait for completion
-                asyncio.create_task(
+                asyncio.ensure_future(
                     self._send_to_worker_instance(i + 1, chunk, date, cleanup)
                 )
                 launched_workers += 1
+                
+        await asyncio.sleep(0.1)
 
         if launched_workers > 0:
             self.logger.info(
