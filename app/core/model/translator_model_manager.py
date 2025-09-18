@@ -128,7 +128,8 @@ class TranslatorModelManager(AbstractModel[AutoModelForSeq2SeqLM]):
                     self._model_name,
                     cache_dir=self._get_model_cache_dir(),
                     torch_dtype=torch.float16 if use_fp16 else torch.float32,
-                    low_cpu_mem_usage=True,
+                    low_cpu_mem_usage=False if self.settings.is_production else True,
+                    local_files_only=True,
                 )
             except RuntimeError as load_err:
                 self.logger.warning(f"FP16 load failed, retrying with FP32: {load_err}")
@@ -136,7 +137,8 @@ class TranslatorModelManager(AbstractModel[AutoModelForSeq2SeqLM]):
                     self._model_name,
                     cache_dir=self._get_model_cache_dir(),
                     torch_dtype=torch.float32,
-                    low_cpu_mem_usage=True,
+                    low_cpu_mem_usage=False if self.settings.is_production else True,
+                    local_files_only=True,
                 )
 
             # Move to device and configure
@@ -165,6 +167,7 @@ class TranslatorModelManager(AbstractModel[AutoModelForSeq2SeqLM]):
                 self._model_name,
                 cache_dir=self._get_model_cache_dir(),
                 use_fast=True,
+                local_files_only=True,
             )
 
             # Ensure pad token is set

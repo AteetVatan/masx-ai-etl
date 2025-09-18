@@ -108,6 +108,7 @@ class VectorEmbeddingModelManager(AbstractModel[SentenceTransformer]):
                 self._model_name,  # e.g. "sentence-transformers/all-mpnet-base-v2"
                 cache_dir=self._get_model_cache_dir(),
                 use_fast=True,
+                local_files_only=True,
             )
 
             # Ensure pad token is set (MPNet has no pad by default)

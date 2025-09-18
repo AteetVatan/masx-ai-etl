@@ -101,7 +101,8 @@ class SummarizationFinalizerModelManager(AbstractModel[AutoModelForSeq2SeqLM]):
                 self._model_name,
                 cache_dir=self._get_model_cache_dir(),
                 torch_dtype=dtype,
-                low_cpu_mem_usage=True,
+                low_cpu_mem_usage=False if self.settings.is_production else True,
+                local_files_only=True,
             )
 
             model = model.to(device)
@@ -128,7 +129,9 @@ class SummarizationFinalizerModelManager(AbstractModel[AutoModelForSeq2SeqLM]):
                 self._model_name,
                 cache_dir=self._get_model_cache_dir(),
                 use_fast=True,
+                local_files_only=True,
             )
+            
             # T5 has a dedicated <pad>; keep it (don’t overwrite with eos)
             if tokenizer.pad_token is None:
                 if tokenizer.eos_token is not None:
