@@ -106,11 +106,14 @@ class AbstractModel(ABC, Generic[T]):
         For GPU deployments, calculates based on available VRAM.
         For CPU deployments, uses settings value.
         """
+        self.logger.debug(f"Calculating pool size for {self.model_name}")
         device = self.get_device()
 
         if device.type == "cuda":
+            self.logger.debug(f"Calculating GPU pool size for {self.model_name}")
             return self._calculate_gpu_pool_size()
         else:
+            self.logger.debug(f"Calculating CPU pool size for {self.model_name}")
             return self.settings.model_pool_max_instances
 
     def _calculate_gpu_pool_size(self) -> int:
@@ -123,7 +126,9 @@ class AbstractModel(ABC, Generic[T]):
         try:
             # Try to get GPU memory info
             gpu_memory_info = self._get_gpu_memory_info()
+            self.logger.debug(f"GPU memory info: gpu_memory_info is avaliable: {gpu_memory_info is not None}")
             if gpu_memory_info:
+                self.logger.debug(f"GPU memory info: gpu_memory_info is avaliable")
                 free_vram_bytes = gpu_memory_info.get("free_bytes", 0)
                 model_vram_estimate = self._get_model_vram_estimate()
 
@@ -140,6 +145,7 @@ class AbstractModel(ABC, Generic[T]):
             self.logger.warning(f"Failed to calculate GPU pool size: {e}")
 
         # Fallback to settings value
+        self.logger.info(f"Fallback for pool size: settings value for {self.model_name}")
         return self.settings.model_pool_max_instances
 
     def _get_gpu_memory_info(self) -> Optional[Dict[str, int]]:
