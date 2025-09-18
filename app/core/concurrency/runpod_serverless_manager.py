@@ -85,6 +85,14 @@ class RunPodServerlessManager:
 
         if num_workers == 1:
             return [flashpoints]
+        
+        
+        #########################################################
+        # for now we are not using the round-robin distribution
+        # one flashpoint per worker
+        num_workers = len(flashpoints) 
+        
+        #########################################################
 
         # Initialize worker bins
         chunks: List[List["FlashpointModel"]] = [[] for _ in range(num_workers)]
@@ -92,12 +100,7 @@ class RunPodServerlessManager:
         # Simple round-robin distribution: 1 flashpoint per worker
         
 
-        #########################################################
-        # for now we are not using the round-robin distribution
-        # one flashpoint per worker
-        num_workers = len(flashpoints) 
-        
-        #########################################################
+     
         
         
         for i, flashpoint in enumerate(flashpoints):
@@ -148,6 +151,8 @@ class RunPodServerlessManager:
 
         # Send each chunk to a different RunPod instance (fire and forget)
         launched_workers = 0
+        
+        
         for i, chunk in enumerate(worker_chunks):
             if chunk:
                 self.logger.info(
