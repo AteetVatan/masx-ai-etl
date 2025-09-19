@@ -52,16 +52,6 @@ def _detect_cuda() -> bool:
         logger.warning(f"device.py:CUDA detection failed: {e}")
         return False
 
-
-def _get_environment_flags() -> Dict[str, bool]:
-    """Get device-related environment flags."""
-    settings = get_settings()
-    return {
-        "force_cpu": settings.masx_force_cpu,
-        "force_gpu": settings.masx_force_gpu,
-    }
-
-
 def use_gpu() -> bool:
     """
     Determine if GPU should be used based on environment and availability.
@@ -87,17 +77,17 @@ def get_device_config() -> DeviceConfig:
         RuntimeError: If MASX_FORCE_GPU=1 but CUDA unavailable
     """
     cuda_available = _detect_cuda()
-    env_flags = _get_environment_flags()
+    settings = get_settings()
 
     # Determine device selection logic
-    if env_flags["force_cpu"]:
+    if  settings.masx_force_cpu:
         use_gpu_flag = False
         device_type = "cpu"
         device_id = None
-    elif env_flags["force_gpu"]:
+    elif settings.masx_force_gpu:
         if not cuda_available:
             raise RuntimeError(
-                "MASX_FORCE_GPU=1 but CUDA is not available. "
+                "MASX_FORCE_GPU=True but CUDA is not available. "
                 "Please install CUDA-compatible PyTorch or set MASX_FORCE_CPU=1"
             )
         use_gpu_flag = True
@@ -114,8 +104,8 @@ def get_device_config() -> DeviceConfig:
         device_type=device_type,
         device_id=device_id,
         cuda_available=cuda_available,
-        force_cpu=env_flags["force_cpu"],
-        force_gpu=env_flags["force_gpu"],
+        force_cpu=settings.masx_force_cpu,
+        force_gpu=settings.masx_force_gpu,
     )
 
     logger.info(
