@@ -28,8 +28,12 @@ from app.enumeration import WorkloadEnums
 class CompressorTask:
     def __init__(self):
         # self.model, self.tokenizer, self.device = ModelManager.get_summarization_model()
+        
+        #summarization model tokenizer  is used for, 
+        # and max tokens is used for adaptive compression
         model_manager = SummarizationModelManager()
         self.tokenizer = model_manager.get_tokenizer()
+        
         self.max_tokens = model_manager.max_tokens
         self.nlp_utils = self.get_nlp_utils()
         self.logger = get_service_logger("Compressor")
